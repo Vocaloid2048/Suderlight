@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>技術認證 PoC：表世界大圖探索機制</title>
+    <style>
+        body { background: #111; color: #eee; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* 遊戲視窗 (Viewport) */
+        #game-viewport {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden; /* 隱藏超出視窗的地圖 */
+            background: #000;
+            cursor: grab; /* 提示可以拖曳 */
+        }
+        #game-viewport:active { cursor: grabbing; }
+
+        /* 大地圖層 (Map Container) */
+        #map-layer {
+            width: 2000px; /* 假設地圖非常大 */
+            height: 1500px;
+            position: absolute;
+            top: 0; left: 0;
+            /* 用一張有氛圍的圖當作背景 */
+            background: linear-gradient(rgba(20, 25, 30, 0.8), rgba(20, 25, 30, 0.8)), url('https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=2000&q=80') center/cover;
+            transition: filter 1s;
+        }
+
+        /* 互動熱區 (Hotspots / POI) */
+        .hotspot {
+            position: absolute;
+            width: 50px; height: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            transform: translate(-50%, -50%); /* 讓坐標置中 */
+            display: flex; justify-content: center; align-items: center;
+            transition: all 0.3s;
+        }
+        .hotspot::before {
+            content: '';
+            position: absolute;
+            width: 15px; height: 15px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.6);
+            animation: pulse 2s infinite;
+        }
+        .hotspot:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: #fff;
+            transform: translate(-50%, -50%) scale(1.2);
+            cursor: pointer;
+        }
+        .hotspot .tooltip {
+            position: absolute; top: -30px;
+            background: #000; border: 1px solid #555; padding: 4px 8px;
+            border-radius: 4px; font-size: 12px; white-space: nowrap;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .hotspot:hover .tooltip { opacity: 1; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 5px 0px rgba(255, 255, 255, 0.8); }
+            50% { box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.2); }
+            100% { box-shadow: 0 0 5px 0px rgba(255, 255, 255, 0.8); }
+        }
+
+        /* UI 層 (固定在螢幕上，不會隨地圖拖曳) */
+        #ui-layer {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(0, 0, 0, 0.7); border: 1px solid #444;
+            padding: 15px; border-radius: 8px; z-index: 100;
+        }
+        #ui-layer h3 { margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #555; padding-bottom: 5px;}
+        #inventory { list-style: none; padding: 0; margin: 0; font-size: 14px; color: #aaa; }
+        
+        /* 對話框 Modal */
+        #modal {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            width: 600px; background: rgba(10, 10, 15, 0.95); border: 1px solid #555;
+            padding: 20px; border-radius: 8px; display: none; z-index: 200;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        #modal-title { color: #aaa; font-size: 14px; margin-bottom: 10px; }
+        #modal-text { font-size: 18px; line-height: 1.5; }
+        #modal-close { margin-top: 15px; background: #333; color: #fff; border: none; padding: 5px 15px; cursor: pointer; }
+        #modal-close:hover { background: #555; }
+    </style>
+</head>
+<body>
+
+    <div id="game-viewport">
+        <!-- 固定在螢幕的 UI -->
+        <div id="ui-layer">
+            <h3>背包與線索</h3>
+            <ul id="inventory">
+                <li>空空如也...</li>
+            </ul>
+            <div style="margin-top: 15px; font-size: 12px; color: #666;">💡 提示：按住滑鼠左鍵可以拖曳地圖探索</div>
+        </div>
+
+        <!-- 對話框 -->
+        <div id="modal">
+            <div id="modal-title">系統提示</div>
+            <div id="modal-text">...</div>
+            <button id="modal-close" onclick="closeModal()">關閉</button>
+        </div>
+
+        <!-- 可拖曳的大地圖 -->
+        <div id="map-layer">
+            <!-- 線索 1：遺落的畫筆 -->
+            <div class="hotspot" style="left: 400px; top: 600px;" onclick="interact('brush')">
+                <span class="tooltip">發光的物體...</span>
+            </div>
+
+            <!-- 線索 2：舊報紙 -->
+            <div class="hotspot" style="left: 1200px; top: 300px;" onclick="interact('newspaper')">
+                <span class="tooltip">一張舊報紙</span>
+            </div>
+
+            <!-- NPC：天橋畫家 -->
+            <div class="hotspot" style="left: 1500px; top: 900px; border-color: #ffaa00;" onclick="interact('painter')">
+                <span class="tooltip" style="color: #ffaa00; border-color: #ffaa00;">神秘的人影</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 拖曳地圖邏輯 (Drag to Pan)
+        const viewport = document.getElementById('game-viewport');
+        const mapLayer = document.getElementById('map-layer');
+        
+        let isDragging = false;
+        let startX, startY;
+        let mapX = -200, mapY = -200; // 初始地圖偏移
+
+        // 限制地圖不能拖出視窗外
+        function updateMapPosition() {
+            const maxMapX = 0;
+            const maxMapY = 0;
+            const minMapX = viewport.clientWidth - mapLayer.clientWidth;
+            const minMapY = viewport.clientHeight - mapLayer.clientHeight;
+
+            mapX = Math.max(minMapX, Math.min(maxMapX, mapX));
+            mapY = Math.max(minMapY, Math.min(maxMapY, mapY));
+
+            mapLayer.style.transform = `translate(${mapX}px, ${mapY}px)`;
+        }
+
+        viewport.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX - mapX;
+            startY = e.clientY - mapY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            mapX = e.clientX - startX;
+            mapY = e.clientY - startY;
+            updateMapPosition();
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('mouseleave', () => { isDragging = false; });
+
+        // 初始化位置
+        updateMapPosition();
+
+        // 遊戲邏輯狀態
+        const gameState = {
+            hasBrush: false,
+            hasNewspaper: false
+        };
+
+        // 互動邏輯
+        function interact(target) {
+            if(isDragging && (event.movementX > 2 || event.movementY > 2)) return; // 避免拖曳時誤觸
+
+            if (target === 'brush') {
+                gameState.hasBrush = true;
+                updateInventory();
+                showModal("獲得線索：【乾涸的畫筆】", "這支畫筆的筆尖已經硬化了，上面還殘留著洗不掉的灰色顏料。木柄上隱約刻著一個名字...<br/><br/><i>（記憶錨點已解鎖）</i>");
+                event.target.style.display = 'none'; // 隱藏物件
+            } 
+            else if (target === 'newspaper') {
+                gameState.hasNewspaper = true;
+                updateInventory();
+                showModal("獲得線索：【舊報紙】", "報紙的一角被撕破了，上面寫著：『天才畫家遭遇嚴重車禍，失去辨色能力...』");
+                event.target.style.display = 'none';
+            }
+            else if (target === 'painter') {
+                if (gameState.hasBrush) {
+                    showModal("【天橋畫家】", "畫家轉過頭看著你手裡的畫筆，他的眼神突然變得無比空洞。<br/><br/>「你...為什麼會有那個？顏色...全都流走了...」<br/><br/><i>系統提示：你已持有關鍵線索【乾涸的畫筆】，[點擊此處進入他的內心世界] (尚未實作)</i>");
+                } else {
+                    showModal("【天橋畫家】", "他在天橋站了一整天，對著空白的畫布揮動畫筆。他喃喃自語地重複著：<br/><br/>「色彩...不見了...」<br/><br/><i>（似乎需要找到與他有關的物品才能觸發深層對話）</i>");
+                }
+            }
+        }
+
+        function updateInventory() {
+            const inv = document.getElementById('inventory');
+            inv.innerHTML = '';
+            if (gameState.hasBrush) inv.innerHTML += '<li>🖌️ 乾涸的畫筆</li>';
+            if (gameState.hasNewspaper) inv.innerHTML += '<li>📰 舊報紙</li>';
+        }
+
+        function showModal(title, text) {
+            document.getElementById('modal-title').innerHTML = title;
+            document.getElementById('modal-text').innerHTML = text;
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
