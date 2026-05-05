@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: suderlight_web
+    restart: always
+    ports:
+      # 主機Port:容器Port
+      # 根據需求 PORT = 8483 -> 443 進行映射
+      - "8483:443"
+    environment:
+      - PORT=443
+    # 如果需要用到 HTTPS 憑證或環境變數檔可以掛載進來
+    volumes:
+      - ./cert:/app/cert
