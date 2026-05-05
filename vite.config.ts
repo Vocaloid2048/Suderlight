@@ -28,7 +28,7 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [react()],
     preview: {
-      port: 443,
+      port: 8483,
       host: true,
       // 如果是 production 且讀取到憑證，則啟用 https
       https: httpsConfig
