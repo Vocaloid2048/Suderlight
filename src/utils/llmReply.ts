@@ -2,9 +2,8 @@
 // 註：在 Docker 中運行，通常可以透過 host.docker.internal 存取 Docker 主機的服務
 // 請確保主機的 Ollama 服務有設定 OLLAMA_HOST=0.0.0.0 讓外部請求可以連入
 
-// 由於這是在 Vite (前端) 專案中，我們使用 import.meta.env 來讀取環境變數。
-// 如果沒有在 .env 檔中設定，就會退回您指定的預設值。
-const OLLAMA_URL = import.meta.env.VITE_OLLAMA_URL || 'http://host.docker.internal:11434';
+// 因為要在瀏覽器端執行，瀏覽器無法直接解析 host.docker.internal，也可能遇到 CORS 或 HTTP/HTTPS 混合請求問題。
+// 因此我們將網路請求改為向相對路徑 (/api/chat) 發送，再由背後的 Vite Server (或 Docker 內的 Nginx) proxy 轉發給 Ollama。
 const OLLAMA_MODEL = import.meta.env.VITE_OLLAMA_MODEL || 'gemma4:e2b';
 
 const DEFAULT_SYSTEM_PROMPT = `你是《情緒修復師：微光城市》(Glimmer City) 中的核心 AI 敘事引擎。
@@ -40,8 +39,8 @@ export interface OllamaChatResponse {
  */
 export async function fetchLLMReply(userContent: string, systemPrompt: string = DEFAULT_SYSTEM_PROMPT, history: LLMMessage[] = []): Promise<string> {
   try {
-    // 呼叫 Ollama 本地 API
-    const response = await fetch(`${OLLAMA_URL}/api/chat`, {
+    // 呼叫同源的 /api/chat，Vite 設定會負責將它轉發給主機上的 Ollama
+    const response = await fetch(`/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
