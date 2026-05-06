@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { blankPainterCard, blankPainterLorebook, buildBlankPainterPrompt } from '../data/npcs/blankPainter';
+import { fetchLLMReply } from '../utils/llmReply';
 
 type ChatMessage = {
   role: 'player' | 'npc' | 'system';
@@ -227,7 +228,7 @@ export default function BlankPainterChat({ inventory, onClose }: BlankPainterCha
     });
   }, [input, inventory]);
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || isThinking) return;
@@ -238,15 +239,50 @@ export default function BlankPainterChat({ inventory, onClose }: BlankPainterCha
     setInput('');
     setIsThinking(true);
 
-    window.setTimeout(() => {
-      const reply = simulateBlankPainterReply(trimmed, inventory, nextMessages);
+    const promptStr = buildBlankPainterPrompt({
+      playerInput: trimmed,
+      inventory,
+      recentMessages: nextMessages
+        .filter(message => message.role !== 'system')
+        .slice(-8)
+        .map(message => ({ role: message.role as 'player' | 'npc', content: message.content })),
+    });
+
+    try {
+      const replyStr = await fetchLLMReply(
+        promptStr,
+        '你是一個專門負責執行角色扮演並回傳 JSON 格式的 AI 伺服器。請嚴格遵守只輸出 JSON 的規定，不要包含任何 markdown 標記（如 ```json）或其他說明文字。'
+      );
+
+      let reply: AiReply;
+      try {
+        // 清理可能的 markdown 標記以正確解析 JSON
+        const cleanedStr = replyStr.replace(/```json/gi, '').replace(/```/g, '').trim();
+        reply = JSON.parse(cleanedStr);
+      } catch (e) {
+        console.error('解析 LLM JSON 失敗:', replyStr);
+        // Fallback: 如果 LLM 沒有回傳 JSON 格式，將完整回覆當作對話內容
+        reply = {
+          dialogue: replyStr,
+          emotionDelta: { trust: 0, pressure: 0 },
+          suggestedFlags: [],
+          safetyLevel: 'safe'
+        };
+      }
+
       setMessages(current => [
         ...current,
         { role: 'npc', content: reply.dialogue },
         ...(reply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${reply.dictionaryHint}` }] : []),
       ]);
+    } catch (err) {
+      setMessages(current => [
+        ...current,
+        { role: 'system', content: '（連線錯誤：畫家的身影在雜訊中閃爍，暫時無法回應。請確認 Ollama 是否正常運行。）' }
+      ]);
+    } finally {
       setIsThinking(false);
-    }, 520);
+    }
   };
 
   return (
