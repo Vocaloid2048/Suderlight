@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, MouseEvent } from 'react';
-import { fetchLLMReply, LLMMessage } from './utils/llmReply';
+import BlankPainterChat from './components/BlankPainterChat';
 
 type Point = { x: number; y: number };
 type ModalState = { title: string; content: string; isChat?: boolean; npcId?: string } | null;
@@ -47,30 +47,8 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [mapPos, setMapPos] = useState({ x: -320, y: -160 });
   const [modal, setModal] = useState<ModalState>(null);
-  const [chatHistory, setChatHistory] = useState<LLMMessage[]>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [isLLMLoading, setIsLLMLoading] = useState(false);
+  const [activeChat, setActiveChat] = useState<null | 'painter'>(null);
   const dragStart = useRef({ x: 0, y: 0 });
-
-  const handleSendChat = async () => {
-    if (!chatInput.trim() || isLLMLoading || !modal?.isChat) return;
-
-    const userMessage: LLMMessage = { role: 'user', content: chatInput.trim() };
-    const updatedHistory = [...chatHistory, userMessage];
-    
-    setChatHistory(updatedHistory);
-    setChatInput('');
-    setIsLLMLoading(true);
-
-    try {
-      const reply = await fetchLLMReply(userMessage.content, undefined, chatHistory);
-      setChatHistory([...updatedHistory, { role: 'assistant', content: reply }]);
-    } catch (error) {
-      setChatHistory([...updatedHistory, { role: 'assistant', content: '（他的聲音被風雨吞沒，暫時無法回應你……）' }]);
-    } finally {
-      setIsLLMLoading(false);
-    }
-  };
 
   const hasMoved = useRef(false);
   const keys = useRef(new Set<string>());
@@ -134,12 +112,18 @@ export default function App() {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
 
+      if (key === 'escape' && activeChat) {
+        setActiveChat(null);
+        return;
+      }
+
       if (key === 'escape' && modal) {
         setModal(null);
         return;
       }
 
-      if (modal) return;
+      if (modal || activeChat) return;
+
 
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(key)) {
         event.preventDefault();
@@ -163,14 +147,16 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [modal, nearbyEntity]);
+  }, [modal, activeChat, nearbyEntity]);
+
 
   useEffect(() => {
     let frame = 0;
 
     const tick = () => {
-      if (!modal) {
+      if (!modal && !activeChat) {
         const pressed = keys.current;
+
         let dx = 0;
         let dy = 0;
 
@@ -198,7 +184,8 @@ export default function App() {
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [modal]);
+  }, [modal, activeChat]);
+
 
   const handleMouseDown = (e: MouseEvent) => {
     setIsDragging(true);
@@ -235,24 +222,10 @@ export default function App() {
 
   const interact = (targetId: Entity['id']) => {
     if (targetId === 'painter') {
-      if (gameState.inventory.includes('brush')) {
-        setModal({
-          title: '天橋畫家',
-          content: '畫家看到你手裡的畫筆，空洞的眼神閃過一絲波動……\n\n「你……為什麼會有那個？顏色，不是早就流走了嗎？」\n\n（記憶錨點已對齊：準備進入他的內心世界。）',
-          isChat: true,
-          npcId: 'painter'
-        });
-        setChatHistory([
-          { role: 'assistant', content: '畫家看到你手裡的畫筆，空洞的眼神閃過一絲波動……\n「你……為什麼會有那個？顏色，不是早就流走了嗎？」' }
-        ]);
-      } else {
-        setModal({
-          title: '天橋畫家',
-          content: '他站在天橋邊，對著空白畫布反覆揮動畫筆。\n\n「色彩……不見了……」\n\n也許城市裡某個角落，還留著能讓他想起自己的東西。',
-        });
-      }
+      setActiveChat('painter');
       return;
     }
+
 
     if (targetId === 'brush' && !gameState.inventory.includes('brush')) {
       setGameState(prev => ({ ...prev, inventory: [...prev.inventory, 'brush'] }));
@@ -436,6 +409,13 @@ export default function App() {
         </div>
       </div>
 
+      {activeChat === 'painter' && (
+        <BlankPainterChat
+          inventory={gameState.inventory}
+          onClose={() => setActiveChat(null)}
+        />
+      )}
+
       {modal && (
         <div
           style={{
@@ -458,76 +438,9 @@ export default function App() {
               {modal.content}
             </p>
 
-            {modal.isChat && (
-              <div style={{ marginTop: '20px', borderTop: '1px solid #444', paddingTop: '15px' }}>
-                <div style={{
-                  maxHeight: '240px', overflowY: 'auto', marginBottom: '15px',
-                  background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px'
-                }}>
-                  {chatHistory.map((msg, idx) => (
-                    <div key={idx} style={{
-                      marginBottom: '12px',
-                      textAlign: msg.role === 'user' ? 'right' : 'left'
-                    }}>
-                      <div style={{
-                        display: 'inline-block',
-                        background: msg.role === 'user' ? '#2a445e' : '#333',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        maxWidth: '85%',
-                        lineHeight: 1.5,
-                        fontSize: '14px',
-                        color: msg.role === 'user' ? '#e2e8f0' : '#ddd'
-                      }}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
-                  {isLLMLoading && (
-                    <div style={{ textAlign: 'left', color: '#888', fontSize: '13px', fontStyle: 'italic' }}>
-                      畫家正在思考...
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleSendChat();
-                      }
-                    }}
-                    placeholder="向他搭話..."
-                    disabled={isLLMLoading}
-                    style={{
-                      flex: 1, background: '#222', border: '1px solid #555',
-                      color: 'white', padding: '10px', borderRadius: '4px', outline: 'none'
-                    }}
-                  />
-                  <button
-                    onClick={handleSendChat}
-                    disabled={isLLMLoading || !chatInput.trim()}
-                    style={{
-                      background: isLLMLoading ? '#444' : '#4a6f95',
-                      color: 'white', border: 'none', padding: '0 20px',
-                      borderRadius: '4px', cursor: isLLMLoading ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    送出
-                  </button>
-                </div>
-              </div>
-            )}
-
             <button
               onClick={() => {
                 setModal(null);
-                setChatHistory([]);
-                setChatInput('');
               }}
               style={{
                 background: '#333', color: 'white', border: '1px solid #555',
@@ -540,6 +453,7 @@ export default function App() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
