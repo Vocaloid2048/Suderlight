@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, MouseEvent } from 'react';
+import BlankPainterChat from './components/BlankPainterChat';
+
 
 type Point = { x: number; y: number };
 type ModalState = { title: string; content: string } | null;
@@ -46,7 +48,9 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [mapPos, setMapPos] = useState({ x: -320, y: -160 });
   const [modal, setModal] = useState<ModalState>(null);
+  const [activeChat, setActiveChat] = useState<null | 'painter'>(null);
   const dragStart = useRef({ x: 0, y: 0 });
+
   const hasMoved = useRef(false);
   const keys = useRef(new Set<string>());
 
@@ -109,12 +113,18 @@ export default function App() {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
 
+      if (key === 'escape' && activeChat) {
+        setActiveChat(null);
+        return;
+      }
+
       if (key === 'escape' && modal) {
         setModal(null);
         return;
       }
 
-      if (modal) return;
+      if (modal || activeChat) return;
+
 
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(key)) {
         event.preventDefault();
@@ -138,14 +148,16 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [modal, nearbyEntity]);
+  }, [modal, activeChat, nearbyEntity]);
+
 
   useEffect(() => {
     let frame = 0;
 
     const tick = () => {
-      if (!modal) {
+      if (!modal && !activeChat) {
         const pressed = keys.current;
+
         let dx = 0;
         let dy = 0;
 
@@ -173,7 +185,8 @@ export default function App() {
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [modal]);
+  }, [modal, activeChat]);
+
 
   const handleMouseDown = (e: MouseEvent) => {
     setIsDragging(true);
@@ -210,19 +223,10 @@ export default function App() {
 
   const interact = (targetId: Entity['id']) => {
     if (targetId === 'painter') {
-      if (gameState.inventory.includes('brush')) {
-        setModal({
-          title: '天橋畫家',
-          content: '畫家看到你手裡的畫筆，空洞的眼神閃過一絲波動……\n\n「你……為什麼會有那個？顏色，不是早就流走了嗎？」\n\n（記憶錨點已對齊：準備進入他的內心世界。）',
-        });
-      } else {
-        setModal({
-          title: '天橋畫家',
-          content: '他站在天橋邊，對著空白畫布反覆揮動畫筆。\n\n「色彩……不見了……」\n\n也許城市裡某個角落，還留著能讓他想起自己的東西。',
-        });
-      }
+      setActiveChat('painter');
       return;
     }
+
 
     if (targetId === 'brush' && !gameState.inventory.includes('brush')) {
       setGameState(prev => ({ ...prev, inventory: [...prev.inventory, 'brush'] }));
@@ -406,6 +410,13 @@ export default function App() {
         </div>
       </div>
 
+      {activeChat === 'painter' && (
+        <BlankPainterChat
+          inventory={gameState.inventory}
+          onClose={() => setActiveChat(null)}
+        />
+      )}
+
       {modal && (
         <div
           style={{
@@ -440,6 +451,7 @@ export default function App() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
