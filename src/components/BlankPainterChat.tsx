@@ -276,9 +276,13 @@ export default function BlankPainterChat({ inventory, onClose }: BlankPainterCha
         ...(reply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${reply.dictionaryHint}` }] : []),
       ]);
     } catch (err) {
+      console.warn('LLM 連線失敗，切換至本地語意模擬:', err);
+      const simulatedReply = simulateBlankPainterReply(trimmed, inventory, nextMessages);
       setMessages(current => [
         ...current,
-        { role: 'system', content: '（連線錯誤：畫家的身影在雜訊中閃爍，暫時無法回應。請確認 Ollama 是否正常運行。）' }
+        { role: 'system', content: '（連線錯誤：畫家的身影在雜訊中閃爍，暫時由本地語意模擬回應。請確認 Ollama 是否正常運行。）' },
+        { role: 'npc', content: simulatedReply.dialogue },
+        ...(simulatedReply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${simulatedReply.dictionaryHint}` }] : []),
       ]);
     } finally {
       setIsThinking(false);
