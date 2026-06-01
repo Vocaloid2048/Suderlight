@@ -1,0 +1,22 @@
+[
+  {
+    "id": "brush",
+    "name": "畫筆",
+    "knowledge": 20
+  },
+  {
+    "id": "newspaper",
+    "name": "報紙剪報",
+    "knowledge": 20
+  },
+  {
+    "id": "sketchbook",
+    "name": "素描本",
+    "knowledge": 30
+  },
+  {
+    "id": "accident_report",
+    "name": "車禍報導",
+    "knowledge": 30
+  }
+]
