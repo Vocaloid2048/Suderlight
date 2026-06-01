@@ -6,6 +6,8 @@ const chatRoutes = require('./routes/chat');
 const npcRoutes = require('./routes/npc');
 const investigationRoutes = require('./routes/investigation');
 const saveRoutes = require('./routes/save');
+const innerWorldRoutes = require('./routes/innerWorld');
+
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -21,6 +23,8 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/npc', npcRoutes);
 app.use('/api/investigation', investigationRoutes);
 app.use('/api/save', saveRoutes);
+app.use('/api/inner-world', innerWorldRoutes);
+
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });

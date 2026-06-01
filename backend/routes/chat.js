@@ -24,23 +24,23 @@ router.post('/', async (req, res, next) => {
           ? '雨聲還在。他沒有痊癒，但沒有再把自己藏進空白裡。'
           : '天橋上只剩潮濕的紙張。那個人影沒有再回頭。',
         psychology: {
-          affinity: npc.trust,
-          stress: npc.stress,
+          trustDelta: 0,
+          stressDelta: 0,
           stateLabel: npcStateEngine.getStateLabel(npc),
         },
       });
     }
 
     const aiReply = await deepseekService.generateNpcReply(npcId, message);
-    const updatedNpc = npcStateEngine.updateAfterDialogue(npc, message);
-    saveService.saveNpc(updatedNpc);
+    const stateUpdate = npcStateEngine.updateAfterDialogue(npc, message);
+    saveService.saveNpc(stateUpdate.npc);
 
     res.json({
       text: aiReply.text,
       psychology: {
-        affinity: updatedNpc.trust,
-        stress: updatedNpc.stress,
-        stateLabel: npcStateEngine.getStateLabel(updatedNpc),
+        trustDelta: stateUpdate.trustDelta,
+        stressDelta: stateUpdate.stressDelta,
+        stateLabel: npcStateEngine.getStateLabel(stateUpdate.npc),
       },
     });
   } catch (error) {

@@ -1,0 +1,16 @@
+{
+  "bridge_artist": {
+    "name": "斷裂畫廊",
+    "emotion": "失去價值感",
+    "stages": [
+      {
+        "id": 1,
+        "description": "畫作全部被撕碎"
+      },
+      {
+        "id": 2,
+        "description": "畫筆漂浮在空中"
+      }
+    ]
+  }
+}

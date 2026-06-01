@@ -1,7 +1,12 @@
 {
   "player": {
-    "knowledge": 0
+    "knowledge": 100
   },
   "ghosts": [],
-  "collectedClues": []
+  "collectedClues": [
+    "brush",
+    "newspaper",
+    "sketchbook",
+    "accident_report"
+  ]
 }

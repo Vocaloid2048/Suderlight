@@ -14,7 +14,7 @@ function checkUnlock(npc) {
   return npc;
 }
 
-function updateAfterDialogue(npc, message) {
+function getDialogueDelta(message) {
   const input = String(message || '').trim().toLowerCase();
 
   const harmfulComfort = ['加油', '振作', '會好的', '一定會好', '重新開始', '復出', '再畫'];
@@ -22,21 +22,34 @@ function updateAfterDialogue(npc, message) {
   const grounding = ['雨聲', '風', '沉默', '聽見'];
 
   if (hasAny(input, harmfulComfort)) {
-    npc.trust = clamp(npc.trust - 3);
-    npc.stress = clamp(npc.stress + 5);
-  } else if (hasAny(input, empathy)) {
-    npc.trust = clamp(npc.trust + 10);
-    npc.stress = clamp(npc.stress - 6);
-  } else if (hasAny(input, grounding)) {
-    npc.trust = clamp(npc.trust + 6);
-    npc.stress = clamp(npc.stress - 4);
-  } else {
-    npc.trust = clamp(npc.trust + 3);
-    npc.stress = clamp(npc.stress - 1);
+    return { trustDelta: -3, stressDelta: 5 };
   }
 
-  return checkUnlock(npc);
+  if (hasAny(input, empathy)) {
+    return { trustDelta: 10, stressDelta: -6 };
+  }
+
+  if (hasAny(input, grounding)) {
+    return { trustDelta: 6, stressDelta: -4 };
+  }
+
+  return { trustDelta: 3, stressDelta: -1 };
 }
+
+function updateAfterDialogue(npc, message) {
+  const { trustDelta, stressDelta } = getDialogueDelta(message);
+
+  npc.trust = clamp(npc.trust + trustDelta);
+  npc.stress = clamp(npc.stress + stressDelta);
+  checkUnlock(npc);
+
+  return {
+    npc,
+    trustDelta,
+    stressDelta,
+  };
+}
+
 
 function getStateLabel(npc) {
   if (npc.ending === 'success') return '修復完成';
@@ -58,7 +71,9 @@ function setEnding(npc, ending) {
 
 module.exports = {
   checkUnlock,
+  getDialogueDelta,
   updateAfterDialogue,
   getStateLabel,
   setEnding,
 };
+
