@@ -42,6 +42,16 @@ export default defineConfig(({ command, mode }) => {
         // 讓 API 轉發時避免 403 Forbidden 錯誤
         proxyReq.removeHeader('origin');
         proxyReq.removeHeader('referer');
+
+        // 🔑 方案 2 與 方案 3 的全相容設計：
+        // 如果您在 Docker 中找不到並關閉密碼 (無法使用方案 3)，請在此處或環境變數中設定您的帳號密碼。
+        // 若 SillyTavern 已關閉密碼驗證 (成功使用方案 3)，則此處不填寫即可自動跳過，安全無副作用。
+        const username = process.env.SILLY_TAVERN_USERNAME || ''; // 可在此填入您的 SillyTavern 帳號，例如 'admin'
+        const password = process.env.SILLY_TAVERN_PASSWORD || ''; // 可在此填入您的 SillyTavern 密碼，例如 '123456'
+        if (username && password) {
+          const auth = Buffer.from(`${username}:${password}`).toString('base64');
+          proxyReq.setHeader('Authorization', `Basic ${auth}`);
+        }
       });
     }
   }
