@@ -239,20 +239,9 @@ export default function BlankPainterChat({ inventory, onClose }: BlankPainterCha
     setInput('');
     setIsThinking(true);
 
-    const promptStr = buildBlankPainterPrompt({
-      playerInput: trimmed,
-      inventory,
-      recentMessages: nextMessages
-        .filter(message => message.role !== 'system')
-        .slice(-8)
-        .map(message => ({ role: message.role as 'player' | 'npc', content: message.content })),
-    });
-
     try {
-      const replyStr = await fetchLLMReply(
-        promptStr,
-        '你是一個專門負責執行角色扮演並回傳 JSON 格式的 AI 伺服器。請嚴格遵守只輸出 JSON 的規定，不要包含任何 markdown 標記（如 ```json）或其他說明文字。'
-      );
+      // 接入 SillyTavern 角色扮演：直接傳遞玩家說的話，由 SillyTavern 後端接管角色設定與對話上下文
+      const replyStr = await fetchLLMReply(trimmed, '天橋畫家');
 
       let reply: AiReply;
       try {

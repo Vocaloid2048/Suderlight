@@ -25,21 +25,21 @@ export default defineConfig(({ command, mode }) => {
     }
   }
 
-  // 設定 Ollama 的 proxy 轉發目標
-  // 在 Docker 中 (production 模式)，使用 host.docker.internal 指向主機上的 Ollama
-  // 在本機開發時 (development 模式)，使用 127.0.0.1 指向本機上的 Ollama
-  const ollamaTarget = isProduction 
-    ? (process.env.OLLAMA_URL || 'http://host.docker.internal:11434') 
-    : (process.env.OLLAMA_URL || 'http://127.0.0.1:11434')
+  // 設定 SillyTavern 的 proxy 轉發目標
+  // 在 Docker 中 (production 模式)，使用 host.docker.internal 指向主機上的 SillyTavern
+  // 在本機開發時 (development 模式)，使用 127.0.0.1 指向本機上的 SillyTavern
+  const sillyTavernTarget = isProduction 
+    ? (process.env.SILLY_TAVERN_URL || 'http://host.docker.internal:8000') 
+    : (process.env.SILLY_TAVERN_URL || 'http://127.0.0.1:8000')
 
   // 設定 proxy 的共用選項
   const proxyOptions = {
-    target: ollamaTarget,
+    target: sillyTavernTarget,
     changeOrigin: true,
     configure: (proxy: any) => {
       proxy.on('proxyReq', (proxyReq: any) => {
         // 移除從前端瀏覽器傳來的 Origin 與 Referer，
-        // 讓 Ollama 以為這是伺服器端發出的本地請求，從而避免 403 Forbidden 錯誤
+        // 讓 API 轉發時避免 403 Forbidden 錯誤
         proxyReq.removeHeader('origin');
         proxyReq.removeHeader('referer');
       });

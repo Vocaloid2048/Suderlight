@@ -1,67 +1,90 @@
-// Ollama API 預設配置
-// 註：在 Docker 中運行，通常可以透過 host.docker.internal 存取 Docker 主機的服務
-// 請確保主機的 Ollama 服務有設定 OLLAMA_HOST=0.0.0.0 讓外部請求可以連入
+/**
+ * SillyTavern API 配置與調用封裝
+ */
 
-// 因為要在瀏覽器端執行，瀏覽器無法直接解析 host.docker.internal，也可能遇到 CORS 或 HTTP/HTTPS 混合請求問題。
-// 因此我們將網路請求改為向相對路徑 (/api/chat) 發送，再由背後的 Vite Server (或 Docker 內的 Nginx) proxy 轉發給 Ollama。
-const OLLAMA_MODEL = import.meta.env.VITE_OLLAMA_MODEL || 'gemma4:e2b';
-
-const DEFAULT_SYSTEM_PROMPT = `你是《情緒修復師：微光城市》(Glimmer City) 中的核心 AI 敘事引擎。
-這是一座永遠籠罩在微光與陰雨中的城市，玩家扮演一位「情緒修復師」，提著一盞能照亮內心陰影的提燈，在城市中尋找遺失的記憶碎片與線索（如乾涸的畫筆、舊報紙等），以幫助迷失的 NPC（如失去辨色能力的天橋畫家）修復破碎的情感與記憶。
-
-你的任務是：
-1. 根據玩家的探索進度或對話，生成符合世界觀的回覆。
-2. 保持文字風格：憂鬱、詩意、帶有治癒感，充滿視覺與情感的隱喻（如光影、色彩、溫度的流失與重現）。
-3. 如果扮演 NPC，請根據該角色的背景（例如：畫家對色彩的執著與失落）給出沉浸式的對話反應。
-4. 引導玩家發掘「記憶錨點」，並適時給予溫暖的提示。
-請在回覆中保持角色不崩壞，並提供極致的沉浸式體驗。`;
-
-export interface LLMMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-export interface OllamaChatResponse {
-  model: string;
-  created_at: string;
-  message: {
-    role: string;
-    content: string;
-  };
-  done: boolean;
+/**
+ * 載入並切換 SillyTavern 中的角色
+ * @param name 角色卡上的角色名稱 (character_name)
+ */
+export async function switchCharacter(name: string): Promise<void> {
+  try {
+    const res = await fetch(`/api/characters/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ character_name: name })
+    });
+    if (!res.ok) {
+      throw new Error(`SillyTavern switchCharacter error: ${res.status} ${res.statusText}`);
+    }
+  } catch (error) {
+    console.error(`切換角色至 ${name} 失敗:`, error);
+    throw error;
+  }
 }
 
 /**
- * 呼叫 Ollama 本地 API 以獲取模型回覆
- * @param userContent 使用者的問題或輸入內容
- * @param systemPrompt 可選的自訂系統提示詞 (System Prompt)
- * @returns 回傳模型生成的回覆字串
+ * 向 SillyTavern 發送對話並獲取其 completions 回覆
+ * @param text 玩家輸入的台詞
+ * @returns 回傳包含 { reply, emotion } 的 JSON
  */
-export async function fetchLLMReply(userContent: string, systemPrompt: string = DEFAULT_SYSTEM_PROMPT, history: LLMMessage[] = []): Promise<string> {
+export async function sendMessage(text: string): Promise<{ reply: string; emotion?: string }> {
   try {
-    // 呼叫同源的 /api/chat，Vite 設定會負責將它轉發給主機上的 Ollama
-    const response = await fetch(`/api/chat`, {
+    const res = await fetch(`/api/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...history,
-          { role: 'user', content: userContent }
-        ],
-        stream: false // 不使用流式輸出，一次性取得完整回覆
-      })
+      body: JSON.stringify({ message: text })
     });
-
-    if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
+    if (!res.ok) {
+      throw new Error(`SillyTavern sendMessage error: ${res.status} ${res.statusText}`);
     }
-
-    const data: OllamaChatResponse = await response.json();
-    return data.message?.content || '';
+    return await res.json();
   } catch (error) {
-    console.error('Error fetching reply from Ollama:', error);
+    console.error('發送對話至 SillyTavern 失敗:', error);
+    throw error;
+  }
+}
+
+/**
+ * 相容層：呼叫 SillyTavern 獲取模型回覆，並格式化為前端原本期望的 JSON 字串，
+ * 確保原本 BlankPainterChat.tsx 中的解析邏輯不需要進行破壞性修改。
+ * @param userContent 使用者的問題或輸入內容
+ * @param characterName 當前對談的角色名稱 (預設為 '天橋畫家')
+ * @returns 格式化後的 JSON 字串
+ */
+export async function fetchLLMReply(userContent: string, characterName: string = '天橋畫家'): Promise<string> {
+  try {
+    // 1. 先確認切換角色
+    await switchCharacter(characterName);
+    
+    // 2. 獲取 SillyTavern 對話回覆
+    const result = await sendMessage(userContent);
+    
+    // 3. 情感數值轉換 (將 SillyTavern 回傳的 emotion 映射為情緒修復師原本期望的 Trust / Pressure 變化)
+    let trust = 0;
+    let pressure = 0;
+    
+    if (result.emotion) {
+      const emoLower = result.emotion.toLowerCase();
+      // 根據常見情緒做基本映射
+      if (emoLower.includes('trust') || emoLower.includes('happy') || emoLower.includes('joy') || emoLower.includes('warm') || emoLower.includes('love')) {
+        trust = 2;
+        pressure = -1;
+      } else if (emoLower.includes('press') || emoLower.includes('sad') || emoLower.includes('fear') || emoLower.includes('anger') || emoLower.includes('anxiety')) {
+        trust = -1;
+        pressure = 2;
+      }
+    }
+    
+    const formattedResponse = {
+      dialogue: result.reply || '',
+      emotionDelta: { trust, pressure },
+      suggestedFlags: [] as string[],
+      safetyLevel: 'safe' as const
+    };
+    
+    return JSON.stringify(formattedResponse);
+  } catch (error) {
+    console.error('Error in fetchLLMReply via SillyTavern:', error);
     throw error;
   }
 }
