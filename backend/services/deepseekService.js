@@ -1,5 +1,4 @@
-const fs = require('fs');
-const path = require('path');
+const axios = require('axios');
 
 const promptMap = {
   bridge_artist: path.join(__dirname, '..', 'prompts', 'artist.txt'),
@@ -128,6 +127,5 @@ async function generateNpcReply(npcId, message) {
 }
 
 module.exports = {
-  generateNpcReply,
-  readPrompt,
+  chat
 };

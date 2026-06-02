@@ -1,6 +1,5 @@
 const express = require('express');
-const saveService = require('../services/saveService');
-const npcStateEngine = require('../services/npcStateEngine');
+const clueEngine = require('../services/clueEngine');
 
 const router = express.Router();
 
@@ -12,25 +11,27 @@ router.post('/collect', (req, res, next) => {
       return res.status(400).json({ error: 'clueId is required' });
     }
 
-    const clue = saveService.getClue(clueId);
-    if (!clue) {
-      return res.status(404).json({ error: 'Clue not found' });
-    }
+    const result = clueEngine.collectClue(clueId);
 
-    const save = saveService.readSave();
-    const npc = saveService.getNpc('bridge_artist');
-
-    if (!save.collectedClues.includes(clueId)) {
-      save.collectedClues.push(clueId);
-      save.player.knowledge = Math.min(100, save.player.knowledge + clue.knowledge);
-      npc.knowledge = Math.min(100, npc.knowledge + clue.knowledge);
-      npcStateEngine.checkUnlock(npc);
-      saveService.writeSave(save);
-      saveService.saveNpc(npc);
+    if (!result.ok) {
+      return res.status(result.status || 500).json({ error: result.error });
     }
 
     res.json({
-      knowledge: npc.knowledge,
+      clueId: result.clue.id,
+      npcId: result.clue.npcId,
+      knowledge: result.npc.knowledge,
+      addedKnowledge: result.alreadyCollected ? 0 : result.clue.knowledge,
+      alreadyCollected: result.alreadyCollected,
+      innerWorldUnlocked: result.npc.innerWorldUnlocked,
+      collectedClues: result.collectedClues,
+      npcState: {
+        trust: result.npc.trust,
+        stress: result.npc.stress,
+        knowledge: result.npc.knowledge,
+        innerWorldUnlocked: result.npc.innerWorldUnlocked,
+        ending: result.npc.ending,
+      },
     });
   } catch (error) {
     next(error);

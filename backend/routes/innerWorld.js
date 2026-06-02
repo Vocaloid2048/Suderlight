@@ -21,20 +21,16 @@ router.get('/:npcId', (req, res, next) => {
     }
 
     const innerWorlds = readInnerWorlds();
-    const innerWorld = innerWorlds[npcId];
+    const world = innerWorlds[npcId] || null;
 
-    if (!innerWorld) {
+    if (!world) {
       return res.status(404).json({ error: 'Inner world not found' });
     }
 
     res.json({
       npcId,
       unlocked: Boolean(npc.innerWorldUnlocked),
-      world: {
-        name: innerWorld.name,
-        stage: innerWorld.stages?.[0]?.id || 1,
-        emotion: innerWorld.emotion,
-      },
+      world: npc.innerWorldUnlocked ? world : null,
     });
   } catch (error) {
     next(error);

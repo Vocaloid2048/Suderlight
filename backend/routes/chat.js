@@ -1,7 +1,10 @@
 const express = require('express');
 const deepseekService = require('../services/deepseekService');
+const promptBuilder = require('../services/promptBuilder');
 const saveService = require('../services/saveService');
 const npcStateEngine = require('../services/npcStateEngine');
+const memoryService = require('../services/memoryService');
+
 
 const router = express.Router();
 
@@ -28,19 +31,41 @@ router.post('/', async (req, res, next) => {
           stressDelta: 0,
           stateLabel: npcStateEngine.getStateLabel(npc),
         },
+        npcState: {
+          trust: npc.trust,
+          stress: npc.stress,
+          knowledge: npc.knowledge,
+          innerWorldUnlocked: npc.innerWorldUnlocked,
+          ending: npc.ending,
+        },
       });
     }
 
-    const aiReply = await deepseekService.generateNpcReply(npcId, message);
-    const stateUpdate = npcStateEngine.updateAfterDialogue(npc, message);
+
+    const dialogueType = npcStateEngine.classifyDialogue(message);
+    const recentInputTypes = memoryService.getRecentTypes(npcId);
+    const messages = promptBuilder.buildPrompt(npcId, message, recentInputTypes);
+    const reply = await deepseekService.chat(messages);
+
+    const stateUpdate = npcStateEngine.updateAfterDialogue(npc, message, dialogueType);
+    memoryService.addInputType(npcId, stateUpdate.dialogueType);
     saveService.saveNpc(stateUpdate.npc);
 
+
     res.json({
-      text: aiReply.text,
+      text: reply,
       psychology: {
         trustDelta: stateUpdate.trustDelta,
         stressDelta: stateUpdate.stressDelta,
         stateLabel: npcStateEngine.getStateLabel(stateUpdate.npc),
+        inputType: stateUpdate.dialogueType,
+      },
+      npcState: {
+        trust: stateUpdate.npc.trust,
+        stress: stateUpdate.npc.stress,
+        knowledge: stateUpdate.npc.knowledge,
+        innerWorldUnlocked: stateUpdate.npc.innerWorldUnlocked,
+        ending: stateUpdate.npc.ending,
       },
     });
   } catch (error) {

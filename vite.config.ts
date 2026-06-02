@@ -32,7 +32,6 @@ export default defineConfig(({ command, mode }) => {
     ? (process.env.BACKEND_URL || 'http://backend:4000') 
     : (process.env.BACKEND_URL || 'http://127.0.0.1:4000')
 
-  // 設定 proxy 的共用選項
   const proxyOptions = {
     target: backendTarget,
     changeOrigin: true,
@@ -44,6 +43,7 @@ export default defineConfig(({ command, mode }) => {
       });
     }
   }
+
 
   return {
     plugins: [react()],
