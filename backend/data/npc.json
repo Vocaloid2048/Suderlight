@@ -1,0 +1,12 @@
+{
+  "bridge_artist": {
+    "id": "bridge_artist",
+    "name": "天橋畫家",
+    "trust": 59,
+    "stress": 67,
+    "knowledge": 100,
+    "knowledgeRequired": 70,
+    "innerWorldUnlocked": true,
+    "ending": null
+  }
+}

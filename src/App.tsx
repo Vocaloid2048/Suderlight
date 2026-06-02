@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState, MouseEvent } from 'react';
 import BlankPainterChat from './components/BlankPainterChat';
+import { bridgeArtistClues, clueOrder, locationOrder, locations, type ClueId, type LocationId } from './data/verticalSlice';
+import type { DialogueEvaluationResult } from './systems/npcStateEngine';
+import { useGameStore } from './store/gameStore';
 
 type Point = { x: number; y: number };
-type ModalState = { title: string; content: string; isChat?: boolean; npcId?: string } | null;
+type ModalAction = { label: string; tone?: 'primary' | 'danger' | 'default'; onClick: () => void };
+type ModalState = { title: string; content: string; actions?: ModalAction[] } | null;
+type EntityId = 'painter' | ClueId;
 
 type Entity = {
-  id: 'painter' | 'brush' | 'newspaper';
+  id: EntityId;
   label: string;
   type: 'npc' | 'clue';
   pos: Point;
@@ -20,11 +25,6 @@ const TILE_H = 48;
 const ORIGIN_X = MAP_WIDTH / 2;
 const ORIGIN_Y = 160;
 const PLAYER_SPEED = 0.055;
-
-const initialState = {
-  inventory: [] as string[],
-  discoveredClues: [] as string[],
-};
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -41,51 +41,62 @@ function distance(a: Point, b: Point) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function clueName(clueId: ClueId) {
+  return bridgeArtistClues[clueId].label;
+}
+
 export default function App() {
-  const [gameState, setGameState] = useState(initialState);
-  const [playerPos, setPlayerPos] = useState<Point>({ x: 10, y: 9 });
+  const save = useGameStore(state => state.save);
+  const collectClue = useGameStore(state => state.collectClue);
+  const setCurrentLocation = useGameStore(state => state.setCurrentLocation);
+  const evaluateDialogue = useGameStore(state => state.evaluateDialogue);
+  const completeNpcSuccess = useGameStore(state => state.completeNpcSuccess);
+  const failNpc = useGameStore(state => state.failNpc);
+  const resetSave = useGameStore(state => state.resetSave);
+
+  const [playerPos, setPlayerPos] = useState<Point>(locations[save.currentLocation].spawn);
   const [isDragging, setIsDragging] = useState(false);
   const [mapPos, setMapPos] = useState({ x: -320, y: -160 });
   const [modal, setModal] = useState<ModalState>(null);
   const [activeChat, setActiveChat] = useState<null | 'painter'>(null);
+  const [ghostFlash, setGhostFlash] = useState<string | null>(null);
   const dragStart = useRef({ x: 0, y: 0 });
-
   const hasMoved = useRef(false);
   const keys = useRef(new Set<string>());
 
+  const currentLocation = locations[save.currentLocation];
+  const bridgeArtist = save.npcs.bridge_artist;
+
   const entities = useMemo<Entity[]>(() => {
-    const list: Entity[] = [
-      {
+    const list: Entity[] = [];
+
+    if (save.currentLocation === 'skybridge') {
+      list.push({
         id: 'painter',
         label: '天橋畫家',
         type: 'npc',
         pos: { x: 13, y: 9 },
-        color: '#ffaa33',
-        icon: '畫',
-      },
-      {
-        id: 'newspaper',
-        label: '舊報紙',
-        type: 'clue',
-        pos: { x: 7, y: 12 },
-        color: '#d8d8d8',
-        icon: '紙',
-      },
-    ];
-
-    if (!gameState.inventory.includes('brush')) {
-      list.push({
-        id: 'brush',
-        label: '乾涸的畫筆',
-        type: 'clue',
-        pos: { x: 15, y: 6 },
-        color: '#ffffff',
-        icon: '筆',
+        color: bridgeArtist.ending === 'failed' ? '#a55' : '#ffaa33',
+        icon: bridgeArtist.ending === 'success' ? '光' : '畫',
       });
     }
 
+    clueOrder.forEach(clueId => {
+      const clue = bridgeArtistClues[clueId];
+      if (clue.locationId === save.currentLocation && !save.collectedClues.includes(clueId)) {
+        list.push({
+          id: clue.id,
+          label: clue.label,
+          type: 'clue',
+          pos: clue.pos,
+          color: clue.color,
+          icon: clue.icon,
+        });
+      }
+    });
+
     return list;
-  }, [gameState.inventory]);
+  }, [bridgeArtist.ending, save.collectedClues, save.currentLocation]);
 
   const nearbyEntity = entities.find(entity => distance(entity.pos, playerPos) <= 1.35);
 
@@ -98,6 +109,13 @@ export default function App() {
       x: clamp(targetX, window.innerWidth - MAP_WIDTH, 0),
       y: clamp(targetY, window.innerHeight - MAP_HEIGHT, 0),
     });
+  };
+
+  const maybeTriggerGhost = () => {
+    if (save.ghosts.length === 0 || Math.random() >= 0.1) return;
+    const ghost = save.ghosts[0];
+    setGhostFlash(ghost.memoryText);
+    window.setTimeout(() => setGhostFlash(null), 1800);
   };
 
   useEffect(() => {
@@ -124,7 +142,6 @@ export default function App() {
 
       if (modal || activeChat) return;
 
-
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(key)) {
         event.preventDefault();
         keys.current.add(key);
@@ -149,14 +166,12 @@ export default function App() {
     };
   }, [modal, activeChat, nearbyEntity]);
 
-
   useEffect(() => {
     let frame = 0;
 
     const tick = () => {
       if (!modal && !activeChat) {
         const pressed = keys.current;
-
         let dx = 0;
         let dy = 0;
 
@@ -185,7 +200,6 @@ export default function App() {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [modal, activeChat]);
-
 
   const handleMouseDown = (e: MouseEvent) => {
     setIsDragging(true);
@@ -220,32 +234,95 @@ export default function App() {
     interact(entity.id);
   };
 
-  const interact = (targetId: Entity['id']) => {
+  const handleLocationChange = (locationId: LocationId) => {
+    setCurrentLocation(locationId);
+    const spawn = locations[locationId].spawn;
+    setPlayerPos(spawn);
+    focusCameraOnPlayer(spawn);
+    maybeTriggerGhost();
+  };
+
+  const openFailureModal = () => {
+    setActiveChat(null);
+    setModal({
+      title: '失敗結局：空白被關上',
+      content: '畫家最後看了你一眼。\n\n「連這最後的空白，你都不肯留給我嗎？」\n\n他收起畫布，走進天橋最暗的雨裡。Ghost System 已記錄：bridge_artist failed。',
+    });
+  };
+
+  const openSuccessModal = () => {
+    setModal({
+      title: '成功結局：雨聲仍在',
+      content: '他沒有重新看見色彩，也沒有立刻變好。\n\n但他終於放下畫筆，坐在失色畫廊的地上，聽見雨聲從遠處回來。\n\n「原來……不畫畫的時候，我也還在。」',
+    });
+  };
+
+  const openInnerWorld = () => {
+    if (!bridgeArtist.innerWorldUnlocked) {
+      setModal({
+        title: '心理世界尚未解鎖',
+        content: `目前 Knowledge ${save.player.knowledge}/70，Trust ${bridgeArtist.trust}/50。還需要更多理解與信任。`,
+      });
+      return;
+    }
+
+    setActiveChat(null);
+    setModal({
+      title: '心理世界：失色畫廊',
+      content: '你推開一扇沒有把手的門。畫廊裡所有作品都只剩灰階，牆壁像被雨水浸透的紙。畫家站在中央，手裡握著那支乾涸的畫筆。\n\n這裡不是要把色彩還給他，而是讓他知道：沒有色彩的他，也仍然存在。',
+      actions: [
+        {
+          label: '陪他坐下，聽雨聲',
+          tone: 'primary',
+          onClick: () => {
+            completeNpcSuccess('bridge_artist');
+            openSuccessModal();
+          },
+        },
+        {
+          label: '要求他畫出春天',
+          tone: 'danger',
+          onClick: () => {
+            failNpc('bridge_artist');
+            openFailureModal();
+          },
+        },
+      ],
+    });
+  };
+
+  const handleDialogueEvaluated = (playerInput: string): DialogueEvaluationResult => {
+    return evaluateDialogue('bridge_artist', playerInput);
+  };
+
+  const interact = (targetId: EntityId) => {
     if (targetId === 'painter') {
+      if (bridgeArtist.ending === 'failed') {
+        openFailureModal();
+        return;
+      }
+
+      if (bridgeArtist.ending === 'success') {
+        openSuccessModal();
+        return;
+      }
+
       setActiveChat('painter');
       return;
     }
 
+    const result = collectClue(targetId);
+    const clue = bridgeArtistClues[targetId];
+    maybeTriggerGhost();
 
-    if (targetId === 'brush' && !gameState.inventory.includes('brush')) {
-      setGameState(prev => ({ ...prev, inventory: [...prev.inventory, 'brush'] }));
-      setModal({
-        title: '獲得線索：乾涸的畫筆',
-        content: '你在潮濕的後巷角落找到了一支畫筆。筆尖已經乾硬，像一段被迫停下來的句子。\n\n（背包已更新。）',
-      });
-      return;
-    }
-
-    if (targetId === 'newspaper' && !gameState.inventory.includes('newspaper')) {
-      setGameState(prev => ({ ...prev, inventory: [...prev.inventory, 'newspaper'] }));
-      setModal({
-        title: '獲得線索：舊報紙',
-        content: '報紙被雨水泡皺了，只剩下一角還能辨認：\n\n「天才青年畫家車禍後失去辨色能力……」\n\n（情緒詞典中出現了新的空白頁。）',
-      });
-    }
+    setModal({
+      title: `獲得線索：${result.label}`,
+      content: `${clue.content}\n\n情緒詞典浮現：${clue.dictionaryHint}${result.unlockedNow ? '\n\n天橋盡頭傳來一聲很輕的門軸聲。某個通往內心深處的入口，似乎鬆動了。' : ''}`,
+    });
   };
 
   const playerScreen = isoToScreen(playerPos);
+  const traumaFilter = save.ghosts.length > 0 ? 'grayscale(0.22) contrast(0.95)' : 'none';
 
   return (
     <div
@@ -256,6 +333,7 @@ export default function App() {
         overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'grab',
         background: '#080a0d',
+        filter: traumaFilter,
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -265,31 +343,73 @@ export default function App() {
       <div style={{
         position: 'absolute', top: 20, left: 20, zIndex: 100,
         background: 'rgba(0,0,0,0.85)', padding: '15px', color: 'white',
-        borderRadius: '8px', border: '1px solid #555', minWidth: '180px',
-        pointerEvents: 'none',
+        borderRadius: '8px', border: '1px solid #555', width: '250px',
       }}>
         <h3 style={{ margin: '0 0 10px 0', borderBottom: '1px solid #555', paddingBottom: '5px', fontSize: '14px' }}>
-          提燈背包
+          提燈筆記
         </h3>
-        <ul style={{ margin: 0, paddingLeft: '20px', color: '#aaa', fontSize: '13px' }}>
-          {gameState.inventory.length === 0 && <li>空無一物</li>}
-          {gameState.inventory.includes('brush') && <li>乾涸的畫筆</li>}
-          {gameState.inventory.includes('newspaper') && <li>舊報紙</li>}
+        <div style={{ fontSize: 13, lineHeight: 1.7, color: '#bbb' }}>
+          {bridgeArtist.innerWorldUnlocked ? '天橋盡頭出現了微弱的門縫光。' : '雨聲仍很密，故事還沒有拼合。'}<br />
+          {bridgeArtist.ending === 'success' && <span style={{ color: '#b8ffd6' }}>畫家終於聽見了雨聲。</span>}
+          {bridgeArtist.ending === 'failed' && <span style={{ color: '#ffd0d0' }}>天橋上留下了一道殘影。</span>}
+        </div>
+        <h3 style={{ margin: '12px 0 8px 0', borderBottom: '1px solid #555', paddingBottom: '5px', fontSize: '14px' }}>
+          線索
+        </h3>
+        <ul style={{ margin: 0, paddingLeft: '20px', color: '#aaa', fontSize: '13px', lineHeight: 1.6 }}>
+          {save.collectedClues.length === 0 && <li>尚未收集</li>}
+          {save.collectedClues.map(clueId => <li key={clueId}>{clueName(clueId)}</li>)}
         </ul>
+        {save.ghosts.length > 0 && (
+          <div style={{ marginTop: 12, color: '#ffb0b0', fontSize: 12, lineHeight: 1.5 }}>
+            Ghost：{save.ghosts.length} 個殘影正在城市雨中徘徊。
+          </div>
+        )}
+        <button
+          onClick={resetSave}
+          style={{ marginTop: 12, background: '#202329', color: '#aaa', border: '1px solid #444', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}
+        >
+          重置進度
+        </button>
+      </div>
+
+      <div style={{
+        position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 110,
+        display: 'flex', gap: 8, padding: 8,
+        background: 'rgba(0,0,0,0.72)', border: '1px solid #333', borderRadius: 999,
+      }}>
+        {locationOrder.map(locationId => (
+          <button
+            key={locationId}
+            onClick={() => handleLocationChange(locationId)}
+            style={{
+              background: save.currentLocation === locationId ? '#7a5130' : '#191b20',
+              color: save.currentLocation === locationId ? '#fff' : '#aaa',
+              border: save.currentLocation === locationId ? '1px solid #d6a35e' : '1px solid #333',
+              borderRadius: 999,
+              padding: '7px 12px',
+              cursor: 'pointer',
+              fontSize: 13,
+            }}
+          >
+            {locations[locationId].name}
+          </button>
+        ))}
       </div>
 
       <div style={{
         position: 'absolute', top: 20, right: 20, zIndex: 100,
         background: 'rgba(0,0,0,0.72)', padding: '12px 16px', color: '#bbb',
         borderRadius: '8px', border: '1px solid #333', fontSize: '13px', lineHeight: 1.7,
-        pointerEvents: 'none',
+        pointerEvents: 'none', maxWidth: 310,
       }}>
-        WASD / 方向鍵：移動修復師<br />
-        E / Space：與附近線索互動<br />
-        滑鼠拖曳：臨時查看地圖
+        <strong style={{ color: '#eee' }}>{currentLocation.name}</strong> · {currentLocation.subtitle}<br />
+        {currentLocation.ambient}<br />
+        WASD / 方向鍵：移動<br />
+        E / Space：互動
       </div>
 
-      {nearbyEntity && !modal && (
+      {nearbyEntity && !modal && !activeChat && (
         <div style={{
           position: 'absolute', bottom: 34, left: '50%', transform: 'translateX(-50%)',
           zIndex: 100, color: '#f4d99d', fontSize: '14px', pointerEvents: 'none',
@@ -297,6 +417,18 @@ export default function App() {
           borderRadius: 999, padding: '8px 16px',
         }}>
           按 E 觀察：{nearbyEntity.label}
+        </div>
+      )}
+
+      {ghostFlash && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 250,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#ffd0d0', background: 'rgba(80,0,0,0.16)',
+          textShadow: '0 0 18px rgba(255,80,80,0.9)',
+          fontSize: 24, letterSpacing: 2, pointerEvents: 'none',
+        }}>
+          {ghostFlash}
         </div>
       )}
 
@@ -330,11 +462,18 @@ export default function App() {
         }} />
 
         <div style={{
-          position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)',
-          color: 'rgba(255,255,255,0.15)', fontSize: '28px', letterSpacing: '8px',
-          fontWeight: 'bold', pointerEvents: 'none', userSelect: 'none',
+          position: 'absolute', top: 58, left: '50%', transform: 'translateX(-50%)',
+          width: 720, textAlign: 'center', pointerEvents: 'none', userSelect: 'none',
         }}>
-          微 光 城 市
+          <div style={{
+            color: 'rgba(255,255,255,0.16)', fontSize: '28px', letterSpacing: '8px',
+            fontWeight: 'bold',
+          }}>
+            {currentLocation.name}
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.28)', fontSize: 13, lineHeight: 1.7, marginTop: 10 }}>
+            {currentLocation.description}
+          </div>
         </div>
 
         {entities.map(entity => {
@@ -411,8 +550,13 @@ export default function App() {
 
       {activeChat === 'painter' && (
         <BlankPainterChat
-          inventory={gameState.inventory}
+          inventory={save.collectedClues}
+          knowledge={save.player.knowledge}
+          npcState={bridgeArtist}
           onClose={() => setActiveChat(null)}
+          onDialogueEvaluated={handleDialogueEvaluated}
+          onEnterInnerWorld={openInnerWorld}
+          onEndingTriggered={openFailureModal}
         />
       )}
 
@@ -420,7 +564,7 @@ export default function App() {
         <div
           style={{
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-            zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 260, display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'rgba(0,0,0,0.6)',
           }}
           onClick={() => setModal(null)}
@@ -428,7 +572,7 @@ export default function App() {
           <div
             style={{
               background: '#17191d', padding: '30px', borderRadius: '10px',
-              color: 'white', width: '460px', border: '1px solid #555',
+              color: 'white', width: '520px', border: '1px solid #555',
               boxShadow: '0 10px 40px rgba(0,0,0,0.9)',
             }}
             onClick={e => e.stopPropagation()}
@@ -438,22 +582,34 @@ export default function App() {
               {modal.content}
             </p>
 
-            <button
-              onClick={() => {
-                setModal(null);
-              }}
-              style={{
-                background: '#333', color: 'white', border: '1px solid #555',
-                padding: '8px 20px', borderRadius: '4px', cursor: 'pointer',
-                marginTop: '10px', fontSize: '14px',
-              }}
-            >
-              關閉
-            </button>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+              {modal.actions?.map(action => (
+                <button
+                  key={action.label}
+                  onClick={action.onClick}
+                  style={{
+                    background: action.tone === 'primary' ? '#8a5b2d' : action.tone === 'danger' ? '#5a2528' : '#333',
+                    color: 'white',
+                    border: action.tone === 'primary' ? '1px solid #d6a35e' : action.tone === 'danger' ? '1px solid #a84c55' : '1px solid #555',
+                    padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px',
+                  }}
+                >
+                  {action.label}
+                </button>
+              ))}
+              <button
+                onClick={() => setModal(null)}
+                style={{
+                  background: '#333', color: 'white', border: '1px solid #555',
+                  padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px',
+                }}
+              >
+                關閉
+              </button>
+            </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }

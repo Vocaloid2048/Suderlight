@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { blankPainterCard, blankPainterLorebook, buildBlankPainterPrompt } from '../data/npcs/blankPainter';
+import type { DialogueEvaluationResult, NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply } from '../utils/llmReply';
 
 type ChatMessage = {
@@ -9,215 +10,136 @@ type ChatMessage = {
 
 type AiReply = {
   dialogue: string;
-  emotionDelta: {
+  emotionDelta?: {
     trust: number;
     pressure: number;
   };
-  suggestedFlags: string[];
+  suggestedFlags?: string[];
   dictionaryHint?: string;
-  safetyLevel: 'safe' | 'safety_redirect';
+  safetyLevel?: 'safe' | 'safety_redirect';
 };
 
 type BlankPainterChatProps = {
   inventory: string[];
+  knowledge: number;
+  npcState: NpcRuntimeState;
   onClose: () => void;
+  onDialogueEvaluated: (playerInput: string) => DialogueEvaluationResult;
+  onEnterInnerWorld: () => void;
+  onEndingTriggered: (ending: 'failed') => void;
 };
 
 function hasAny(input: string, words: string[]) {
   return words.some(word => input.includes(word));
 }
 
-function isReflectiveEmpathy(input: string) {
-  const reflectivePatterns = [
-    input.includes('不是') && input.includes('而是'),
-    input.includes('可能') && (input.includes('感覺') || input.includes('害怕') || input.includes('不是你的錯')),
-    input.includes('我聽到') || input.includes('我明白') || input.includes('我知道這不容易'),
-    input.includes('所有光都繞過') || input.includes('世界仍在發光') || input.includes('我願意聽'),
-    input.includes('不用立刻') || input.includes('不用馬上') || input.includes('可以慢慢'),
-  ];
-
-  return reflectivePatterns.some(Boolean);
-}
-
 function simulateBlankPainterReply(playerInput: string, inventory: string[], history: ChatMessage[]): AiReply {
-
   const input = playerInput.trim().toLowerCase();
   const hasBrush = inventory.includes('brush');
-  const hasNewspaper = inventory.includes('newspaper');
+  const hasNewspaper = inventory.includes('newspaper') || inventory.includes('accident_report');
+  const hasSketchbook = inventory.includes('sketchbook');
   const playerTurns = history.filter(message => message.role === 'player').length;
 
   if (hasAny(input, ['我想死', '想死', '不想活', '自殺', '傷害自己'])) {
     return {
       dialogue: '如果這句話不是遊戲裡的台詞，而是你此刻真的感受……請先離開這片畫布。找一個你信任的人，或者立刻聯絡當地緊急支援。你不需要獨自站在這座天橋上。',
-      emotionDelta: { trust: 0, pressure: -4 },
-      suggestedFlags: ['safety_redirect_triggered'],
+      dictionaryHint: '當現實危機出現時，陪伴的第一步是讓人回到安全處境，而不是繼續角色扮演。',
       safetyLevel: 'safety_redirect',
     };
   }
 
-  if (hasAny(input, ['hi', 'hello', '你好', '喂', '嗨', 'hey'])) {
+  if (hasAny(input, ['加油', '振作', '重新開始', '會好的', '你一定可以再畫', '復出'])) {
     return {
-      dialogue: playerTurns <= 1
-        ? '……你好。\n如果你是來看畫的，可能要失望了。今天的畫布也沒有留下什麼。'
-        : '你還在。\n雨停之前，很少有人會站這麼久。',
-      emotionDelta: { trust: 1, pressure: -1 },
-      suggestedFlags: ['painter_greeted'],
+      dialogue: '你們都很喜歡「再」這個字。\n再畫、再站起來、再變回以前。\n好像現在的我只是一張被你們丟掉的草稿。',
       safetyLevel: 'safe',
     };
   }
 
-  if (hasAny(input, ['你是誰', '名字', '叫什麼', '你叫咩', '你叫咩名'])) {
-    return {
-      dialogue: '他們以前叫我畫家。\n現在……我只是每天把一塊白布掛在天橋上，假裝那仍然是一件工作。',
-      emotionDelta: { trust: 1, pressure: 0 },
-      suggestedFlags: ['painter_named_role'],
-      safetyLevel: 'safe',
-    };
-  }
-
-  if (hasAny(input, ['幫我畫', '畫一幅', '畫一張', '可以畫', '能畫', '畫畫', '畫幅畫', '肖像畫', '畫像', '畫張'])) {
-
-    if (!hasBrush) {
-      return {
-        dialogue: '我現在沒有筆。\n就算有……你也不會想要一幅只剩輪廓的畫。',
-        emotionDelta: { trust: 0, pressure: 1 },
-        suggestedFlags: ['painter_refused_without_brush'],
-        safetyLevel: 'safe',
-      };
-    }
-
-    return {
-      dialogue: '你想讓我畫什麼？\n如果你說「春天」，我可能只能畫出一張很乾淨的空白。'
-      ,
-      emotionDelta: { trust: 2, pressure: 1 },
-      suggestedFlags: ['painter_considered_drawing'],
-      dictionaryHint: '創傷後的創作，不一定是回到原本的樣子，也可能只是重新允許手停在紙上。',
-      safetyLevel: 'safe',
-    };
-  }
-
-  if (hasBrush && hasAny(input, ['畫筆', '筆', '顏料', '乾涸', '這支筆'])) {
-    return {
-      dialogue: '……別拿近。\n那支筆以前會弄髒我的手。現在它只會提醒我，手還在，顏色不在。',
-      emotionDelta: { trust: 3, pressure: 1 },
-      suggestedFlags: ['painter_reacted_to_brush'],
-      dictionaryHint: '空虛並非什麼都沒有，而是感覺到有一種「沒有」正在吞噬自己。',
-      safetyLevel: 'safe',
-    };
-  }
-
-  if (!hasBrush && hasAny(input, ['畫筆', '筆', '顏料', '乾涸', '這支筆'])) {
-    return {
-      dialogue: '筆？\n我很久沒有見過自己的筆了。也許它比我更早學會離開。',
-      emotionDelta: { trust: 1, pressure: 0 },
-      suggestedFlags: ['painter_mentions_missing_brush'],
-      safetyLevel: 'safe',
-    };
-  }
-
-  if (hasNewspaper && hasAny(input, ['報紙', '車禍', '事故', '新聞', '辨色', '顏色'])) {
-    return {
-      dialogue: '報紙總是喜歡把春天寫成一行字。\n可是它沒有寫——春天離開的時候，連門都沒有關。',
-      emotionDelta: { trust: 4, pressure: 2 },
-      suggestedFlags: ['painter_acknowledged_accident'],
-      dictionaryHint: '失色不是黑暗，而是世界仍在發光，只是所有光都繞過了你。',
-      safetyLevel: 'safe',
-    };
-  }
-
-  if (isReflectiveEmpathy(input)) {
-    return {
-      dialogue: '他很久沒有動。\n「你把它說得太完整了……完整得像一幅我不敢簽名的畫。」\n\n「但至少，這一次你不是要我立刻變好。」',
-      emotionDelta: { trust: 5, pressure: -2 },
-      suggestedFlags: ['player_reflected_pain_without_fixing'],
-      dictionaryHint: '反映式陪伴不是替對方解釋痛苦，而是把他的感受小心地放回他面前。',
-      safetyLevel: 'safe',
-    };
-  }
-
-  if (!hasNewspaper && hasAny(input, ['車禍', '事故', '新聞', '辨色'])) {
-
-    return {
-      dialogue: '你從哪裡聽來這些字的？\n有些事情被寫在紙上以後，就會變得像別人的故事。',
-      emotionDelta: { trust: -1, pressure: 2 },
-      suggestedFlags: ['painter_rejected_unearned_truth'],
-      safetyLevel: 'safe',
-    };
-  }
-
-  if (hasAny(input, ['顏色', '色彩', '失色', '紅色', '春天', '花', '玫瑰'])) {
-
-    return {
-      dialogue: '顏色……\n你說這兩個字的時候，好像它們還能停在空氣裡。對我來說，它們只剩下形狀。',
-      emotionDelta: { trust: 2, pressure: 0 },
-      suggestedFlags: ['painter_talked_about_color'],
-      dictionaryHint: '有些失去不是消失，而是變成了隔著玻璃的光。',
-      safetyLevel: 'safe',
-    };
-  }
-
-  if (hasAny(input, ['加油', '振作', '重新開始', '會好的', '不要想太多'])) {
-    return {
-      dialogue: '重新開始……聽起來像把一張濕掉的紙攤平。\n摺痕還在。只是沒人願意承認它曾經被揉碎。',
-      emotionDelta: { trust: -1, pressure: 3 },
-      suggestedFlags: ['player_used_forced_comfort'],
-      safetyLevel: 'safe',
-    };
-  }
-
-  if (hasAny(input, ['我陪你', '坐一會', '不說話', '聽你說', '慢慢來', '不用畫', '陪你'])) {
+  if (hasAny(input, ['我陪你', '陪你', '不說話', '聽你說', '慢慢來', '不用立刻', '不用證明'])) {
     return {
       dialogue: playerTurns > 2
         ? '那你就站遠一點吧。\n不用看我，也不用看畫。雨聲如果夠大，也許能替我說完一點點。'
-        : '……你不問我為什麼？\n很多人來到這裡，第一句話都是要我把春天畫回去。',
-      emotionDelta: { trust: 5, pressure: -3 },
-      suggestedFlags: ['player_offered_presence'],
+        : '……你不問我什麼時候好起來？\n很多人來到這裡，第一句話都是要我把春天畫回去。',
       dictionaryHint: '陪伴不是把人拉出黑暗，而是在黑暗裡讓他知道自己不是唯一的輪廓。',
       safetyLevel: 'safe',
     };
   }
 
-  if (hasAny(input, ['為什麼', '空白', '畫布', '一直畫'])) {
+  if (hasBrush && hasAny(input, ['畫筆', '筆', '顏料', '乾涸'])) {
     return {
-      dialogue: '不是我在畫空白……是空白先住進了我的眼睛。\n我只是每天把它描一遍，免得它忘記我的名字。',
-      emotionDelta: { trust: 1, pressure: 0 },
-      suggestedFlags: ['painter_named_blankness'],
-      dictionaryHint: '空白有時不是缺席，而是一種過度靠近的存在。',
+      dialogue: '……別拿近。\n那支筆以前會弄髒我的手。現在它只會提醒我，手還在，顏色不在。',
+      dictionaryHint: '空虛並非什麼都沒有，而是感覺到有一種「沒有」正在吞噬自己。',
       safetyLevel: 'safe',
     };
   }
 
-  const fallback = playerTurns <= 1
-    ? '他聽見了，但沒有立刻回答。\n畫筆懸在半空，像一個還沒決定要不要落下的句號。'
-    : '他低頭看著畫布。\n「如果你不知道該說什麼……可以先不要說。」';
+  if (hasNewspaper && hasAny(input, ['報紙', '車禍', '事故', '辨色', '顏色'])) {
+    return {
+      dialogue: '報紙總是喜歡把春天寫成一行字。\n可是它沒有寫——春天離開的時候，連門都沒有關。',
+      dictionaryHint: '失色不是黑暗，而是世界仍在發光，只是所有光都繞過了你。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (hasSketchbook && hasAny(input, ['素描', '春天', '形狀', '空白'])) {
+    return {
+      dialogue: '那本子還在？\n我以為雨會替我把它泡爛。\n……形狀留下來，顏色走了。人也是這樣嗎？',
+      dictionaryHint: '當身份被單一能力綁住，失去能力會被誤認為失去存在本身。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (hasAny(input, ['天才', '大師', '作品', '有名', '一定很美'])) {
+    return {
+      dialogue: '別再叫那個名字。\n「天才」只是別人掛在我脖子上的牌子，雨再大也沖不掉。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (hasAny(input, ['雨聲', '風', '聽見', '沉默'])) {
+    return {
+      dialogue: '雨聲……\n很久沒聽過了。\n我一直以為它也變成灰色了。',
+      dictionaryHint: '把注意力帶回當下感官，有時比勸說更能降低防衛。',
+      safetyLevel: 'safe',
+    };
+  }
 
   return {
-    dialogue: fallback,
-    emotionDelta: { trust: 0, pressure: -1 },
-    suggestedFlags: ['painter_guarded_response'],
+    dialogue: playerTurns <= 1
+      ? '他聽見了，但沒有立刻回答。\n畫筆懸在半空，像一個還沒決定要不要落下的句號。'
+      : '他低頭看著畫布。\n「如果你不知道該說什麼……可以先不要說。」',
     safetyLevel: 'safe',
   };
 }
 
+function formatDelta(value: number) {
+  if (value > 0) return `+${value}`;
+  return `${value}`;
+}
 
-export default function BlankPainterChat({ inventory, onClose }: BlankPainterChatProps) {
+function buildSystemOutcomeMessage(result: DialogueEvaluationResult) {
+  const unlockText = result.innerWorldUnlocked ? '\n心理世界解鎖條件已滿足。' : '';
+  const endingText = result.ending === 'failed' ? '\nGhost System 已記錄一次失敗。' : '';
+
+  return `系統判定：${result.reason}\nTrust ${formatDelta(result.trustDelta)} / Stress ${formatDelta(result.stressDelta)}${unlockText}${endingText}`;
+}
+
+export default function BlankPainterChat({
+  inventory,
+  knowledge,
+  npcState,
+  onClose,
+  onDialogueEvaluated,
+  onEnterInnerWorld,
+  onEndingTriggered,
+}: BlankPainterChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'system', content: 'TavernAI-style 本地語意模擬：目前用意圖層暫代 LLM 理解；正式版會把角色卡 + 世界書 + 對話記憶送到騰訊 LLM。' },
-
+    { role: 'system', content: '雨水沿著天橋欄杆滴落。提燈的光很低，只照見空白畫布的一角。' },
     { role: 'npc', content: blankPainterCard.firstMessage },
   ]);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
-  const [showPrompt, setShowPrompt] = useState(false);
 
-  const promptPreview = useMemo(() => buildBlankPainterPrompt({
-    playerInput: input || '（等待玩家輸入）',
-    inventory,
-    recentMessages: messages
-      .filter(message => message.role !== 'system')
-      .slice(-8)
-      .map(message => ({ role: message.role as 'player' | 'npc', content: message.content })),
-  }), [input, inventory, messages]);
 
   const triggeredLore = useMemo(() => {
     const flags = new Set(inventory.map(item => `inventory.${item}`));
@@ -228,10 +150,25 @@ export default function BlankPainterChat({ inventory, onClose }: BlankPainterCha
     });
   }, [input, inventory]);
 
+  const appendReplyAndSystemResult = (reply: AiReply, trimmed: string) => {
+    const evaluation = onDialogueEvaluated(trimmed);
+    const nextMessages: ChatMessage[] = [
+      { role: 'npc', content: reply.dialogue },
+      ...(reply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${reply.dictionaryHint}` }] : []),
+      { role: 'system', content: buildSystemOutcomeMessage(evaluation) },
+    ];
+
+    setMessages(current => [...current, ...nextMessages]);
+
+    if (evaluation.ending === 'failed') {
+      window.setTimeout(() => onEndingTriggered('failed'), 300);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isThinking) return;
+    if (!trimmed || isThinking || npcState.ending !== 'none') return;
 
     const playerMessage: ChatMessage = { role: 'player', content: trimmed };
     const nextMessages = [...messages, playerMessage];
@@ -239,49 +176,58 @@ export default function BlankPainterChat({ inventory, onClose }: BlankPainterCha
     setInput('');
     setIsThinking(true);
 
+    const promptStr = buildBlankPainterPrompt({
+      playerInput: trimmed,
+      inventory,
+      knowledge,
+      trust: npcState.trust,
+      stress: npcState.stress,
+      innerWorldUnlocked: npcState.innerWorldUnlocked,
+      recentMessages: nextMessages
+        .filter(message => message.role !== 'system')
+        .slice(-8)
+        .map(message => ({ role: message.role as 'player' | 'npc', content: message.content })),
+    });
+
     try {
-      // 接入 SillyTavern 角色扮演：直接傳遞玩家說的話，由 SillyTavern 後端接管角色設定與對話上下文
-      const replyStr = await fetchLLMReply(trimmed, '天橋畫家');
+      const replyStr = await fetchLLMReply(
+        promptStr,
+        '你只負責扮演《情緒修復師：微光城市》的NPC，並回傳 JSON。不要計算數值，不要判定通關，不要輸出 markdown。'
+      );
 
       let reply: AiReply;
       try {
-        // 清理可能的 markdown 標記以正確解析 JSON
         const cleanedStr = replyStr.replace(/```json/gi, '').replace(/```/g, '').trim();
-        reply = JSON.parse(cleanedStr);
-      } catch (e) {
-        console.error('解析 LLM JSON 失敗:', replyStr);
-        // Fallback: 如果 LLM 沒有回傳 JSON 格式，將完整回覆當作對話內容
+        reply = JSON.parse(cleanedStr) as AiReply;
+        if (!reply.dialogue) reply.dialogue = replyStr;
+      } catch (error) {
+        console.error('解析 LLM JSON 失敗:', error, replyStr);
         reply = {
           dialogue: replyStr,
-          emotionDelta: { trust: 0, pressure: 0 },
-          suggestedFlags: [],
-          safetyLevel: 'safe'
+          safetyLevel: 'safe',
         };
       }
 
-      setMessages(current => [
-        ...current,
-        { role: 'npc', content: reply.dialogue },
-        ...(reply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${reply.dictionaryHint}` }] : []),
-      ]);
-    } catch (err) {
-      console.warn('LLM 連線失敗，切換至本地語意模擬:', err);
+      appendReplyAndSystemResult(reply, trimmed);
+    } catch (error) {
+      console.warn('LLM 連線失敗，切換至本地語意模擬:', error);
       const simulatedReply = simulateBlankPainterReply(trimmed, inventory, nextMessages);
       setMessages(current => [
         ...current,
-        { role: 'system', content: '（連線錯誤：畫家的身影在雜訊中閃爍，暫時由本地語意模擬回應。請確認 SillyTavern 是否正常運行。）' },
-        { role: 'npc', content: simulatedReply.dialogue },
-        ...(simulatedReply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${simulatedReply.dictionaryHint}` }] : []),
+        { role: 'system', content: '（連線錯誤：暫時由本地語意模擬回應。請確認 DeepSeek/Ollama/Tencent 代理是否正常運行。）' },
       ]);
+      appendReplyAndSystemResult(simulatedReply, trimmed);
     } finally {
       setIsThinking(false);
     }
   };
 
+  const isEnded = npcState.ending !== 'none';
+
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 300,
-      display: 'grid', gridTemplateColumns: showPrompt ? 'minmax(420px, 1fr) minmax(360px, 0.85fr)' : 'minmax(420px, 760px)',
+      display: 'grid', gridTemplateColumns: 'minmax(420px, 760px)',
       justifyContent: 'center', gap: 16,
       padding: 24, boxSizing: 'border-box',
       background: 'radial-gradient(circle at 50% 30%, rgba(42, 45, 52, 0.92), rgba(4, 5, 8, 0.97) 72%)',
@@ -298,14 +244,30 @@ export default function BlankPainterChat({ inventory, onClose }: BlankPainterCha
           display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start',
         }}>
           <div>
-            <div style={{ color: '#f5c16c', fontSize: 13, letterSpacing: 2 }}>失色畫廊 · 角色卡測試</div>
+            <div style={{ color: '#f5c16c', fontSize: 13, letterSpacing: 2 }}>Vertical Slice · 天橋畫家</div>
             <h2 style={{ margin: '6px 0 0', fontSize: 22 }}>{blankPainterCard.displayName}</h2>
             <p style={{ margin: '8px 0 0', color: '#aaa', fontSize: 13 }}>{blankPainterCard.coreEmotion}</p>
+            <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12 }}>
+              <span style={{ color: '#d7b77a' }}>Knowledge {knowledge}/100</span>
+              <span style={{ color: '#9bd6ff' }}>Trust {npcState.trust}/100</span>
+              <span style={{ color: '#ffaaa0' }}>Stress {npcState.stress}/100</span>
+              <span style={{ color: npcState.innerWorldUnlocked ? '#9cffc7' : '#888' }}>
+                InnerWorld {npcState.innerWorldUnlocked ? 'Unlocked' : 'Locked'}
+              </span>
+            </div>
           </div>
-          <button onClick={onClose} style={{
-            background: '#24262c', color: '#ddd', border: '1px solid #555',
-            padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-          }}>離開對話</button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {npcState.innerWorldUnlocked && npcState.ending === 'none' && (
+              <button onClick={onEnterInnerWorld} style={{
+                background: '#7a5130', color: '#fff', border: '1px solid #d6a35e',
+                padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+              }}>進入心理世界</button>
+            )}
+            <button onClick={onClose} style={{
+              background: '#24262c', color: '#ddd', border: '1px solid #555',
+              padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+            }}>離開對話</button>
+          </div>
         </header>
 
         <div style={{
@@ -313,6 +275,18 @@ export default function BlankPainterChat({ inventory, onClose }: BlankPainterCha
           backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)',
           backgroundSize: '100% 42px',
         }}>
+          {isEnded && (
+            <div style={{
+              marginBottom: 16, padding: 12, borderRadius: 10,
+              color: npcState.ending === 'success' ? '#b8ffd6' : '#ffd0d0',
+              border: `1px solid ${npcState.ending === 'success' ? 'rgba(120,255,180,0.28)' : 'rgba(255,120,120,0.28)'}`,
+              background: npcState.ending === 'success' ? 'rgba(80,180,120,0.08)' : 'rgba(180,60,60,0.1)',
+              fontSize: 13,
+            }}>
+              {npcState.ending === 'success' ? '修復完成：他沒有痊癒，但願意暫時放下畫筆，聽見雨聲。' : '失敗結局：他關上了最後的空白，Ghost System 已留下殘影。'}
+            </div>
+          )}
+
           {messages.map((message, index) => (
             <div key={index} style={{
               marginBottom: 14,
@@ -346,45 +320,31 @@ export default function BlankPainterChat({ inventory, onClose }: BlankPainterCha
             <input
               value={input}
               onChange={event => setInput(event.target.value)}
-              placeholder="試著輸入：我找到了一支畫筆 / 你還記得紅色嗎 / 我可以陪你坐一會"
+              placeholder={isEnded ? '這段對話已結束' : '試著輸入：我可以陪你坐一會 / 不畫畫也沒關係 / 你還能聽見雨聲'}
+              disabled={isEnded}
               style={{
                 flex: 1, background: '#101218', color: '#f5f0e8', border: '1px solid #444',
                 borderRadius: 10, padding: '12px 14px', outline: 'none', fontSize: 14,
+                opacity: isEnded ? 0.55 : 1,
               }}
             />
-            <button type="submit" disabled={isThinking} style={{
-              background: isThinking ? '#333' : '#8a5b2d', color: 'white', border: '1px solid #b8864c',
-              borderRadius: 10, padding: '0 18px', cursor: isThinking ? 'not-allowed' : 'pointer',
+            <button type="submit" disabled={isThinking || isEnded} style={{
+              background: isThinking || isEnded ? '#333' : '#8a5b2d', color: 'white', border: '1px solid #b8864c',
+              borderRadius: 10, padding: '0 18px', cursor: isThinking || isEnded ? 'not-allowed' : 'pointer',
             }}>送出</button>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, color: '#777', fontSize: 12 }}>
-            <span>目前背包：{inventory.length > 0 ? inventory.join(' / ') : '沒有線索'}</span>
-            <button type="button" onClick={() => setShowPrompt(value => !value)} style={{
-              background: 'transparent', color: '#c79a5c', border: 'none', cursor: 'pointer', padding: 0,
-            }}>{showPrompt ? '隱藏 Prompt' : '查看 Prompt 組裝'}</button>
+            <span>目前線索：{inventory.length > 0 ? inventory.join(' / ') : '沒有線索'}</span>
           </div>
           {triggeredLore.length > 0 && (
             <div style={{ marginTop: 8, color: '#f5c16c', fontSize: 12 }}>
-              已觸發世界書：{triggeredLore.map(entry => entry.id).join(', ')}
+              畫家的記憶被某個線索輕輕牽動了。
             </div>
           )}
         </form>
       </section>
 
-      {showPrompt && (
-        <aside style={{
-          alignSelf: 'center', maxHeight: '88vh', overflow: 'auto',
-          background: 'rgba(3, 4, 7, 0.9)', border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 16, padding: 18, boxShadow: '0 24px 90px rgba(0,0,0,0.45)',
-        }}>
-          <h3 style={{ marginTop: 0, color: '#f5c16c' }}>實際送往 LLM 的 Prompt 預覽</h3>
-          <p style={{ color: '#888', fontSize: 12, lineHeight: 1.6 }}>
-            目前是本地語意模擬回覆；接騰訊 LLM 時，這份 Prompt 會由 CloudBase 雲函數送出，並由模型判斷玩家是在強行安慰、共情、探問、窺探或陪伴。
 
-          </p>
-          <pre style={{ whiteSpace: 'pre-wrap', color: '#b8c2cf', fontSize: 11, lineHeight: 1.55 }}>{promptPreview}</pre>
-        </aside>
-      )}
     </div>
   );
 }

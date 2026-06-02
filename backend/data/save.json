@@ -1,0 +1,12 @@
+{
+  "player": {
+    "knowledge": 100
+  },
+  "ghosts": [],
+  "collectedClues": [
+    "brush",
+    "newspaper",
+    "sketchbook",
+    "accident_report"
+  ]
+}
