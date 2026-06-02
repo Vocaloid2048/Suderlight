@@ -53,35 +53,78 @@ async function generateNpcReply(npcId, message) {
   const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
   const systemPrompt = readPrompt(npcId);
 
-  if (!apiKey || apiKey === 'YOUR_KEY') {
-    return fallbackReply(message);
+  // 1. 如果配置了有效的 DeepSeek API Key，則調用 DeepSeek
+  if (apiKey && apiKey !== 'YOUR_KEY' && apiKey.trim() !== '') {
+    try {
+      const response = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: String(message || '') },
+          ],
+          temperature: 0.7,
+          stream: false,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        return parseDeepSeekJson(content);
+      } else {
+        const body = await response.text();
+        console.error(`DeepSeek API error ${response.status}: ${body}`);
+      }
+    } catch (err) {
+      console.error('DeepSeek API 請求失敗，嘗試降級：', err);
+    }
   }
 
-  const response = await fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: String(message || '') },
-      ],
-      temperature: 0.7,
-      stream: false,
-    }),
-  });
+  // 2. 如果沒有 DeepSeek 密鑰，但配置了 OLLAMA_URL，則調用 Ollama 容器
+  const ollamaUrl = process.env.OLLAMA_URL || 'http://host.docker.internal:11434';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'gemma4:e2b';
+  if (ollamaUrl) {
+    try {
+      const url = `${ollamaUrl.replace(/\/$/, '')}/api/chat`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: ollamaModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: String(message || '') },
+          ],
+          stream: false,
+          options: {
+            temperature: 0.7
+          }
+        }),
+      });
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`DeepSeek API error ${response.status}: ${body}`);
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.message?.content || '';
+        return parseDeepSeekJson(content);
+      } else {
+        const body = await response.text();
+        console.error(`Ollama API error ${response.status}: ${body}`);
+      }
+    } catch (err) {
+      console.error('Ollama API 請求失敗，退回 fallbackReply：', err);
+    }
   }
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '';
-  return parseDeepSeekJson(content);
+  // 3. 兜底回覆
+  return fallbackReply(message);
 }
 
 module.exports = {
