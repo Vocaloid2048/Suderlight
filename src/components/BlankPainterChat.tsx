@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
-import type { NpcRuntimeState } from '../systems/npcStateEngine';
+import type { NpcRuntimeState, DialogueEvaluationResult } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
 
 type ChatMessage = {
