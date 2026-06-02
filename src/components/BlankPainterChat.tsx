@@ -1,11 +1,18 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { blankPainterCard, blankPainterLorebook, buildBlankPainterPrompt } from '../data/npcs/blankPainter';
-import type { DialogueEvaluationResult, NpcRuntimeState } from '../systems/npcStateEngine';
-import { fetchLLMReply } from '../utils/llmReply';
+import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
+import type { NpcRuntimeState } from '../systems/npcStateEngine';
+import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
 
 type ChatMessage = {
   role: 'player' | 'npc' | 'system';
   content: string;
+};
+
+type BackendPsychology = {
+  trustDelta: number;
+  stressDelta: number;
+  stateLabel: string;
+  inputType?: string;
 };
 
 type AiReply = {
@@ -17,6 +24,8 @@ type AiReply = {
   suggestedFlags?: string[];
   dictionaryHint?: string;
   safetyLevel?: 'safe' | 'safety_redirect';
+  backendPsychology?: BackendPsychology;
+  backendNpcState?: BackendNpcState;
 };
 
 type BlankPainterChatProps = {
@@ -176,24 +185,10 @@ export default function BlankPainterChat({
     setInput('');
     setIsThinking(true);
 
-    const promptStr = buildBlankPainterPrompt({
-      playerInput: trimmed,
-      inventory,
-      knowledge,
-      trust: npcState.trust,
-      stress: npcState.stress,
-      innerWorldUnlocked: npcState.innerWorldUnlocked,
-      recentMessages: nextMessages
-        .filter(message => message.role !== 'system')
-        .slice(-8)
-        .map(message => ({ role: message.role as 'player' | 'npc', content: message.content })),
-    });
+
 
     try {
-      const replyStr = await fetchLLMReply(
-        promptStr,
-        '你只負責扮演《情緒修復師：微光城市》的NPC，並回傳 JSON。不要計算數值，不要判定通關，不要輸出 markdown。'
-      );
+      const replyStr = await fetchLLMReply(trimmed, 'bridge_artist');
 
       let reply: AiReply;
       try {
