@@ -8,5 +8,13 @@
     "newspaper",
     "sketchbook",
     "accident_report"
+  ],
+  "unlockedWorldbookIds": [
+    1,
+    2,
+    3,
+    10,
+    11,
+    12
   ]
 }
