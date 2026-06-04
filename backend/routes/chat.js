@@ -96,8 +96,8 @@ router.post('/', async (req, res, next) => {
     // 當前累積的歷史訊息數如果大於等於 8 條（即 4 輪完整的 User-Assistant 對話），則觸發背景摘要生成，不阻礙玩家對話
     if (recentHistory.length >= 8) {
       const oldSummary = memoryService.getSummary(npcId);
-      // 提取最新的 8 條對話片斷（4輪對話）
-      const segment = recentHistory.slice(-8);
+      // 從 memoryService 獲取最新已落檔的 8 條對話（含當前剛發生的最新一輪）
+      const segment = memoryService.getRecentDialogue(npcId, 8);
       
       // 異步在後台發起 DeepSeek 摘要請求，更新長期情感摘要
       summaryService.generateUpdatedSummary(oldSummary, segment)

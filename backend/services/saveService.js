@@ -44,7 +44,11 @@ function getClue(clueId) {
 }
 
 function readSave() {
-  return readJson(savePath);
+  const save = readJson(savePath);
+  if (!Array.isArray(save.unlockedWorldbookIds)) {
+    save.unlockedWorldbookIds = [1, 2, 3, 10, 11, 12];
+  }
+  return save;
 }
 
 function writeSave(save) {
