@@ -28,6 +28,9 @@ export default function PsychDictionary({ onClose }: PsychDictionaryProps) {
   }, []);
 
   const selected = entries.find(e => e.id === selectedId);
+  const unlockedEntries = entries.filter(e => e.unlocked);
+  const lockedCount = entries.length - unlockedEntries.length;
+  const allUnlocked = lockedCount === 0;
 
   return (
     <div
@@ -47,7 +50,7 @@ export default function PsychDictionary({ onClose }: PsychDictionaryProps) {
         onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0, color: '#eee', fontSize: '18px' }}>情緒詞典</h2>
+          <h2 style={{ margin: 0, color: '#eee', fontSize: '18px' }}>已發現理解</h2>
           <button
             onClick={onClose}
             style={{
@@ -63,40 +66,43 @@ export default function PsychDictionary({ onClose }: PsychDictionaryProps) {
           <div style={{ color: '#888', textAlign: 'center', padding: 20 }}>載入中...</div>
         ) : (
           <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {entries.map(entry => (
-                <button
-                  key={entry.id}
-                  onClick={() => entry.unlocked && setSelectedId(selectedId === entry.id ? null : entry.id)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 14px', borderRadius: 8,
-                    background: entry.unlocked
-                      ? (selectedId === entry.id ? '#2a2f38' : '#1e2128')
-                      : '#14171c',
-                    border: entry.unlocked
-                      ? (selectedId === entry.id ? '1px solid #d6a35e' : '1px solid #333')
-                      : '1px solid #222',
-                    cursor: entry.unlocked ? 'pointer' : 'default',
-                    color: entry.unlocked ? '#ddd' : '#555',
-                    textAlign: 'left', width: '100%', fontSize: 14,
-                    transition: 'background 0.15s',
-                  }}
-                >
-                  <span style={{ fontSize: 16, opacity: entry.unlocked ? 1 : 0.4 }}>
-                    {entry.unlocked ? '📖' : '🔒'}
-                  </span>
-                  <span style={{ fontWeight: entry.unlocked ? 500 : 400 }}>
-                    {entry.name}
-                  </span>
-                  {entry.unlocked && (
+            {unlockedEntries.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {unlockedEntries.map(entry => (
+                  <button
+                    key={entry.id}
+                    onClick={() => setSelectedId(selectedId === entry.id ? null : entry.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 14px', borderRadius: 8,
+                      background: selectedId === entry.id ? '#2a2f38' : '#1e2128',
+                      border: selectedId === entry.id ? '1px solid #d6a35e' : '1px solid #333',
+                      cursor: 'pointer',
+                      color: '#ddd',
+                      textAlign: 'left', width: '100%', fontSize: 14,
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>📖</span>
+                    <span style={{ fontWeight: 500 }}>{entry.name}</span>
                     <span style={{ marginLeft: 'auto', color: '#888', fontSize: 12 }}>
                       {selectedId === entry.id ? '▲' : '▼'}
                     </span>
-                  )}
-                </button>
-              ))}
-            </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!allUnlocked && (
+              <div style={{
+                marginTop: unlockedEntries.length > 0 ? 16 : 0,
+                padding: '14px 0',
+                borderTop: unlockedEntries.length > 0 ? '1px solid #333' : 'none',
+                color: '#666', textAlign: 'center', fontSize: 13,
+              }}>
+                尚有 {lockedCount} 個未知理解
+              </div>
+            )}
 
             {selected && (
               <div
@@ -116,7 +122,7 @@ export default function PsychDictionary({ onClose }: PsychDictionaryProps) {
               </div>
             )}
 
-            {!selected && entries.length > 0 && (
+            {!selected && unlockedEntries.length > 0 && (
               <div style={{ marginTop: 16, color: '#666', textAlign: 'center', fontSize: 13 }}>
                 點擊已解鎖詞條查看詳細內容
               </div>
