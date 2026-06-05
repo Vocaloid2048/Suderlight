@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, MouseEvent } from 'react';
 import BlankPainterChat from './components/BlankPainterChat';
+import PsychDictionary from './components/PsychDictionary';
 import { bridgeArtistClues, clueOrder, locationOrder, locations, type ClueId, type LocationId } from './data/verticalSlice';
 import type { DialogueEvaluationResult } from './systems/npcStateEngine';
 import { useGameStore } from './store/gameStore';
@@ -60,6 +61,8 @@ export default function App() {
   const [modal, setModal] = useState<ModalState>(null);
   const [activeChat, setActiveChat] = useState<null | 'painter'>(null);
   const [ghostFlash, setGhostFlash] = useState<string | null>(null);
+  const [showDictionary, setShowDictionary] = useState(false);
+  const [discoveryNote, setDiscoveryNote] = useState<string | null>(null);
   const dragStart = useRef({ x: 0, y: 0 });
   const hasMoved = useRef(false);
   const keys = useRef(new Set<string>());
@@ -319,6 +322,31 @@ export default function App() {
       title: `獲得線索：${result.label}`,
       content: `${clue.content}\n\n情緒詞典浮現：${clue.dictionaryHint}${result.unlockedNow ? '\n\n天橋盡頭傳來一聲很輕的門軸聲。某個通往內心深處的入口，似乎鬆動了。' : ''}`,
     });
+
+    // 触发后端解锁并显示发现通知
+    if (!result.alreadyCollected) {
+      fetch('/api/investigation/collect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clueId: targetId }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.unlockedEntries && data.unlockedEntries.length > 0) {
+            // 从词典 API 获取词条名称
+            fetch('/api/dictionary')
+              .then(r => r.json())
+              .then(dict => {
+                const entry = dict.entries.find((e: { id: string }) => data.unlockedEntries.includes(e.id));
+                if (entry) {
+                  setDiscoveryNote(entry.name);
+                  setTimeout(() => setDiscoveryNote(null), 2800);
+                }
+              });
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   const playerScreen = isoToScreen(playerPos);
@@ -366,8 +394,14 @@ export default function App() {
           </div>
         )}
         <button
+          onClick={() => setShowDictionary(true)}
+          style={{ marginTop: 12, background: '#202329', color: '#d6a35e', border: '1px solid #5a4a30', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12, width: '100%' }}
+        >
+          情緒詞典
+        </button>
+        <button
           onClick={resetSave}
-          style={{ marginTop: 12, background: '#202329', color: '#aaa', border: '1px solid #444', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}
+          style={{ marginTop: 6, background: '#202329', color: '#aaa', border: '1px solid #444', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12, width: '100%' }}
         >
           重置進度
         </button>
@@ -429,6 +463,29 @@ export default function App() {
           fontSize: 24, letterSpacing: 2, pointerEvents: 'none',
         }}>
           {ghostFlash}
+        </div>
+      )}
+
+      {discoveryNote && (
+        <div style={{
+          position: 'absolute', top: '38%', left: '50%', transform: 'translate(-50%, -50%)',
+          zIndex: 280, pointerEvents: 'none', textAlign: 'center',
+          animation: 'none',
+        }}>
+          <div style={{
+            color: '#f4d99d', fontSize: 22, fontWeight: 'bold',
+            textShadow: '0 0 30px rgba(244,217,157,0.6), 0 0 60px rgba(244,217,157,0.2)',
+            letterSpacing: 3, marginBottom: 8,
+          }}>
+            ★ 新的理解
+          </div>
+          <div style={{
+            color: '#e8e0d0', fontSize: 18,
+            textShadow: '0 0 20px rgba(200,180,150,0.4)',
+            letterSpacing: 2,
+          }}>
+            {discoveryNote}
+          </div>
         </div>
       )}
 
@@ -609,6 +666,10 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {showDictionary && (
+        <PsychDictionary onClose={() => setShowDictionary(false)} />
       )}
     </div>
   );

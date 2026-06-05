@@ -1,5 +1,6 @@
 const express = require('express');
 const clueEngine = require('../services/clueEngine');
+const { unlockByClue } = require('./dictionary');
 
 const router = express.Router();
 
@@ -17,6 +18,9 @@ router.post('/collect', (req, res, next) => {
       return res.status(result.status || 500).json({ error: result.error });
     }
 
+    // 根据收集的线索解锁心理词条
+    const unlockedEntries = unlockByClue(clueId);
+
     res.json({
       clueId: result.clue.id,
       npcId: result.clue.npcId,
@@ -25,6 +29,7 @@ router.post('/collect', (req, res, next) => {
       alreadyCollected: result.alreadyCollected,
       innerWorldUnlocked: result.npc.innerWorldUnlocked,
       collectedClues: result.collectedClues,
+      unlockedEntries,
       npcState: {
         trust: result.npc.trust,
         stress: result.npc.stress,

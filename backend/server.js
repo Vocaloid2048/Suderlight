@@ -7,6 +7,7 @@ const npcRoutes = require('./routes/npc');
 const investigationRoutes = require('./routes/investigation');
 const saveRoutes = require('./routes/save');
 const innerWorldRoutes = require('./routes/innerWorld');
+const dictionaryRoutes = require('./routes/dictionary');
 
 
 const app = express();
@@ -24,7 +25,7 @@ app.use('/api/npc', npcRoutes);
 app.use('/api/investigation', investigationRoutes);
 app.use('/api/save', saveRoutes);
 app.use('/api/inner-world', innerWorldRoutes);
-
+app.use('/api/dictionary', dictionaryRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
