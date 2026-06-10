@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const worldbookService = require('./worldbookService');
+const memoryService = require('./memoryService');
 
 const characterCardsDir = path.join(__dirname, '..', 'data', 'characterCards');
-const worldbookPath = path.join(__dirname, '..', 'data', 'worldbook.json');
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -12,11 +13,8 @@ function getCardData(card) {
   return card.data || card;
 }
 
-function formatWorldbook(worldbook) {
-  const entries = Array.isArray(worldbook.entries) ? worldbook.entries : [];
+function formatWorldbookEntries(entries) {
   return entries
-    .filter(entry => entry.enabled !== false && entry.disable !== true)
-    .sort((a, b) => (b.priority || 0) - (a.priority || 0))
     .map(entry => `【${entry.comment || entry.id}】\n${entry.content}`)
     .join('\n\n');
 }
@@ -26,15 +24,19 @@ function loadCharacterCard(npcId) {
   return readJson(characterPath);
 }
 
-function loadWorldbook() {
-  return readJson(worldbookPath);
-}
-
 function buildPrompt(npcId, playerMessage, recentInputTypes = []) {
   const card = loadCharacterCard(npcId);
   const npc = getCardData(card);
-  const worldbook = loadWorldbook();
+  
+  // 1. 世界書選擇性檢索與過濾
+  const triggeredEntries = worldbookService.getTriggeredEntries(npcId, playerMessage);
+  const worldbookText = formatWorldbookEntries(triggeredEntries);
 
+  // 2. 獲取長期情感與修復摘要
+  const longTermSummary = memoryService.getSummary(npcId);
+
+  // 3. 獲取最近 20 條對話歷史 (滑動窗口)
+  const recentHistory = memoryService.getRecentDialogue(npcId, 20);
 
   const name = npc.name || card.name || npcId;
   const description = npc.description || card.description || '';
@@ -44,16 +46,12 @@ function buildPrompt(npcId, playerMessage, recentInputTypes = []) {
   const examples = npc.mes_example || card.mes_example || '';
   const systemPrompt = npc.system_prompt || '';
   const creatorNotes = npc.creator_notes || card.creatorcomment || '';
-  const worldbookText = formatWorldbook(worldbook);
 
-  return [
-    {
-      role: 'system',
-      content: `
+  const systemMessageContent = `
 你正在《情緒修復師：微光城市》中扮演 NPC。
 
-【世界書】
-${worldbookText}
+【世界書（當前感知）】
+${worldbookText || '無特殊場景感知'}
 
 【角色名稱】
 ${name}
@@ -63,6 +61,9 @@ ${description}
 
 【角色個性與心理狀態】
 ${personality}
+
+【長期記憶與情感進度】
+${longTermSummary || '無先前記憶，這是你們的初次交談。'}
 
 【場景】
 ${scenario}
@@ -92,8 +93,15 @@ ${recentInputTypes.length > 0 ? recentInputTypes.join(', ') : '無'}
 - 不要計算 Trust、Stress、Knowledge。
 - 不要宣告心理世界是否解鎖。
 - 只輸出 NPC 對玩家說的話，不要輸出 JSON、Markdown 或解釋。
-`
+`;
+
+  // 組裝完整的 messages 陣列
+  return [
+    {
+      role: 'system',
+      content: systemMessageContent.trim()
     },
+    ...recentHistory, // 展開最近的對話歷史 (最多20條/10輪)
     {
       role: 'user',
       content: playerMessage
@@ -104,5 +112,5 @@ ${recentInputTypes.length > 0 ? recentInputTypes.join(', ') : '無'}
 module.exports = {
   buildPrompt,
   loadCharacterCard,
-  loadWorldbook
+  loadWorldbook: worldbookService.readWorldbook // 保持向後相容
 };

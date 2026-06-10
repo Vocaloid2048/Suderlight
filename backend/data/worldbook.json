@@ -15,7 +15,9 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "global",
+      "unlockedByDefault": true
     },
     {
       "id": 2,
@@ -32,7 +34,9 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "tavern",
+      "unlockedByDefault": true
     },
     {
       "id": 3,
@@ -49,12 +53,14 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "rules",
+      "unlockedByDefault": true
     },
     {
       "id": 4,
       "keys": ["天橋", "畫家", "過街天橋", "天橋下", "欄杆", "橋下", "過街", "畫布"],
-      "content": "城市北區的廢棄人行天橋，鏽蝕鋼筋外露。原本是光影交會處，如今只剩潮濕的風。橋下車流聲如遙遠海浪，欄杆掛滿被雨水浸透的展覽海報。天橋畫家通常縮在最暗的角落，腳邊散落空白畫布。這裡的空氣帶著鐵鏽與濕顏料的氣味。",
+      "content": "城市北區的廢棄人行天橋，鏽蝕鋼筋外露。原本是光影交會處，如今只剩潮濕的風. 橋下車流聲如遙遠海浪，欄杆掛滿被雨水浸透的展覽海報。天橋畫家通常縮在最暗的角落，腳邊散落空白畫布。這裡的空氣帶著鐵鏽與濕顏料的氣味。",
       "comment": "天橋 - 對應天橋畫家",
       "constant": false,
       "enabled": true,
@@ -66,7 +72,10 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "bridge",
+      "npcId": "bridge_artist",
+      "unlockedByDefault": true
     },
     {
       "id": 5,
@@ -83,7 +92,10 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "studio",
+      "npcId": "orson_noah",
+      "unlockedByDefault": false
     },
     {
       "id": 6,
@@ -100,7 +112,10 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "theater",
+      "npcId": "reina_damian",
+      "unlockedByDefault": false
     },
     {
       "id": 7,
@@ -117,7 +132,10 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "lab",
+      "npcId": "victor",
+      "unlockedByDefault": false
     },
     {
       "id": 8,
@@ -134,7 +152,10 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "apartment",
+      "npcId": "aoi",
+      "unlockedByDefault": false
     },
     {
       "id": 9,
@@ -151,7 +172,10 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "museum",
+      "npcId": "yuri",
+      "unlockedByDefault": false
     },
     {
       "id": 10,
@@ -168,7 +192,9 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "dictionary",
+      "unlockedByDefault": true
     },
     {
       "id": 11,
@@ -185,7 +211,9 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "ghost",
+      "unlockedByDefault": true
     },
     {
       "id": 12,
@@ -202,7 +230,9 @@
       "case_sensitive": false,
       "disable": false,
       "exclude_recursion": false,
-      "use_regex": false
+      "use_regex": false,
+      "region": "boundary",
+      "unlockedByDefault": true
     }
   ]
 }
