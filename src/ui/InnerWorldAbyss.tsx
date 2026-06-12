@@ -1,4 +1,4 @@
-import { GlimmerButton, GlassPanel, GuiFrame, MeterBar } from '../components';
+import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import type { NpcRuntimeState } from '../systems/npcStateEngine';
 
 type InnerWorldAbyssProps = {
@@ -19,9 +19,7 @@ const innerWorldThemes = [
   ['尤里', '靜止標本室', '水晶凍住蝴蝶、心跳與所有尚未說完的愛。'],
 ];
 
-export default function InnerWorldAbyss({ npcState, onBack, onResolveSuccess, onResolveFailure }: InnerWorldAbyssProps) {
-  const sanity = Math.max(0, 100 - npcState.stress);
-
+export default function InnerWorldAbyss({ npcState: _npcState, onBack, onResolveSuccess, onResolveFailure }: InnerWorldAbyssProps) {
   return (
     <GuiFrame tone="inner">
       <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', gridTemplateColumns: '320px minmax(460px, 760px)', gap: 24, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
@@ -39,11 +37,6 @@ export default function InnerWorldAbyss({ npcState, onBack, onResolveSuccess, on
             <div style={{ maxWidth: 520, color: '#101217', background: 'rgba(255,255,255,0.68)', padding: 18, borderRadius: 14, lineHeight: 1.9 }}>
               這裡不是要把色彩還給他，而是讓他知道：沒有色彩的他，也仍然存在。地板像潮濕紙張般晃動，所有說教都會讓空間坍塌。
             </div>
-          </div>
-
-          <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
-            <MeterBar label="修復師理智值" value={sanity} tone="blue" />
-            <MeterBar label="情感共振度" value={npcState.trust} tone="green" />
           </div>
 
           <div style={{ marginTop: 20, display: 'flex', gap: 10, flexWrap: 'wrap' }}>

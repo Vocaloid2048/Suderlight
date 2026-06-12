@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useGameStore } from './store/gameStore';
 import type { DialogueEvaluationResult } from './systems/npcStateEngine';
+import { useNarrativeDebug } from './hooks/useNarrativeDebug';
 import {
   AftermathReport,
   BridgePainterInnerWorld,
   EmotionDictionaryPage,
+  NarrativeDebugOverlay,
   OuterWorldConversation,
   OuterWorldExplorer,
   SelfReconciliationPortal,
@@ -26,6 +28,9 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('title');
   const [returnScreen, setReturnScreen] = useState<Screen>('city');
 
+  // ---- Narrative Debug: Ctrl+Shift+D | Konami | F8 (DEV only) ----
+  const { active: debugActive } = useNarrativeDebug();
+
   const bridgeArtist = save.npcs.bridge_artist;
 
   const openScreenWithReturn = (nextScreen: Screen) => {
@@ -43,93 +48,104 @@ export default function App() {
     return evaluateDialogue('bridge_artist', playerInput);
   };
 
-  if (screen === 'title') {
+  const content = (() => {
+    if (screen === 'title') {
+      return (
+        <TitlePortal
+          onStart={() => setScreen('city')}
+          onOpenTavern={() => openScreenWithReturn('tavern')}
+          onOpenDictionary={() => openScreenWithReturn('dictionary')}
+          onOpenReport={() => openScreenWithReturn('aftermath')}
+        />
+      );
+    }
+
+    if (screen === 'tavern') {
+      return (
+        <SubconsciousTavern
+          save={save}
+          onBack={() => setScreen(returnScreen)}
+          onEnterCity={() => setScreen('city')}
+          onOpenReport={() => openScreenWithReturn('aftermath')}
+        />
+      );
+    }
+
+    if (screen === 'conversation') {
+      return (
+        <OuterWorldConversation
+          inventory={save.collectedClues}
+          knowledge={save.player.knowledge}
+          innerWorldDepth={bridgeArtist.innerWorldDepth}
+          npcState={bridgeArtist}
+          onClose={() => setScreen('city')}
+          onDialogueEvaluated={handleDialogueEvaluated}
+          onEnterInnerWorld={() => setScreen('innerWorld')}
+          onEndingTriggered={() => setScreen('aftermath')}
+        />
+      );
+    }
+
+    if (screen === 'innerWorld') {
+      return (
+        <BridgePainterInnerWorld
+          onReturnToSurface={(depth) => {
+            setInnerWorldDepth(depth);
+            if (depth >= 3) {
+              completeNpcSuccess('bridge_artist');
+              setScreen('aftermath');
+            } else {
+              setScreen('conversation');
+            }
+          }}
+        />
+      );
+    }
+
+    if (screen === 'dictionary') {
+      return <EmotionDictionaryPage onBack={() => setScreen(returnScreen)} />;
+    }
+
+    if (screen === 'aftermath') {
+      return (
+        <AftermathReport
+          save={save}
+          onBack={() => setScreen(returnScreen === 'title' ? 'city' : returnScreen)}
+          onOpenReconciliation={() => setScreen('reconciliation')}
+        />
+      );
+    }
+
+    if (screen === 'reconciliation') {
+      return (
+        <SelfReconciliationPortal
+          save={save}
+          onBack={() => setScreen('city')}
+          onRestart={resetAndReturnTitle}
+        />
+      );
+    }
+
     return (
-      <TitlePortal
-        onStart={() => setScreen('city')}
-        onOpenTavern={() => openScreenWithReturn('tavern')}
+      <OuterWorldExplorer
+        save={save}
+        collectClue={collectClue}
+        setCurrentLocation={setCurrentLocation}
+        resetSave={resetAndReturnTitle}
+        onOpenConversation={() => setScreen('conversation')}
         onOpenDictionary={() => openScreenWithReturn('dictionary')}
+        onOpenTavern={() => openScreenWithReturn('tavern')}
         onOpenReport={() => openScreenWithReturn('aftermath')}
       />
     );
-  }
-
-  if (screen === 'tavern') {
-    return (
-      <SubconsciousTavern
-        save={save}
-        onBack={() => setScreen(returnScreen)}
-        onEnterCity={() => setScreen('city')}
-        onOpenReport={() => openScreenWithReturn('aftermath')}
-      />
-    );
-  }
-
-  if (screen === 'conversation') {
-    return (
-      <OuterWorldConversation
-        inventory={save.collectedClues}
-        knowledge={save.player.knowledge}
-        innerWorldDepth={bridgeArtist.innerWorldDepth}
-        npcState={bridgeArtist}
-        onClose={() => setScreen('city')}
-        onDialogueEvaluated={handleDialogueEvaluated}
-        onEnterInnerWorld={() => setScreen('innerWorld')}
-        onEndingTriggered={() => setScreen('aftermath')}
-      />
-    );
-  }
-
-  if (screen === 'innerWorld') {
-    return (
-      <BridgePainterInnerWorld
-        onReturnToSurface={(depth) => {
-          setInnerWorldDepth(depth);
-          if (depth >= 3) {
-            completeNpcSuccess('bridge_artist');
-            setScreen('aftermath');
-          } else {
-            setScreen('conversation');
-          }
-        }}
-      />
-    );
-  }
-
-  if (screen === 'dictionary') {
-    return <EmotionDictionaryPage onBack={() => setScreen(returnScreen)} />;
-  }
-
-  if (screen === 'aftermath') {
-    return (
-      <AftermathReport
-        save={save}
-        onBack={() => setScreen(returnScreen === 'title' ? 'city' : returnScreen)}
-        onOpenReconciliation={() => setScreen('reconciliation')}
-      />
-    );
-  }
-
-  if (screen === 'reconciliation') {
-    return (
-      <SelfReconciliationPortal
-        save={save}
-        onBack={() => setScreen('city')}
-        onRestart={resetAndReturnTitle}
-      />
-    );
-  }
+  })();
 
   return (
-    <OuterWorldExplorer
-      save={save}
-      collectClue={collectClue}
-      setCurrentLocation={setCurrentLocation}
-      resetSave={resetAndReturnTitle}
-      onOpenConversation={() => setScreen('conversation')}
-      onOpenDictionary={() => openScreenWithReturn('dictionary')}
-      onOpenTavern={() => openScreenWithReturn('tavern')}
-      onOpenReport={() => openScreenWithReturn('aftermath')}
-    />
+    <>
+      {content}
+      {import.meta.env.DEV && debugActive && (
+        <NarrativeDebugOverlay currentScreen={screen} />
+      )}
+    </>
   );
 }

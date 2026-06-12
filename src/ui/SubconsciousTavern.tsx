@@ -1,4 +1,4 @@
-import { GlimmerButton, GlassPanel, GuiFrame, MeterBar } from '../components';
+import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import type { GameSave } from '../systems/saveSystem';
 
 type SubconsciousTavernProps = {
@@ -8,9 +8,7 @@ type SubconsciousTavernProps = {
   onOpenReport: () => void;
 };
 
-export default function SubconsciousTavern({ save, onBack, onEnterCity, onOpenReport }: SubconsciousTavernProps) {
-  const trauma = Math.min(100, save.ghosts.length * 35 + (save.npcs.bridge_artist.ending === 'failed' ? 20 : 0));
-
+export default function SubconsciousTavern({ save: _save, onBack, onEnterCity, onOpenReport }: SubconsciousTavernProps) {
   return (
     <GuiFrame tone="tavern">
       <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', gridTemplateColumns: 'minmax(320px, 520px) 1fr', gap: 28, padding: '7vh 8vw' }}>
@@ -18,11 +16,6 @@ export default function SubconsciousTavern({ save, onBack, onEnterCity, onOpenRe
           <p style={{ marginTop: 0, color: '#d9c4a6', lineHeight: 1.9 }}>
             老闆擦著一只缺口杯，眼袋很深，聲音卻很輕：「在走進別人的黑暗前，先確認你還記得自己的呼吸。」
           </p>
-          <div style={{ display: 'grid', gap: 14, marginTop: 20 }}>
-            <MeterBar label="替代性創傷壓力" value={trauma} tone="red" />
-            <MeterBar label="已掌握線索知識" value={save.player.knowledge} tone="gold" />
-            <MeterBar label="天橋畫家信任" value={save.npcs.bridge_artist.trust} tone="green" />
-          </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 24 }}>
             <GlimmerButton tone="primary" onClick={onEnterCity}>帶著提燈出門</GlimmerButton>
             <GlimmerButton onClick={onOpenReport}>查看餘波紀錄</GlimmerButton>

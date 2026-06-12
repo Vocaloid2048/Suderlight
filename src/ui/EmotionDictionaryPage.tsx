@@ -55,10 +55,10 @@ export default function EmotionDictionaryPage({ onBack }: EmotionDictionaryPageP
               }}
             >
               <div style={{ fontWeight: 700 }}>{entry.name}</div>
-              <div style={{ color: '#765d42', fontSize: 12, marginTop: 4 }}>相關線索 {entry.relatedClues.length} 項</div>
+              <div style={{ color: '#765d42', fontSize: 12, marginTop: 4 }}>相關線索：點擊查看</div>
             </button>
           ))}
-          {lockedCount > 0 && <div style={{ color: '#775f45', fontSize: 13, textAlign: 'center', paddingTop: 8 }}>尚有 {lockedCount} 個未知理解</div>}
+          {lockedCount > 0 && <div style={{ color: '#775f45', fontSize: 13, textAlign: 'center', paddingTop: 8 }}>尚有未解鎖的理解等待發現</div>}
         </GlassPanel>
 
         <GlassPanel title={selected?.name ?? '未選擇詞條'} subtitle="Welfare Card" variant="paper" style={{ minHeight: 560 }} contentStyle={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'stretch' }}>

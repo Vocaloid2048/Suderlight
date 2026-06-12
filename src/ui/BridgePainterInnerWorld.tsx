@@ -62,6 +62,12 @@ export default function BridgePainterInnerWorld({
   const handleClickObject = useCallback((obj: GalleryInteractable) => {
     setSave(s => {
       if (!s.discoveredIds.includes(obj.id)) {
+        // ---- narrative debug: record inner world discovery ----
+        if (import.meta.env.DEV) {
+          import('../store/narrativeDebugStore').then(({ useNarrativeDebugStore }) => {
+            useNarrativeDebugStore.getState().recordDiscover(obj.id);
+          });
+        }
         return { ...s, discoveredIds: [...s.discoveredIds, obj.id] };
       }
       return s;
@@ -101,6 +107,12 @@ export default function BridgePainterInnerWorld({
       }
 
       // 選了 insight:true → 更新後台理解度，顯示洞察
+      // ---- narrative debug: record inner world insight completion ----
+      if (import.meta.env.DEV) {
+        import('../store/narrativeDebugStore').then(({ useNarrativeDebugStore }) => {
+          useNarrativeDebugStore.getState().recordComplete(view.target.id);
+        });
+      }
       setUnderstanding(newUnderstanding);
       setView({ phase: 'insight_revealed', target: view.target, reward });
     },

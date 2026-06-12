@@ -1,5 +1,4 @@
-import { GlimmerButton, GlassPanel, GuiFrame, MeterBar } from '../components';
-import { bridgeArtistClues } from '../data/verticalSlice';
+import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import type { GameSave } from '../systems/saveSystem';
 
 type AftermathReportProps = {
@@ -8,18 +7,8 @@ type AftermathReportProps = {
   onOpenReconciliation: () => void;
 };
 
-function getEmpathyLabel(save: GameSave) {
-  const painter = save.npcs.bridge_artist;
-  if (painter.ending === 'success') return '溫柔的見證者';
-  if (painter.ending === 'failed') return '痛苦的切割者';
-  if (painter.trust >= 45) return '謹慎的陪伴者';
-  return '仍在門外的修復師';
-}
-
 export default function AftermathReport({ save, onBack, onOpenReconciliation }: AftermathReportProps) {
   const painter = save.npcs.bridge_artist;
-  const collectedLabels = save.collectedClues.map(clueId => bridgeArtistClues[clueId].shortLabel);
-  const exploration = Math.round((save.collectedClues.length / Object.keys(bridgeArtistClues).length) * 100);
 
   return (
     <GuiFrame tone="paper">
@@ -42,24 +31,11 @@ export default function AftermathReport({ save, onBack, onOpenReconciliation }: 
                 {painter.ending === 'failed' && '你在最後一秒要求他重新畫出春天。他收起畫布，走進天橋最暗的雨裡。空白沒有被理解，只是被再次關上。'}
                 {painter.ending === 'none' && '他的故事尚未抵達結局。雨水仍在天橋欄杆上緩慢匯聚，空白畫布等待一種不急著填滿的注視。'}
               </p>
-
-              <h3>玩家行為統計</h3>
-              <div style={{ display: 'grid', gap: 12 }}>
-                <MeterBar label="探索度" value={exploration} tone="gold" />
-                <MeterBar label="信任累積" value={painter.trust} tone="green" />
-                <MeterBar label="壓力殘留" value={painter.stress} tone="red" />
-              </div>
-
-              <div style={{ marginTop: 20, display: 'grid', gap: 8, color: '#4e3b29' }}>
-                <div>收集到的記憶錨點：{collectedLabels.length > 0 ? collectedLabels.join(' / ') : '尚未收集'}</div>
-                {painter.innerWorldDepth > 0 && (
-                  <div>
-                    理解深度：{painter.innerWorldDepth >= 3 ? '觸及了那幅沒畫完的畫' : painter.innerWorldDepth >= 2 ? '看見了簽名在逃跑' : '只看見了獎盃的亮光'}
-                  </div>
-                )}
-                <div>失敗幽靈數量：{save.ghosts.length}</div>
-                <div>心理標籤：{getEmpathyLabel(save)}</div>
-              </div>
+              {painter.innerWorldDepth > 0 && (
+                <p style={{ lineHeight: 1.9, color: '#463525', marginTop: 16 }}>
+                  你走進了他的內心世界。{painter.innerWorldDepth >= 3 ? '你觸及了那幅沒畫完的畫——他主動提起，因為他知道你本來就懂。' : painter.innerWorldDepth >= 2 ? '你看見了簽名在逃跑。他感覺到了——不是每個進去過的人，都能看到簽名。' : '你只看見了獎盃的亮光。他把你歸類為和所有人一樣——這比沒去過更糟。'}
+                </p>
+              )}
             </section>
 
             <aside style={{ display: 'grid', gap: 12 }}>

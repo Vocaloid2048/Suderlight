@@ -2,6 +2,7 @@ export { default as AftermathReport } from './AftermathReport';
 export { default as BridgePainterInnerWorld } from './BridgePainterInnerWorld';
 export { default as EmotionDictionaryPage } from './EmotionDictionaryPage';
 export { default as InnerWorldAbyss } from './InnerWorldAbyss';
+export { default as NarrativeDebugOverlay } from './NarrativeDebugOverlay';
 export { default as OuterWorldConversation } from './OuterWorldConversation';
 export { default as OuterWorldExplorer } from './OuterWorldExplorer';
 export { default as SelfReconciliationPortal } from './SelfReconciliationPortal';

@@ -155,6 +155,12 @@ export const useGameStore = create<GameStore>((set) => ({
         ending: next.npcs.bridge_artist.ending,
       };
 
+      // ---- narrative debug: capture last AI reasoning result ----
+      if (import.meta.env.DEV) {
+        const { useNarrativeDebugStore } = require('../store/narrativeDebugStore');
+        useNarrativeDebugStore.getState().setLastEvaluation(result);
+      }
+
       const finalSave = next.npcs.bridge_artist.ending === 'failed'
         ? addGhostIfNeeded(next, 'bridge_artist')
         : next;
