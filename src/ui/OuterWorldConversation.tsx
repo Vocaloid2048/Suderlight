@@ -56,7 +56,6 @@ function simulateBlankPainterReply(
   const hasNewspaper = inventory.includes('newspaper') || inventory.includes('accident_report');
   const hasSketchbook = inventory.includes('sketchbook');
   const playerTurns = history.filter(message => message.role === 'player').length;
-  const beenToInnerWorld = depth > 0;
 
   if (hasAny(input, ['我想死', '想死', '不想活', '自殺', '傷害自己'])) {
     return {
@@ -175,7 +174,6 @@ function simulateBlankPainterReply(
 
 export default function OuterWorldConversation({
   inventory,
-  knowledge,
   innerWorldDepth = 0,
   npcState,
   onClose,
@@ -183,7 +181,6 @@ export default function OuterWorldConversation({
   onEnterInnerWorld,
   onEndingTriggered,
 }: OuterWorldConversationProps) {
-  const hasBeenUnderstood = innerWorldDepth > 0;
 
   const initialSystemMessage = (() => {
     if (innerWorldDepth === 1) return '你回到了天橋。雨水仍在滴落。畫家看了你一眼，眼神像是在確認什麼——然後又移開了。';

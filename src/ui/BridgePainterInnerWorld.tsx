@@ -22,8 +22,6 @@ import {
 // ============================================================
 
 type Props = {
-  /** 從 gameStore 載入的初始探索深度 (0-3) */
-  initialDepth: number;
   /** 返回表世界時傳出最新深度 */
   onReturnToSurface: (depth: number) => void;
 };
@@ -43,7 +41,6 @@ type ViewState =
   | { phase: 'insight_revealed'; target: GalleryInteractable; reward: UnderstandingReward };
 
 export default function BridgePainterInnerWorld({
-  initialDepth,
   onReturnToSurface,
 }: Props) {
   const [save, setSave] = useState<Layer1Save>({
@@ -116,19 +113,19 @@ export default function BridgePainterInnerWorld({
   }, []);
 
   // ---- 計算深度 (0-3) ----
-  const computeDepth = (insightCount: number): number => {
-    if (insightCount === 0) return 0;
-    if (insightCount === 1) return 1;
-    if (insightCount <= 3) return 2;
+  // ---- 計算深度 (0-3) ----
+  const computeDepth = (count: number): number => {
+    if (count === 0) return 0;
+    if (count === 1) return 1;
+    if (count <= 3) return 2;
     return 3;
   };
 
   // ---- 返回表世界 ----
   const handleReturn = useCallback(() => {
-    const depth = computeDepth(insightCount);
+    const depth = computeDepth(understanding.insightIds.length);
     onReturnToSurface(depth);
-  }, [insightCount, onReturnToSurface]);
-
+  }, [understanding.insightIds.length, onReturnToSurface]);
   // ---- 派生資料 ----
   const insightFragments = getInsightFragments(understanding);
   const insightCount = understanding.insightIds.length;

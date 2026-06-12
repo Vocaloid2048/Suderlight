@@ -20,7 +20,6 @@ export default function App() {
   const setCurrentLocation = useGameStore(state => state.setCurrentLocation);
   const evaluateDialogue = useGameStore(state => state.evaluateDialogue);
   const completeNpcSuccess = useGameStore(state => state.completeNpcSuccess);
-  const failNpc = useGameStore(state => state.failNpc);
   const resetSave = useGameStore(state => state.resetSave);
   const setInnerWorldDepth = useGameStore(state => state.setInnerWorldDepth);
 
@@ -84,7 +83,6 @@ export default function App() {
   if (screen === 'innerWorld') {
     return (
       <BridgePainterInnerWorld
-        initialDepth={bridgeArtist.innerWorldDepth}
         onReturnToSurface={(depth) => {
           setInnerWorldDepth(depth);
           if (depth >= 3) {
