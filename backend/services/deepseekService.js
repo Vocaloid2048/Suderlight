@@ -70,6 +70,9 @@ async function generateNpcReply(npcId, message) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
   const systemPrompt = readPrompt(npcId);
+  
+  const ollamaUrl = process.env.OLLAMA_URL || 'http://host.docker.internal:11434';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'gemma4:e2b';
 
   // 1. 如果配置了有效的 DeepSeek API Key，則調用 DeepSeek
   if (apiKey && apiKey !== 'YOUR_KEY' && apiKey.trim() !== '') {
@@ -105,9 +108,7 @@ async function generateNpcReply(npcId, message) {
   }
 
   // 2. 如果沒有 DeepSeek 密鑰，但配置了 OLLAMA_URL，則調用 Ollama 容器
-  const ollamaUrl = process.env.OLLAMA_URL || 'http://host.docker.internal:11434';
-  const ollamaModel = process.env.OLLAMA_MODEL || 'gemma4:e2b';
-  if (ollamaUrl) {
+  else if (ollamaUrl) {
     try {
       const url = `${ollamaUrl.replace(/\/$/, '')}/api/chat`;
       const response = await fetch(url, {
@@ -151,6 +152,8 @@ async function generateNpcReply(npcId, message) {
 async function chat(messages) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+  const ollamaUrl = process.env.OLLAMA_URL || 'http://host.docker.internal:11434';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'gemma4:e2b';
 
   // 1. 如果配置了有效的 DeepSeek API Key，則調用 DeepSeek
   if (apiKey && apiKey !== 'YOUR_KEY' && apiKey.trim() !== '') {
@@ -183,9 +186,8 @@ async function chat(messages) {
   }
 
   // 2. 如果沒有 DeepSeek 密鑰，但配置了 OLLAMA_URL，則調用 Ollama 容器
-  const ollamaUrl = process.env.OLLAMA_URL || 'http://host.docker.internal:11434';
-  const ollamaModel = process.env.OLLAMA_MODEL || 'gemma4:e2b';
-  if (ollamaUrl) {
+
+  else if (ollamaUrl) {
     try {
       const url = `${ollamaUrl.replace(/\/$/, '')}/api/chat`;
       const response = await fetch(url, {

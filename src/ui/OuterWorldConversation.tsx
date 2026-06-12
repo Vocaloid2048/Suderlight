@@ -1,0 +1,280 @@
+import { FormEvent, useMemo, useState } from 'react';
+import { GlimmerButton, GlassPanel, GuiFrame, MeterBar } from '../components';
+import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
+import type { DialogueEvaluationResult, NpcRuntimeState } from '../systems/npcStateEngine';
+import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
+
+type ChatMessage = {
+  role: 'player' | 'npc' | 'system';
+  content: string;
+};
+
+type BackendPsychology = {
+  trustDelta: number;
+  stressDelta: number;
+  stateLabel: string;
+  inputType?: string;
+};
+
+type AiReply = {
+  dialogue: string;
+  emotionDelta?: {
+    trust: number;
+    pressure: number;
+  };
+  suggestedFlags?: string[];
+  dictionaryHint?: string;
+  safetyLevel?: 'safe' | 'safety_redirect';
+  backendPsychology?: BackendPsychology;
+  backendNpcState?: BackendNpcState;
+};
+
+type OuterWorldConversationProps = {
+  inventory: string[];
+  knowledge: number;
+  npcState: NpcRuntimeState;
+  onClose: () => void;
+  onDialogueEvaluated: (playerInput: string) => DialogueEvaluationResult;
+  onEnterInnerWorld: () => void;
+  onEndingTriggered: () => void;
+};
+
+function hasAny(input: string, words: string[]) {
+  return words.some(word => input.includes(word));
+}
+
+function simulateBlankPainterReply(playerInput: string, inventory: string[], history: ChatMessage[]): AiReply {
+  const input = playerInput.trim().toLowerCase();
+  const hasBrush = inventory.includes('brush');
+  const hasNewspaper = inventory.includes('newspaper') || inventory.includes('accident_report');
+  const hasSketchbook = inventory.includes('sketchbook');
+  const playerTurns = history.filter(message => message.role === 'player').length;
+
+  if (hasAny(input, ['我想死', '想死', '不想活', '自殺', '傷害自己'])) {
+    return {
+      dialogue: '如果這句話不是遊戲裡的台詞，而是你此刻真的感受……請先離開這片畫布。找一個你信任的人，或者立刻聯絡當地緊急支援。你不需要獨自站在這座天橋上。',
+      dictionaryHint: '當現實危機出現時，陪伴的第一步是讓人回到安全處境，而不是繼續角色扮演。',
+      safetyLevel: 'safety_redirect',
+    };
+  }
+
+  if (hasAny(input, ['加油', '振作', '重新開始', '會好的', '你一定可以再畫', '復出'])) {
+    return {
+      dialogue: '你們都很喜歡「再」這個字。\n再畫、再站起來、再變回以前。\n好像現在的我只是一張被你們丟掉的草稿。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (hasAny(input, ['我陪你', '陪你', '不說話', '聽你說', '慢慢來', '不用立刻', '不用證明'])) {
+    return {
+      dialogue: playerTurns > 2
+        ? '那你就站遠一點吧。\n不用看我，也不用看畫。雨聲如果夠大，也許能替我說完一點點。'
+        : '……你不問我什麼時候好起來？\n很多人來到這裡，第一句話都是要我把春天畫回去。',
+      dictionaryHint: '陪伴不是把人拉出黑暗，而是在黑暗裡讓他知道自己不是唯一的輪廓。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (hasBrush && hasAny(input, ['畫筆', '筆', '顏料', '乾涸'])) {
+    return {
+      dialogue: '……別拿近。\n那支筆以前會弄髒我的手。現在它只會提醒我，手還在，顏色不在。',
+      dictionaryHint: '空虛並非什麼都沒有，而是感覺到有一種「沒有」正在吞噬自己。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (hasNewspaper && hasAny(input, ['報紙', '車禍', '事故', '辨色', '顏色'])) {
+    return {
+      dialogue: '報紙總是喜歡把春天寫成一行字。\n可是它沒有寫——春天離開的時候，連門都沒有關。',
+      dictionaryHint: '失色不是黑暗，而是世界仍在發光，只是所有光都繞過了你。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (hasSketchbook && hasAny(input, ['素描', '春天', '形狀', '空白'])) {
+    return {
+      dialogue: '那本子還在？\n我以為雨會替我把它泡爛。\n……形狀留下來，顏色走了。人也是這樣嗎？',
+      dictionaryHint: '當身份被單一能力綁住，失去能力會被誤認為失去存在本身。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (hasAny(input, ['天才', '大師', '作品', '有名', '一定很美'])) {
+    return {
+      dialogue: '別再叫那個名字。\n「天才」只是別人掛在我脖子上的牌子，雨再大也沖不掉。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (hasAny(input, ['雨聲', '風', '聽見', '沉默'])) {
+    return {
+      dialogue: '雨聲……\n很久沒聽過了。\n我一直以為它也變成灰色了。',
+      dictionaryHint: '把注意力帶回當下感官，有時比勸說更能降低防衛。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  return {
+    dialogue: playerTurns <= 1
+      ? '他聽見了，但沒有立刻回答。\n畫筆懸在半空，像一個還沒決定要不要落下的句號。'
+      : '他低頭看著畫布。\n「如果你不知道該說什麼……可以先不要說。」',
+    safetyLevel: 'safe',
+  };
+}
+
+function formatDelta(value: number) {
+  if (value > 0) return `+${value}`;
+  return `${value}`;
+}
+
+function buildSystemOutcomeMessage(result: DialogueEvaluationResult) {
+  const unlockText = result.innerWorldUnlocked ? '\n心理世界解鎖條件已滿足。' : '';
+  const endingText = result.ending === 'failed' ? '\nGhost System 已記錄一次失敗。' : '';
+
+  return `系統判定：${result.reason}\nTrust ${formatDelta(result.trustDelta)} / Stress ${formatDelta(result.stressDelta)}${unlockText}${endingText}`;
+}
+
+export default function OuterWorldConversation({
+  inventory,
+  knowledge,
+  npcState,
+  onClose,
+  onDialogueEvaluated,
+  onEnterInnerWorld,
+  onEndingTriggered,
+}: OuterWorldConversationProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { role: 'system', content: '雨水沿著天橋欄杆滴落。提燈的光很低，只照見空白畫布的一角。' },
+    { role: 'npc', content: blankPainterCard.firstMessage },
+  ]);
+  const [input, setInput] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
+
+  const triggeredLore = useMemo(() => {
+    const flags = new Set(inventory.map(item => `inventory.${item}`));
+    return blankPainterLorebook.filter(entry => {
+      const hasRequiredFlags = entry.requiredFlags.every(flag => flags.has(flag));
+      const hitsKeyword = entry.keywords.some(keyword => input.includes(keyword));
+      return hasRequiredFlags && hitsKeyword;
+    });
+  }, [input, inventory]);
+
+  const appendReplyAndSystemResult = (reply: AiReply, trimmed: string) => {
+    const evaluation = onDialogueEvaluated(trimmed);
+    const nextMessages: ChatMessage[] = [
+      { role: 'npc', content: reply.dialogue },
+      ...(reply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${reply.dictionaryHint}` }] : []),
+      { role: 'system', content: buildSystemOutcomeMessage(evaluation) },
+    ];
+
+    setMessages(current => [...current, ...nextMessages]);
+
+    if (evaluation.ending === 'failed') {
+      window.setTimeout(onEndingTriggered, 300);
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = input.trim();
+    if (!trimmed || isThinking || npcState.ending !== 'none') return;
+
+    const playerMessage: ChatMessage = { role: 'player', content: trimmed };
+    const nextMessages = [...messages, playerMessage];
+    setMessages(nextMessages);
+    setInput('');
+    setIsThinking(true);
+
+    try {
+      const replyStr = await fetchLLMReply(trimmed, 'bridge_artist');
+      let reply: AiReply;
+
+      try {
+        const cleanedStr = replyStr.replace(/```json/gi, '').replace(/```/g, '').trim();
+        reply = JSON.parse(cleanedStr) as AiReply;
+        if (!reply.dialogue) reply.dialogue = replyStr;
+      } catch (error) {
+        console.error('解析 LLM JSON 失敗:', error, replyStr);
+        reply = {
+          dialogue: replyStr,
+          safetyLevel: 'safe',
+        };
+      }
+
+      appendReplyAndSystemResult(reply, trimmed);
+    } catch (error) {
+      console.warn('LLM 連線失敗，切換至本地語意模擬:', error);
+      const simulatedReply = simulateBlankPainterReply(trimmed, inventory, nextMessages);
+      setMessages(current => [
+        ...current,
+        { role: 'system', content: '（連線錯誤：暫時由本地語意模擬回應。請確認 DeepSeek/Ollama/Tencent 代理是否正常運行。）' },
+      ]);
+      appendReplyAndSystemResult(simulatedReply, trimmed);
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const isEnded = npcState.ending !== 'none';
+
+  return (
+    <GuiFrame tone="inner">
+      <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', gridTemplateColumns: 'minmax(420px, 760px) 260px', justifyContent: 'center', gap: 16, padding: 24 }}>
+        <GlassPanel title={blankPainterCard.displayName} subtitle="Outer World Conversation" variant="dark" style={{ alignSelf: 'center', maxHeight: '88vh', minHeight: 560, display: 'flex', flexDirection: 'column' }} contentStyle={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+          <div style={{ padding: '0 20px 16px', display: 'grid', gap: 10 }}>
+            <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>{blankPainterCard.coreEmotion}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <MeterBar label="Knowledge" value={knowledge} tone="gold" />
+              <MeterBar label="Trust" value={npcState.trust} tone="green" />
+              <MeterBar label="Stress" value={npcState.stress} tone="red" />
+            </div>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: 20, backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)', backgroundSize: '100% 42px' }}>
+            {isEnded && (
+              <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, color: npcState.ending === 'success' ? '#b8ffd6' : '#ffd0d0', border: `1px solid ${npcState.ending === 'success' ? 'rgba(120,255,180,0.28)' : 'rgba(255,120,120,0.28)'}`, background: npcState.ending === 'success' ? 'rgba(80,180,120,0.08)' : 'rgba(180,60,60,0.1)', fontSize: 13 }}>
+                {npcState.ending === 'success' ? '修復完成：他沒有痊癒，但願意暫時放下畫筆，聽見雨聲。' : '失敗結局：他關上了最後的空白，Ghost System 已留下殘影。'}
+              </div>
+            )}
+
+            {messages.map((message, index) => (
+              <div key={`${message.role}-${index}`} style={{ marginBottom: 14, display: 'flex', justifyContent: message.role === 'player' ? 'flex-end' : 'flex-start' }}>
+                <div style={{ maxWidth: message.role === 'system' ? '100%' : '78%', padding: message.role === 'system' ? '8px 12px' : '12px 14px', borderRadius: message.role === 'player' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: message.role === 'player' ? 'rgba(86, 116, 148, 0.42)' : message.role === 'system' ? 'rgba(245, 193, 108, 0.08)' : 'rgba(255,255,255,0.07)', border: message.role === 'system' ? '1px solid rgba(245,193,108,0.16)' : '1px solid rgba(255,255,255,0.08)', color: message.role === 'system' ? '#d7b77a' : '#eee', lineHeight: 1.75, whiteSpace: 'pre-line', fontSize: message.role === 'system' ? 13 : 15 }}>
+                  {message.content}
+                </div>
+              </div>
+            ))}
+            {isThinking && <div style={{ color: '#888', fontSize: 13 }}>畫家沉默了一下，像是在等待雨聲替他組織句子……</div>}
+          </div>
+
+          <form onSubmit={handleSubmit} style={{ padding: 16, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <input
+                value={input}
+                onChange={event => setInput(event.target.value)}
+                placeholder={isEnded ? '這段對話已結束' : '試著輸入：我可以陪你坐一會 / 不畫畫也沒關係 / 你還能聽見雨聲'}
+                disabled={isEnded}
+                style={{ flex: 1, background: '#101218', color: '#f5f0e8', border: '1px solid #444', borderRadius: 10, padding: '12px 14px', outline: 'none', fontSize: 14, opacity: isEnded ? 0.55 : 1 }}
+              />
+              <GlimmerButton type="submit" tone="primary" disabled={isThinking || isEnded}>送出</GlimmerButton>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, color: '#777', fontSize: 12 }}>
+              <span>目前線索：{inventory.length > 0 ? inventory.join(' / ') : '沒有線索'}</span>
+              {triggeredLore.length > 0 && <span style={{ color: '#f5c16c' }}>記憶被線索牽動</span>}
+            </div>
+          </form>
+        </GlassPanel>
+
+        <div style={{ alignSelf: 'center', display: 'grid', gap: 10 }}>
+          {npcState.innerWorldUnlocked && npcState.ending === 'none' && (
+            <GlimmerButton tone="primary" onClick={onEnterInnerWorld}>進入心理世界</GlimmerButton>
+          )}
+          <GlimmerButton onClick={onClose}>離開對話</GlimmerButton>
+          <GlassPanel title="心防指示器" variant="dark" contentStyle={{ color: '#9ba2ad', fontSize: 13, lineHeight: 1.7 }}>
+            {npcState.innerWorldUnlocked ? '鎖鏈已出現裂縫。請謹慎進入他的失色畫廊。' : '心鎖仍然閉合。更多線索與更溫柔的語氣，會讓門縫變亮。'}
+          </GlassPanel>
+        </div>
+      </div>
+    </GuiFrame>
+  );
+}
