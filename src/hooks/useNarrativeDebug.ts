@@ -3,7 +3,7 @@
 // Activation: Ctrl+Shift+D  |  Konami Code  |  F8 toggle
 // ============================================================
 
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useNarrativeDebugStore } from '../store/narrativeDebugStore';
 
 const KONAMI = [

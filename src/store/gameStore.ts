@@ -157,8 +157,9 @@ export const useGameStore = create<GameStore>((set) => ({
 
       // ---- narrative debug: capture last AI reasoning result ----
       if (import.meta.env.DEV) {
-        const { useNarrativeDebugStore } = require('../store/narrativeDebugStore');
-        useNarrativeDebugStore.getState().setLastEvaluation(result);
+        void import('../store/narrativeDebugStore').then(mod => {
+          mod.useNarrativeDebugStore.getState().setLastEvaluation(result);
+        }).catch(() => {});
       }
 
       const finalSave = next.npcs.bridge_artist.ending === 'failed'
