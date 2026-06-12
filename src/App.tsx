@@ -3,8 +3,8 @@ import { useGameStore } from './store/gameStore';
 import type { DialogueEvaluationResult } from './systems/npcStateEngine';
 import {
   AftermathReport,
+  BridgePainterInnerWorld,
   EmotionDictionaryPage,
-  InnerWorldAbyss,
   OuterWorldConversation,
   OuterWorldExplorer,
   SelfReconciliationPortal,
@@ -22,6 +22,7 @@ export default function App() {
   const completeNpcSuccess = useGameStore(state => state.completeNpcSuccess);
   const failNpc = useGameStore(state => state.failNpc);
   const resetSave = useGameStore(state => state.resetSave);
+  const setInnerWorldDepth = useGameStore(state => state.setInnerWorldDepth);
 
   const [screen, setScreen] = useState<Screen>('title');
   const [returnScreen, setReturnScreen] = useState<Screen>('city');
@@ -70,6 +71,7 @@ export default function App() {
       <OuterWorldConversation
         inventory={save.collectedClues}
         knowledge={save.player.knowledge}
+        innerWorldDepth={bridgeArtist.innerWorldDepth}
         npcState={bridgeArtist}
         onClose={() => setScreen('city')}
         onDialogueEvaluated={handleDialogueEvaluated}
@@ -81,16 +83,16 @@ export default function App() {
 
   if (screen === 'innerWorld') {
     return (
-      <InnerWorldAbyss
-        npcState={bridgeArtist}
-        onBack={() => setScreen('city')}
-        onResolveSuccess={() => {
-          completeNpcSuccess('bridge_artist');
-          setScreen('aftermath');
-        }}
-        onResolveFailure={() => {
-          failNpc('bridge_artist');
-          setScreen('aftermath');
+      <BridgePainterInnerWorld
+        initialDepth={bridgeArtist.innerWorldDepth}
+        onReturnToSurface={(depth) => {
+          setInnerWorldDepth(depth);
+          if (depth >= 3) {
+            completeNpcSuccess('bridge_artist');
+            setScreen('aftermath');
+          } else {
+            setScreen('conversation');
+          }
         }}
       />
     );

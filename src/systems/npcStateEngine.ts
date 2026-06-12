@@ -12,6 +12,8 @@ export type NpcRuntimeState = {
   innerWorldUnlocked: boolean;
   ending: NpcEnding;
   flags: string[];
+  /** 心理世界探索深度：0=未進入, 1=理解不足, 2=理解中等, 3=理解很深 */
+  innerWorldDepth: number;
 };
 
 export type DialogueEvaluationContext = {
@@ -58,6 +60,7 @@ export function createBridgeArtistState(): NpcRuntimeState {
     innerWorldUnlocked: false,
     ending: 'none',
     flags: [],
+    innerWorldDepth: 0,
   };
 }
 
@@ -72,6 +75,7 @@ export function createVictorState(): NpcRuntimeState {
     innerWorldUnlocked: false,
     ending: 'none',
     flags: [],
+    innerWorldDepth: 0,
   };
 }
 

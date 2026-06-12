@@ -29,7 +29,16 @@ export default function AftermathReport({ save, onBack, onOpenReconciliation }: 
             <section>
               <h3 style={{ marginTop: 0 }}>靈魂軌跡：天橋畫家</h3>
               <p style={{ lineHeight: 1.9, color: '#463525' }}>
-                {painter.ending === 'success' && '你進入了他的「失色畫廊」。因為你選擇了傾聽而非強行填色，他在現實中仍看不見色彩，卻第一次允許自己只是坐著聽雨。'}
+                {painter.ending === 'success' && (
+                  <>
+                    你進入了他的「榮耀美術館」。
+                    {painter.innerWorldDepth >= 3
+                      ? '你看見了獎盃的重量、簽名的變化、以及那幅沒畫完的畫。你讓他自己說出最不敢說的話——「我怕畫完之後，就再也沒有理由站在這座橋上了。」'
+                      : painter.innerWorldDepth >= 2
+                        ? '你看見了簽名的逃跑、被讚美淹沒的孤獨。你選擇了理解而非消費他的痛苦。'
+                        : '因為你選擇了傾聽而非強行填色，他在現實中仍看不見色彩，卻第一次允許自己只是坐著聽雨。'}
+                  </>
+                )}
                 {painter.ending === 'failed' && '你在最後一秒要求他重新畫出春天。他收起畫布，走進天橋最暗的雨裡。空白沒有被理解，只是被再次關上。'}
                 {painter.ending === 'none' && '他的故事尚未抵達結局。雨水仍在天橋欄杆上緩慢匯聚，空白畫布等待一種不急著填滿的注視。'}
               </p>
@@ -43,6 +52,11 @@ export default function AftermathReport({ save, onBack, onOpenReconciliation }: 
 
               <div style={{ marginTop: 20, display: 'grid', gap: 8, color: '#4e3b29' }}>
                 <div>收集到的記憶錨點：{collectedLabels.length > 0 ? collectedLabels.join(' / ') : '尚未收集'}</div>
+                {painter.innerWorldDepth > 0 && (
+                  <div>
+                    理解深度：{painter.innerWorldDepth >= 3 ? '觸及了那幅沒畫完的畫' : painter.innerWorldDepth >= 2 ? '看見了簽名在逃跑' : '只看見了獎盃的亮光'}
+                  </div>
+                )}
                 <div>失敗幽靈數量：{save.ghosts.length}</div>
                 <div>心理標籤：{getEmpathyLabel(save)}</div>
               </div>

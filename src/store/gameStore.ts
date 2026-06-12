@@ -27,6 +27,8 @@ type GameStore = {
   completeNpcSuccess: (npcId: NpcId) => void;
   failNpc: (npcId: NpcId) => void;
   resetSave: () => void;
+  /** 設定橋上畫家的心理世界探索深度 (0-3) */
+  setInnerWorldDepth: (depth: number) => void;
 };
 
 function cloneSave(save: GameSave): GameSave {
@@ -184,6 +186,17 @@ export const useGameStore = create<GameStore>((set) => ({
     const fresh = createInitialSave();
     persistSave(fresh);
     set({ save: fresh });
+  },
+
+  setInnerWorldDepth: (depth) => {
+    set(state => {
+      const next = cloneSave(state.save);
+      next.npcs.bridge_artist = {
+        ...next.npcs.bridge_artist,
+        innerWorldDepth: Math.max(next.npcs.bridge_artist.innerWorldDepth, depth),
+      };
+      return { save: persistAndReturn(next) };
+    });
   },
 }));
 
