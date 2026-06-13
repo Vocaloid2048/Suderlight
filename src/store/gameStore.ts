@@ -11,6 +11,7 @@ import {
 } from '../systems/npcStateEngine';
 import { clearSave, createInitialSave, loadSave, loadSaveFromBackend, persistSave, syncSaveToBackend, type GameSave, type GhostRecord } from '../systems/saveSystem';
 import { getPlayerId } from '../lib/playerId';
+import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
 
 export type CollectClueResult = {
   clueId: ClueId;
@@ -34,6 +35,8 @@ type GameStore = {
   loadRemoteSave: () => Promise<void>;
   /** 從本地存檔初始化時同步到後端 */
   initAndSync: () => Promise<void>;
+  /** Playtest: 強制滿足內心世界解鎖條件 */
+  forceUnlockInnerWorld: () => void;
 };
 
 function cloneSave(save: GameSave): GameSave {
@@ -129,6 +132,17 @@ export const useGameStore = create<GameStore>((set) => ({
       return { save: persistAndReturn(next) };
     });
 
+    // ---- playtest: log clue collection ----
+    if (isPlaytestEnabled() && !result.alreadyCollected) {
+      void import('../store/narrativePlaytestStore').then(mod => {
+        mod.useNarrativePlaytestStore.getState().pushLog({
+          type: 'clue',
+          message: `收集線索: ${result.label}`,
+          detail: `知識+${result.knowledgeAdded}${result.unlockedNow ? ', 解鎖內心世界' : ''}`,
+        });
+      }).catch(() => {});
+    }
+
     return result;
   },
 
@@ -162,10 +176,17 @@ export const useGameStore = create<GameStore>((set) => ({
         ending: next.npcs.bridge_artist.ending,
       };
 
-      // ---- narrative debug: capture last AI reasoning result ----
-      if (import.meta.env.DEV) {
-        void import('../store/narrativeDebugStore').then(mod => {
-          mod.useNarrativeDebugStore.getState().setLastEvaluation(result);
+      // ---- playtest: capture AI reasoning + state change ----
+      if (isPlaytestEnabled()) {
+        void import('../store/narrativePlaytestStore').then(mod => {
+          const store = mod.useNarrativePlaytestStore.getState();
+          store.setLastEvaluation(result);
+          // Push to event log
+          store.pushLog({
+            type: 'dialogue',
+            message: `對話評估: ${result.reason.slice(0, 40)}...`,
+            detail: `信任${result.trustDelta >= 0 ? '+' : ''}${result.trustDelta}, 壓力${result.stressDelta >= 0 ? '+' : ''}${result.stressDelta}`,
+          });
         }).catch(() => {});
       }
 
@@ -232,6 +253,21 @@ export const useGameStore = create<GameStore>((set) => ({
     if (state) {
       await syncSaveToBackend(state);
     }
+  },
+
+  /** Playtest: 強制滿足內心世界解鎖條件 (F7) */
+  forceUnlockInnerWorld: () => {
+    set(state => {
+      const next = cloneSave(state.save);
+      next.player.knowledge = Math.max(next.player.knowledge, next.npcs.bridge_artist.knowledgeRequired);
+      next.npcs.bridge_artist = {
+        ...next.npcs.bridge_artist,
+        trust: Math.max(next.npcs.bridge_artist.trust, next.npcs.bridge_artist.trustRequired),
+        innerWorldUnlocked: true,
+        flags: Array.from(new Set([...next.npcs.bridge_artist.flags, 'inner_world_unlocked'])),
+      };
+      return { save: persistAndReturn(next) };
+    });
   },
 }));
 

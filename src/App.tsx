@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useGameStore } from './store/gameStore';
 import type { DialogueEvaluationResult } from './systems/npcStateEngine';
-import { useNarrativeDebug } from './hooks/useNarrativeDebug';
+import { useNarrativePlaytest } from './hooks/narrativePlaytest';
+import { useNarrativePlaytestStore } from './store/narrativePlaytestStore';
+import { isPlaytestEnabled } from './hooks/narrativePlaytest';
 import ErrorBoundary from './components/ErrorBoundary';
 import {
   AftermathReport,
   BridgePainterInnerWorld,
+  ChapterSelectorModal,
   EmotionDictionaryPage,
-  NarrativeDebugOverlay,
+  NarrativePlaytestDashboard,
   OuterWorldConversation,
   OuterWorldExplorer,
   SelfReconciliationPortal,
@@ -25,6 +28,7 @@ export default function App() {
   const completeNpcSuccess = useGameStore(state => state.completeNpcSuccess);
   const resetSave = useGameStore(state => state.resetSave);
   const setInnerWorldDepth = useGameStore(state => state.setInnerWorldDepth);
+  const forceUnlockInnerWorld = useGameStore(state => state.forceUnlockInnerWorld);
   const initAndSync = useGameStore(state => state.initAndSync);
 
   // 启动时同步存档到后端（支持异地登录恢复）
@@ -35,8 +39,31 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('title');
   const [returnScreen, setReturnScreen] = useState<Screen>('city');
 
-  // ---- Narrative Debug: Ctrl+Shift+D | Konami | F8 (DEV only) ----
-  const { active: debugActive } = useNarrativeDebug();
+  // ---- Playtest callbacks ----
+  const onForceUnlock = useCallback(() => {
+    forceUnlockInnerWorld();
+  }, [forceUnlockInnerWorld]);
+
+  const onEnterInnerWorld = useCallback(() => {
+    // Navigate to inner world if unlocked, or just force the screen
+    setReturnScreen(screen === 'innerWorld' ? 'city' : screen);
+    setScreen('innerWorld');
+  }, [screen]);
+
+  const onSelectChapter = useCallback((depth: number) => {
+    // Set depth and enter inner world
+    setInnerWorldDepth(depth - 1); // depth starts at 1
+    setReturnScreen(screen === 'innerWorld' ? 'city' : screen);
+    setScreen('innerWorld');
+  }, [screen, setInnerWorldDepth]);
+
+  // ---- Narrative Playtest: hotkeys + QA panel ----
+  const { active: playtestActive, demoMode } = useNarrativePlaytest({
+    onForceUnlock,
+    onEnterInnerWorld,
+    onSelectChapter,
+  });
+  const chapterSelectorOpen = useNarrativePlaytestStore((s) => s.chapterSelectorOpen);
 
   const bridgeArtist = save.npcs.bridge_artist;
 
@@ -150,8 +177,35 @@ export default function App() {
   return (
     <ErrorBoundary>
       {content}
-      {import.meta.env.DEV && debugActive && (
-        <NarrativeDebugOverlay currentScreen={screen} />
+
+      {/* Playtest QA Dashboard */}
+      {isPlaytestEnabled() && playtestActive && !demoMode && (
+        <NarrativePlaytestDashboard currentScreen={screen} />
+      )}
+
+      {/* Chapter Selector Modal (Shift+F9) */}
+      {chapterSelectorOpen && (
+        <ChapterSelectorModal onSelectChapter={onSelectChapter} />
+      )}
+
+      {/* Demo Mode indicator (subtle) */}
+      {demoMode && (
+        <div style={{
+          position: 'fixed',
+          bottom: 8,
+          right: 8,
+          zIndex: 100000,
+          padding: '4px 10px',
+          borderRadius: 4,
+          background: 'rgba(255,152,0,0.25)',
+          color: '#ff9800',
+          fontSize: 10,
+          fontFamily: "'JetBrains Mono', monospace",
+          backdropFilter: 'blur(4px)',
+          pointerEvents: 'none',
+        }}>
+          🎬 DEMO MODE · F10 to exit
+        </div>
       )}
     </ErrorBoundary>
   );

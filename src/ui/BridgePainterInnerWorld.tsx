@@ -16,6 +16,7 @@ import {
   hasInsight,
   type UnderstandingState,
 } from '../systems/understandingSystem';
+import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
 
 // ============================================================
 // Props
@@ -62,10 +63,12 @@ export default function BridgePainterInnerWorld({
   const handleClickObject = useCallback((obj: GalleryInteractable) => {
     setSave(s => {
       if (!s.discoveredIds.includes(obj.id)) {
-        // ---- narrative debug: record inner world discovery ----
-        if (import.meta.env.DEV) {
-          import('../store/narrativeDebugStore').then(({ useNarrativeDebugStore }) => {
-            useNarrativeDebugStore.getState().recordDiscover(obj.id);
+        // ---- playtest: record inner world discovery ----
+        if (isPlaytestEnabled()) {
+          import('../store/narrativePlaytestStore').then(({ useNarrativePlaytestStore }) => {
+            const store = useNarrativePlaytestStore.getState();
+            store.recordDiscover(obj.id);
+            store.pushLog({ type: 'inner_world', message: `發現: ${obj.name || obj.id}` });
           });
         }
         return { ...s, discoveredIds: [...s.discoveredIds, obj.id] };
@@ -107,10 +110,12 @@ export default function BridgePainterInnerWorld({
       }
 
       // 選了 insight:true → 更新後台理解度，顯示洞察
-      // ---- narrative debug: record inner world insight completion ----
-      if (import.meta.env.DEV) {
-        import('../store/narrativeDebugStore').then(({ useNarrativeDebugStore }) => {
-          useNarrativeDebugStore.getState().recordComplete(view.target.id);
+      // ---- playtest: record inner world insight completion ----
+      if (isPlaytestEnabled()) {
+        import('../store/narrativePlaytestStore').then(({ useNarrativePlaytestStore }) => {
+          const store = useNarrativePlaytestStore.getState();
+          store.recordComplete(view.target.id);
+          store.pushLog({ type: 'inner_world', message: `獲得Insight: ${view.target.name || view.target.id}`, detail: `理解+${reward.amount}: ${reward.reason.slice(0, 30)}...` });
         });
       }
       setUnderstanding(newUnderstanding);
