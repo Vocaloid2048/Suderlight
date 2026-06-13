@@ -37,7 +37,7 @@ router.post('/', async (req, res, next) => {
     }
 
     // 1. 若已經走到結局，直接返回結局文本
-    if (npc.ending) {
+    if (npc.ending !== 'none') {
       return res.json({
         text: npc.ending === 'success'
           ? '雨聲還在。他沒有痊癒，但沒有再把自己藏進空白裡。'
