@@ -24,19 +24,19 @@ function loadCharacterCard(npcId) {
   return readJson(characterPath);
 }
 
-function buildPrompt(npcId, playerMessage, recentInputTypes = []) {
+function buildPrompt(npcId, playerMessage, recentInputTypes = [], playerId = null) {
   const card = loadCharacterCard(npcId);
   const npc = getCardData(card);
   
-  // 1. 世界書選擇性檢索與過濾
-  const triggeredEntries = worldbookService.getTriggeredEntries(npcId, playerMessage);
+  // 1. 世界書選擇性檢索與過濾（按球员隔离）
+  const triggeredEntries = worldbookService.getTriggeredEntries(npcId, playerMessage, playerId);
   const worldbookText = formatWorldbookEntries(triggeredEntries);
 
-  // 2. 獲取長期情感與修復摘要
-  const longTermSummary = memoryService.getSummary(npcId);
+  // 2. 獲取長期情感與修復摘要（按球员隔离）
+  const longTermSummary = playerId ? memoryService.getSummary(npcId, playerId) : '';
 
-  // 3. 獲取最近 20 條對話歷史 (滑動窗口)
-  const recentHistory = memoryService.getRecentDialogue(npcId, 20);
+  // 3. 獲取最近 20 條對話歷史（按球员隔离）
+  const recentHistory = playerId ? memoryService.getRecentDialogue(npcId, 20, playerId) : [];
 
   const name = npc.name || card.name || npcId;
   const description = npc.description || card.description || '';

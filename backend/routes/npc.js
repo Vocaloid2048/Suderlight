@@ -2,18 +2,20 @@ const express = require('express');
 const saveService = require('../services/saveService');
 const npcStateEngine = require('../services/npcStateEngine');
 const ghostEngine = require('../services/ghostEngine');
+const { NotFoundError, ConflictError } = require('../middleware/errors');
 
 const router = express.Router();
 
 router.get('/:id', (req, res, next) => {
   try {
-    const npc = saveService.getNpc(req.params.id);
+    const playerId = req.playerId;
+    const npc = saveService.getNpc(req.params.id, playerId);
     if (!npc) {
-      return res.status(404).json({ error: 'NPC not found' });
+      throw new NotFoundError('NPC', req.params.id);
     }
 
     npcStateEngine.checkUnlock(npc);
-    saveService.saveNpc(npc);
+    saveService.saveNpc(npc, playerId);
 
     res.json({
       trust: npc.trust,
@@ -29,19 +31,20 @@ router.get('/:id', (req, res, next) => {
 
 router.post('/:id/ending', (req, res, next) => {
   try {
+    const playerId = req.playerId;
     const { ending } = req.body || {};
-    const npc = saveService.getNpc(req.params.id);
+    const npc = saveService.getNpc(req.params.id, playerId);
 
     if (!npc) {
-      return res.status(404).json({ error: 'NPC not found' });
+      throw new NotFoundError('NPC', req.params.id);
     }
 
     if (ending === 'success' && !npc.innerWorldUnlocked) {
-      return res.status(409).json({ error: 'Inner world is not unlocked yet' });
+      throw new ConflictError('Inner world is not unlocked yet');
     }
 
     npcStateEngine.setEnding(npc, ending);
-    saveService.saveNpc(npc);
+    saveService.saveNpc(npc, playerId);
 
     if (ending === 'failed') {
       ghostEngine.addFailedNPC(npc.id);

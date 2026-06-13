@@ -1,9 +1,35 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 const dictionaryData = require('../data/dictionary.json');
+const logger = require('../middleware/logger');
 
-// 内存解锁状态（暂不持久化）
-const unlockedSet = new Set();
+// 持久化解锁状态到文件
+const unlockedPath = path.join(__dirname, '..', 'data', 'unlockedDictionary.json');
+
+function loadUnlockedSet() {
+  try {
+    if (fs.existsSync(unlockedPath)) {
+      const data = JSON.parse(fs.readFileSync(unlockedPath, 'utf8'));
+      return new Set(Array.isArray(data) ? data : []);
+    }
+  } catch (err) {
+    logger.warn({ err }, 'Failed to load unlocked dictionary — starting fresh');
+  }
+  return new Set();
+}
+
+function saveUnlockedSet(set) {
+  try {
+    fs.writeFileSync(unlockedPath, JSON.stringify([...set]), 'utf8');
+  } catch (err) {
+    logger.error({ err }, 'Failed to persist unlocked dictionary');
+  }
+}
+
+// 服务启动时从文件恢复
+const unlockedSet = loadUnlockedSet();
 
 /**
  * 根据线索 ID 解锁关联的心理词条
@@ -17,6 +43,9 @@ function unlockByClue(clueId) {
       unlockedSet.add(entry.id);
       newlyUnlocked.push(entry.id);
     }
+  }
+  if (newlyUnlocked.length > 0) {
+    saveUnlockedSet(unlockedSet);
   }
   return newlyUnlocked;
 }

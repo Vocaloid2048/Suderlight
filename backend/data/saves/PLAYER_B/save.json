@@ -1,0 +1,19 @@
+{
+  "player": {
+    "knowledge": 20
+  },
+  "currentLocation": "skybridge",
+  "collectedClues": [
+    "brush"
+  ],
+  "npcs": {},
+  "ghosts": [],
+  "unlockedWorldbookIds": [
+    1,
+    2,
+    3,
+    10,
+    11,
+    12
+  ]
+}

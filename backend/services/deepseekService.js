@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const config = require('../config');
+const logger = require('../middleware/logger');
 
 const promptMap = {
   bridge_artist: path.join(__dirname, '..', 'prompts', 'artist.txt'),
@@ -67,12 +69,9 @@ function fallbackReply(message) {
  * 相容舊版本呼叫方式 (以 npcId, message 進行調用)
  */
 async function generateNpcReply(npcId, message) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+  const { apiKey, model } = config.deepseek;
+  const { url: ollamaUrl, model: ollamaModel } = config.ollama;
   const systemPrompt = readPrompt(npcId);
-  
-  const ollamaUrl = process.env.OLLAMA_URL || 'http://host.docker.internal:11434';
-  const ollamaModel = process.env.OLLAMA_MODEL || 'gemma4:e2b';
 
   // 1. 如果配置了有效的 DeepSeek API Key，則調用 DeepSeek
   if (apiKey && apiKey !== 'YOUR_KEY' && apiKey.trim() !== '') {
@@ -100,18 +99,18 @@ async function generateNpcReply(npcId, message) {
         return parseDeepSeekJson(content);
       } else {
         const body = await response.text();
-        console.error(`DeepSeek API error ${response.status}: ${body}`);
+        logger.error({ status: response.status, body }, 'DeepSeek API error');
       }
     } catch (err) {
-      console.error('DeepSeek API 請求失敗，嘗試降級：', err);
+      logger.error({ err }, 'DeepSeek API request failed — falling back');
     }
   }
 
   // 2. 如果沒有 DeepSeek 密鑰，但配置了 OLLAMA_URL，則調用 Ollama 容器
   else if (ollamaUrl) {
     try {
-      const url = `${ollamaUrl.replace(/\/$/, '')}/api/chat`;
-      const response = await fetch(url, {
+      const requestUrl = `${ollamaUrl.replace(/\/$/, '')}/api/chat`;
+      const response = await fetch(requestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,10 +134,10 @@ async function generateNpcReply(npcId, message) {
         return parseDeepSeekJson(content);
       } else {
         const body = await response.text();
-        console.error(`Ollama API error ${response.status}: ${body}`);
+        logger.error({ status: response.status, body }, 'Ollama API error');
       }
     } catch (err) {
-      console.error('Ollama API 請求失敗，退回 fallbackReply：', err);
+      logger.error({ err }, 'Ollama API request failed — falling back to fallbackReply');
     }
   }
 
@@ -150,10 +149,8 @@ async function generateNpcReply(npcId, message) {
  * 核心：新版本呼叫方式 (以 promptBuilder 構建好的 messages 陣列進行調用)
  */
 async function chat(messages) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
-  const ollamaUrl = process.env.OLLAMA_URL || 'http://host.docker.internal:11434';
-  const ollamaModel = process.env.OLLAMA_MODEL || 'gemma4:e2b';
+  const { apiKey, model } = config.deepseek;
+  const { url: ollamaUrl, model: ollamaModel } = config.ollama;
 
   // 1. 如果配置了有效的 DeepSeek API Key，則調用 DeepSeek
   if (apiKey && apiKey !== 'YOUR_KEY' && apiKey.trim() !== '') {
@@ -178,19 +175,18 @@ async function chat(messages) {
         return parseDeepSeekJsonText(content);
       } else {
         const body = await response.text();
-        console.error(`DeepSeek API error ${response.status}: ${body}`);
+        logger.error({ status: response.status, body }, 'DeepSeek API error');
       }
     } catch (err) {
-      console.error('DeepSeek API 請求失敗，嘗試降級：', err);
+      logger.error({ err }, 'DeepSeek API request failed — falling back');
     }
   }
 
   // 2. 如果沒有 DeepSeek 密鑰，但配置了 OLLAMA_URL，則調用 Ollama 容器
-
   else if (ollamaUrl) {
     try {
-      const url = `${ollamaUrl.replace(/\/$/, '')}/api/chat`;
-      const response = await fetch(url, {
+      const requestUrl = `${ollamaUrl.replace(/\/$/, '')}/api/chat`;
+      const response = await fetch(requestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -211,10 +207,10 @@ async function chat(messages) {
         return parseDeepSeekJsonText(content);
       } else {
         const body = await response.text();
-        console.error(`Ollama API error ${response.status}: ${body}`);
+        logger.error({ status: response.status, body }, 'Ollama API error');
       }
     } catch (err) {
-      console.error('Ollama API 請求失敗，退回 fallback：', err);
+      logger.error({ err }, 'Ollama API request failed — falling back');
     }
   }
 

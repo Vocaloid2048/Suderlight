@@ -1,7 +1,7 @@
 const saveService = require('./saveService');
 const npcStateEngine = require('./npcStateEngine');
 
-function collectClue(clueId) {
+function collectClue(clueId, playerId) {
   const clue = saveService.getClue(clueId);
 
   if (!clue) {
@@ -12,8 +12,8 @@ function collectClue(clueId) {
     };
   }
 
-  const save = saveService.readSave();
-  const npc = saveService.getNpc(clue.npcId);
+  const save = saveService.readSave(playerId);
+  const npc = saveService.getNpc(clue.npcId, playerId);
 
   if (!npc) {
     return {
@@ -31,11 +31,11 @@ function collectClue(clueId) {
     npc.knowledge = Math.min(100, npc.knowledge + clue.knowledge);
     npcStateEngine.checkUnlock(npc);
 
-    saveService.writeSave(save);
-    saveService.saveNpc(npc);
+    saveService.writeSave(playerId, save);
+    saveService.saveNpc(npc, playerId);
   } else {
     npcStateEngine.checkUnlock(npc);
-    saveService.saveNpc(npc);
+    saveService.saveNpc(npc, playerId);
   }
 
   return {

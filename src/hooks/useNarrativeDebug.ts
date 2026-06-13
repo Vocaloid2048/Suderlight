@@ -79,15 +79,3 @@ export function useNarrativeDebug() {
 
   return { active, toggle } as const;
 }
-
-/**
- * Convenience re-export so App.tsx imports stay clean.
- * Use `const { active } = useNarrativeDebug()` — the hook handles
- * all activation shortcuts internally.
- */
-export function useIsNarrativeDebugActive() {
-  // Only subscribe in DEV; otherwise always false
-  if (!import.meta.env.DEV) return false;
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  return useNarrativeDebugStore((s) => s.active);
-}

@@ -9,7 +9,8 @@ import {
   shouldUnlockInnerWorld,
   type DialogueEvaluationResult,
 } from '../systems/npcStateEngine';
-import { clearSave, createInitialSave, loadSave, persistSave, type GameSave, type GhostRecord } from '../systems/saveSystem';
+import { clearSave, createInitialSave, loadSave, loadSaveFromBackend, persistSave, syncSaveToBackend, type GameSave, type GhostRecord } from '../systems/saveSystem';
+import { getPlayerId } from '../lib/playerId';
 
 export type CollectClueResult = {
   clueId: ClueId;
@@ -29,6 +30,10 @@ type GameStore = {
   resetSave: () => void;
   /** 設定橋上畫家的心理世界探索深度 (0-3) */
   setInnerWorldDepth: (depth: number) => void;
+  /** 從後端加載存檔（異地登錄） */
+  loadRemoteSave: () => Promise<void>;
+  /** 從本地存檔初始化時同步到後端 */
+  initAndSync: () => Promise<void>;
 };
 
 function cloneSave(save: GameSave): GameSave {
@@ -46,6 +51,8 @@ function cloneSave(save: GameSave): GameSave {
 
 function persistAndReturn(save: GameSave) {
   persistSave(save);
+  // 异步同步到后端（不阻塞 UI）
+  syncSaveToBackend(save).catch(() => {});
   return save;
 }
 
@@ -204,6 +211,27 @@ export const useGameStore = create<GameStore>((set) => ({
       };
       return { save: persistAndReturn(next) };
     });
+  },
+
+  /** 從後端加載存檔 → 用於異地登錄場景 */
+  loadRemoteSave: async () => {
+    const playerId = getPlayerId();
+    if (!playerId) return;
+
+    const remoteSave = await loadSaveFromBackend(playerId);
+    if (!remoteSave) return;
+
+    // 將後端存檔合入本地（後端為權威來源）
+    persistSave(remoteSave);
+    set({ save: remoteSave });
+  },
+
+  /** 初始化後將本地存檔同步到後端 */
+  initAndSync: async () => {
+    const state = getCurrentSaveSnapshot();
+    if (state) {
+      await syncSaveToBackend(state);
+    }
   },
 }));
 
