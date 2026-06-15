@@ -31,6 +31,8 @@ type GameStore = {
   resetSave: () => void;
   /** 設定橋上畫家的心理世界探索深度 (0-3) */
   setInnerWorldDepth: (depth: number) => void;
+  /** 記錄心理世界層級進展 (1-4) */
+  advancePsychLayer: (layer: number) => void;
   /** 從後端加載存檔（異地登錄） */
   loadRemoteSave: () => Promise<void>;
   /** 從本地存檔初始化時同步到後端 */
@@ -45,8 +47,8 @@ function cloneSave(save: GameSave): GameSave {
     player: { ...save.player },
     collectedClues: [...save.collectedClues],
     npcs: {
-      bridge_artist: { ...save.npcs.bridge_artist, flags: [...save.npcs.bridge_artist.flags] },
-      victor: { ...save.npcs.victor, flags: [...save.npcs.victor.flags] },
+      bridge_artist: { ...save.npcs.bridge_artist, flags: [...save.npcs.bridge_artist.flags], innerWorldLayer: save.npcs.bridge_artist.innerWorldLayer ?? 0 },
+      victor: { ...save.npcs.victor, flags: [...save.npcs.victor.flags], innerWorldLayer: save.npcs.victor.innerWorldLayer ?? 0 },
     },
     ghosts: [...save.ghosts],
   };
@@ -229,6 +231,19 @@ export const useGameStore = create<GameStore>((set) => ({
       next.npcs.bridge_artist = {
         ...next.npcs.bridge_artist,
         innerWorldDepth: Math.max(next.npcs.bridge_artist.innerWorldDepth, depth),
+      };
+      return { save: persistAndReturn(next) };
+    });
+  },
+
+  /** 記錄心理世界層級進展：將 innerWorldLayer 設為完成的最大層級 */
+  advancePsychLayer: (layer) => {
+    set(state => {
+      const next = cloneSave(state.save);
+      const currentLayer = next.npcs.bridge_artist.innerWorldLayer ?? 0;
+      next.npcs.bridge_artist = {
+        ...next.npcs.bridge_artist,
+        innerWorldLayer: Math.max(currentLayer, layer),
       };
       return { save: persistAndReturn(next) };
     });

@@ -28,6 +28,7 @@ export default function App() {
   const completeNpcSuccess = useGameStore(state => state.completeNpcSuccess);
   const resetSave = useGameStore(state => state.resetSave);
   const setInnerWorldDepth = useGameStore(state => state.setInnerWorldDepth);
+  const advancePsychLayer = useGameStore(state => state.advancePsychLayer);
   const forceUnlockInnerWorld = useGameStore(state => state.forceUnlockInnerWorld);
   const initAndSync = useGameStore(state => state.initAndSync);
 
@@ -125,6 +126,7 @@ export default function App() {
         <BridgePainterInnerWorld
           onReturnToSurface={(depth) => {
             setInnerWorldDepth(depth);
+            // depth=3 means all 4 layers completed (full arc)
             if (depth >= 3) {
               completeNpcSuccess('bridge_artist');
               setScreen('aftermath');
@@ -132,6 +134,7 @@ export default function App() {
               setScreen('conversation');
             }
           }}
+          onAdvanceLayer={(layer) => advancePsychLayer(layer)}
         />
       );
     }

@@ -14,6 +14,8 @@ export type NpcRuntimeState = {
   flags: string[];
   /** 心理世界探索深度：0=未進入, 1=理解不足, 2=理解中等, 3=理解很深 */
   innerWorldDepth: number;
+  /** 最深達成的心理層級 (0=未進入, 1-4=Layer 1-4 完成) */
+  innerWorldLayer: number;
 };
 
 export type DialogueEvaluationContext = {
@@ -63,6 +65,7 @@ export function createBridgeArtistState(): NpcRuntimeState {
     ending: 'none',
     flags: [],
     innerWorldDepth: 0,
+    innerWorldLayer: 0,
   };
 }
 
@@ -78,6 +81,7 @@ export function createVictorState(): NpcRuntimeState {
     ending: 'none',
     flags: [],
     innerWorldDepth: 0,
+    innerWorldLayer: 0,
   };
 }
 
