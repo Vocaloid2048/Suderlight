@@ -135,7 +135,7 @@ const buildings: Building[] = [
     id: 'gallery',
     name: '失色畫廊',
     locationId: 'skybridge',
-    pos: { x: 17, y: 1 },
+    pos: { x: 16., y: 1 },
     size: { x: 4, y: 3 },
     tall: 260,
     baseColor: '#ec407a', // 洋紅色
@@ -365,6 +365,7 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
       isoToScreen({ x: 7.5, y: 10 }),
       isoToScreen({ x: 11.5, y: 10 }),
       isoToScreen({ x: 15.5, y: 10 }),
+      isoToScreen({ x: 18.5, y: 10 }),
       isoToScreen({ x: 17.0, y: 6.0 }), // 縱段左側懸空支撐
       isoToScreen({ x: 19.0, y: 6.0 })  // 縱段右側懸空支撐
     ];
@@ -372,9 +373,9 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
     // 四組欄杆立柱和扶手 (包覆天橋全線外圍懸空邊緣)
     const railings: Array<Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }>> = [];
 
-    // 1. 横段下边缘 y = 10 (x 从 3.0 到 17.0)
+    // 1. 横段下边缘 y = 10 (x 从 3.0 到 19.0)
     const railingA: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
-    for (let x = 3.0; x <= 17.0; x += 0.8) {
+    for (let x = 3.0; x <= 19.5; x += 0.8) {
       const p = isoToScreen({ x, y: 10 });
       railingA.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
     }
@@ -382,10 +383,13 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
 
     // 2. 横段上边缘 y = 8 (x 从 3.0 到 17.0)
     const railingB: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
-    for (let x = 3.0; x <= 17.0; x += 0.8) {
+    for (let x = 3.0; x <= 16.61; x += 0.8) {
       const p = isoToScreen({ x, y: 8 });
       railingB.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
     }
+    // 補上內側轉角交點
+    const pBLast = isoToScreen({ x: 17.0, y: 8.0 });
+    railingB.push({ p1: pBLast, p2: { left: pBLast.left, top: pBLast.top - 12 } });
     railings.push(railingB);
 
     // 3. 纵段左侧 x = 17 (y 从 4.0 到 8.0)
@@ -396,12 +400,15 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
     }
     railings.push(railingC);
 
-    // 4. 纵段右侧 x = 19 (y 从 4.0 到 8.0)
+    // 4. 纵段右侧 x = 19 (y 从 4.0 到 10.0)
     const railingD: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
-    for (let y = 4.0; y <= 8.0; y += 0.8) {
+    for (let y = 4.0; y <= 9.61; y += 0.8) {
       const p = isoToScreen({ x: 19, y });
       railingD.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
     }
+    // 補上外側轉角交點
+    const pDLast = isoToScreen({ x: 19, y: 10.0 });
+    railingD.push({ p1: pDLast, p2: { left: pDLast.left, top: pDLast.top - 12 } });
     railings.push(railingD);
 
     return { piers, railings };
@@ -758,7 +765,7 @@ export default function OuterWorldExplorer({
             const stepX = (dx / length) * PLAYER_SPEED;
             const stepY = (dy / length) * PLAYER_SPEED;
 
-            const buffer = 0.4;
+            const buffer = 1.0;
 
             const checkCollision = (pt: Point) => {
               // 1. 地圖邊界碰撞
@@ -779,11 +786,11 @@ export default function OuterWorldExplorer({
               if (save.currentLocation === 'skybridge') {
                 // 玩家只能在以下兩個平面連通的可行走區域內移動，否則視為撞牆：
                 
-                // 區域 A：天橋橫向橋面 (左端從 3.0 開始，右端延伸至 19.2，寬度 y: 8.0~10.0)
-                const inBridge = pt.x >= 2.8 && pt.x <= 19.2 && pt.y >= 7.8 && pt.y <= 10.2;
+                // 區域 A：天橋橫向橋面 (x: 3.0 ~ 19.0, y: 8.0 ~ 10.0)
+                const inBridge = pt.x >= 3.5 && pt.x <= 19.0 && pt.y >= 8.5 && pt.y <= 10.0;
                 
-                // 區域 B：通往右上角畫廊的縱向通道 (與大樓底邊完美貼合，x: 17.0~19.0，y 軸在 3.8 處大樓牆面截斷)
-                const inPassage = pt.x >= 16.8 && pt.x <= 19.2 && pt.y >= 3.8 && pt.y <= 8.2;
+                // 區域 B：通往右上角畫廊的縱向通道 (x: 17.0 ~ 19.0, y: 4.0 ~ 8.0)
+                const inPassage = pt.x >= 17.5 && pt.x <= 19.0 && pt.y >= 4.5 && pt.y <= 8.5;
 
                 if (!inBridge && !inPassage) {
                   return true;
@@ -1004,6 +1011,10 @@ export default function OuterWorldExplorer({
                     borderRadius: '50%',
                     width: 22,
                     height: 22,
+                    minWidth: 22,
+                    minHeight: 22,
+                    flexShrink: 0,
+                    flexGrow: 0,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
