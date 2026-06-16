@@ -68,7 +68,7 @@ export const bridgeArtistClues: Record<ClueId, ClueData> = {
     shortLabel: '畫筆',
     knowledge: 20,
     locationId: 'skybridge',
-    pos: { x: 15, y: 6 },
+    pos: { x: 18, y: 8.2 },
     color: '#fff6d8',
     icon: '筆',
     content: '你在潮濕的天橋角落找到一支畫筆。筆尖已經乾硬，上面殘留洗不掉的灰色顏料，像一段被迫停下來的句子。',
