@@ -108,11 +108,11 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
 
   const handleReturn = useCallback(() => onReturnToSurface(Math.min(layerNum, 3)), [layerNum, onReturnToSurface]);
 
+  const insightCount = understanding.insightIds.length;
+  const insightFragments = getInsightFragments(understanding);
   const showLayerCompleteBtn = phase.type === 'exploring' && (
     thresholdMet || (isLast && insightCount >= 3)
   );
-  const insightFragments = getInsightFragments(understanding);
-  const insightCount = understanding.insightIds.length;
   const isModalOpen = phase.type !== 'exploring';
 
   // ---- 進入畫面 ----

@@ -173,6 +173,7 @@ export default function App() {
         onOpenDictionary={() => openScreenWithReturn('dictionary')}
         onOpenTavern={() => openScreenWithReturn('tavern')}
         onOpenReport={() => openScreenWithReturn('aftermath')}
+        onEnterInnerWorld={() => setScreen('innerWorld')}
       />
     );
   })();

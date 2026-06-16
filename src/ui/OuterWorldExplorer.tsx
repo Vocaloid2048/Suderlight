@@ -27,6 +27,7 @@ type OuterWorldExplorerProps = {
   onOpenDictionary: () => void;
   onOpenTavern: () => void;
   onOpenReport: () => void;
+  onEnterInnerWorld: () => void;
 };
 
 const MAP_WIDTH = 2400;
@@ -514,6 +515,7 @@ export default function OuterWorldExplorer({
   onOpenDictionary,
   onOpenTavern,
   onOpenReport,
+  onEnterInnerWorld,
 }: OuterWorldExplorerProps) {
   const [playerPos, setPlayerPos] = useState<Point>(locations[save.currentLocation].spawn);
   const [isDragging, setIsDragging] = useState(false);
@@ -606,24 +608,42 @@ export default function OuterWorldExplorer({
 
   const interact = (targetId: EntityId) => {
     if (targetId === 'gallery_door') {
-      setModal({
-        title: '進入建築物',
-        content: `你站在失色畫廊沉重的雕花橡木門前。\n\n${bridgeArtist.ending === 'success' ? '在被開導後，這裡已經泛起了溫暖的色彩，門縫下透出令人安心的金黃色光芒。' : '這扇門被冰冷沉悶的死灰包圍，彷彿封鎖了一段不願示人的過往。'}\n\n是否推開大門進入探索？`,
-        actions: [
-          {
-            label: '推門進入',
-            tone: 'primary',
-            onClick: () => {
-              setModal({
-                title: '失色畫廊 - 內部幻境',
-                content: `【失色畫廊 · 內部】\n\n你推開了大門。此時畫廊內部呈現出一個宏大的心智空間，牆壁上掛滿了未填滿的畫布。${bridgeArtist.ending === 'success' ? '\n\n【治癒共鳴】高大的採光窗下，一道明亮柔和的暖光斜射在地板上。雨聲此時在畫廊內迴響，空洞的灰色畫布上慢慢浮現出春天的線條與輪廓，那是重生的起點。' : '\n\n【失色迴廊】四下寂靜無聲，只有陰暗的灰階霧氣漂浮。所有的作品都沒有顏色，像一座封存了辨色力與希望的宏大墓碑，這就是他封閉的內心深處。'}`,
-                actions: [{ label: '回到外表世界', onClick: () => setModal(null) }]
-              });
-            }
-          },
-          { label: '留在外面', onClick: () => setModal(null) }
-        ]
-      });
+      if (bridgeArtist.innerWorldUnlocked && bridgeArtist.ending === 'none') {
+        setModal({
+          title: '進入心理世界',
+          content: '你站在失色畫廊沉重的雕花橡木門前。\n\n此時你已解鎖了心理世界的存取權，大門正散發著玄妙的心智波動。\n\n是否推開大門，潛入畫家的心理世界（第一層：榮耀美術館）進行探索？',
+          actions: [
+            {
+              label: '潛入心理世界',
+              tone: 'primary',
+              onClick: () => {
+                setModal(null);
+                onEnterInnerWorld();
+              }
+            },
+            { label: '留在外面', onClick: () => setModal(null) }
+          ]
+        });
+      } else {
+        setModal({
+          title: '進入建築物',
+          content: `你站在失色畫廊沉重的雕花橡木門前。\n\n${bridgeArtist.ending === 'success' ? '在被開導後，這裡已經泛起了溫暖的色彩，門縫下透出令人安心的金黃色光芒。' : '這扇門被冰冷沉悶的死灰包圍，彷彿封鎖了一段不願示人的過往。'}\n\n是否推開大門進入探索？`,
+          actions: [
+            {
+              label: '推門進入',
+              tone: 'primary',
+              onClick: () => {
+                setModal({
+                  title: '失色畫廊 - 內部幻境',
+                  content: `【失色畫廊 · 內部】\n\n你推開了大門。此時畫廊內部呈現出一個宏大的心智空間，牆壁上掛滿了未填滿的畫布。${bridgeArtist.ending === 'success' ? '\n\n【治癒共鳴】高大的採光窗下，一道明亮柔和的暖光斜射在地板上。雨聲此時在畫廊內迴響，空洞的灰色畫布上慢慢浮現出春天的線條與輪廓，那是重生的起點。' : '\n\n【失色迴廊】四下寂靜無聲，只有陰暗的灰階霧氣漂浮。所有的作品都沒有顏色，像一座封存了辨色力與希望的宏大墓碑，這就是他封閉的內心深處。\n\n（提示：你尚未解鎖心理世界的探尋權限，需要與畫家進一步對話並收集更多線索）'}`,
+                  actions: [{ label: '回到外表世界', onClick: () => setModal(null) }]
+                });
+              }
+            },
+            { label: '留在外面', onClick: () => setModal(null) }
+          ]
+        });
+      }
       return;
     }
 
