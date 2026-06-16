@@ -152,8 +152,8 @@ const buildings: Building[] = [
     id: 'news_cabin',
     name: '拾光報攤',
     locationId: 'newsstand',
-    pos: { x: 4, y: 11 },
-    size: { x: 3, y: 3 },
+    pos: { x: 4, y: 11.5 },
+    size: { x: 3.5, y: 3.5 },
     tall: 130,
     baseColor: '#d84315', // 溫暖木黃橙
     windows: [
@@ -189,7 +189,7 @@ const buildings: Building[] = [
     id: 'pavilion',
     name: '林蔭涼亭',
     locationId: 'park',
-    pos: { x: 11, y: 6 },
+    pos: { x: 11, y: 6.5 },
     size: { x: 3, y: 3 },
     tall: 150,
     baseColor: '#2e7d32', // 春天嫩綠
@@ -326,22 +326,11 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
         // 區域 A：天橋橫向大路 (左端從 x = 3 開始，不超地圖邊界，右端延伸至 19 完美相交)
         [{ x: 3, y: 8 }, { x: 19, y: 8 }, { x: 19, y: 10 }, { x: 3, y: 10 }],
         // 區域 B：通往畫廊的縱向通道 (L 型的縱向，與畫廊大樓底部完全貼齊對齊，x: 17.0~19.0, y: 4.0~8.0)
-        [{ x: 17, y: 4 }, { x: 19, y: 4 }, { x: 19, y: 8 }, { x: 17, y: 8 }]
-      ];
-    } else if (locationId === 'newsstand') {
-      return [
-        [{ x: 1, y: 10 }, { x: 22, y: 10 }, { x: 22, y: 12 }, { x: 1, y: 12 }],
-        [{ x: 4, y: 9 }, { x: 10, y: 9 }, { x: 10, y: 13 }, { x: 4, y: 13 }]
-      ];
-    } else if (locationId === 'park') {
-      return [
-        [{ x: 8, y: 10 }, { x: 16, y: 10 }, { x: 16, y: 13 }, { x: 8, y: 13 }],
-        [{ x: 11, y: 6 }, { x: 14, y: 6 }, { x: 14, y: 11 }, { x: 11, y: 11 }]
-      ];
-    } else if (locationId === 'abandoned_studio') {
-      return [
-        [{ x: 14, y: 3 }, { x: 17, y: 3 }, { x: 17, y: 8 }, { x: 14, y: 8 }],
-        [{ x: 4, y: 7 }, { x: 22, y: 7 }, { x: 22, y: 10 }, { x: 4, y: 10 }]
+        [{ x: 17, y: 4 }, { x: 19, y: 4 }, { x: 19, y: 8 }, { x: 17, y: 8 }],
+        // 連接樓梯（Stairs）通道 (x: 3.0 ~ 5.0, y: 10.0 ~ 16.0) - 已向右平移 X+1
+        [{ x: 3, y: 10 }, { x: 5, y: 10 }, { x: 5, y: 16 }, { x: 3, y: 16 }],
+        // 地面直線連接大路 (x: 3.0 ~ 26.0, y: 14.0 ~ 19.0) - 貫穿報攤與公園
+        [{ x: 3, y: 16 }, { x: 26, y: 16 }, { x: 26, y: 19 }, { x: 3, y: 19 }],
       ];
     }
     return [];
@@ -359,9 +348,9 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
   const bridgeDetails = useMemo(() => {
     if (locationId !== 'skybridge') return null;
 
-    // 橋墩坐標 (横段 y = 10 上的 4 個，以及縱向通道的左側 17.0, 6.0 和右側 19.0, 6.0，共 6 個橋墩)
+    // 橋墩坐標 (横段 y = 10 上的橋墩，避開樓梯口)
     const piers = [
-      isoToScreen({ x: 3.5, y: 10 }),
+      isoToScreen({ x: 3.0, y: 10 }),
       isoToScreen({ x: 7.5, y: 10 }),
       isoToScreen({ x: 11.5, y: 10 }),
       isoToScreen({ x: 15.5, y: 10 }),
@@ -373,9 +362,9 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
     // 四組欄杆立柱和扶手 (包覆天橋全線外圍懸空邊緣)
     const railings: Array<Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }>> = [];
 
-    // 1. 横段下边缘 y = 10 (x 从 3.0 到 19.0)
+    // 1. 横段下边缘 y = 10 (从 x = 5.0 到 19.0，留出 x = 3.0 ~ 5.0 楼梯开口)
     const railingA: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
-    for (let x = 3.0; x <= 19.5; x += 0.8) {
+    for (let x = 5.0; x <= 19.01; x += 0.8) {
       const p = isoToScreen({ x, y: 10 });
       railingA.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
     }
@@ -410,6 +399,22 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
     const pDLast = isoToScreen({ x: 19, y: 10.0 });
     railingD.push({ p1: pDLast, p2: { left: pDLast.left, top: pDLast.top - 12 } });
     railings.push(railingD);
+
+    // 5. 樓梯左側 x = 3 (y 从 10.0 到 14.0)
+    const railingStairsLeft: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
+    for (let y = 10.0; y <= 16.01; y += 0.8) {
+      const p = isoToScreen({ x: 3, y });
+      railingStairsLeft.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
+    }
+    railings.push(railingStairsLeft);
+
+    // 6. 樓梯右側 x = 5 (y 从 10.0 到 14.0)
+    const railingStairsRight: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
+    for (let y = 10.0; y <= 16.01; y += 0.8) {
+      const p = isoToScreen({ x: 5, y });
+      railingStairsRight.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
+    }
+    railings.push(railingStairsRight);
 
     return { piers, railings };
   }, [locationId]);
@@ -454,6 +459,9 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
         const screenPts = points.map(pt => isoToScreen(pt));
         const ptsStr = screenPts.map(p => `${p.left},${p.top}`).join(' ');
 
+        // 特殊繪製樓梯階梯線 (在天橋大世界，第 2 個索引是樓梯)
+        const isStairsRoad = locationId === 'skybridge' && idx === 2;
+
         return (
           <g key={idx}>
             {isRepaired && (
@@ -472,6 +480,26 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
               strokeWidth="2.5"
               style={{ transition: 'fill 1.5s ease, stroke 1.5s ease' }}
             />
+            {isStairsRoad && (
+              <g>
+                {Array.from({ length: 14 }).map((_, stepIdx) => {
+                  const stepY = 10 + stepIdx * 0.43;
+                  const p1 = isoToScreen({ x: 3, y: stepY });
+                  const p2 = isoToScreen({ x: 5, y: stepY });
+                  return (
+                    <line
+                      key={stepIdx}
+                      x1={p1.left}
+                      y1={p1.top}
+                      x2={p2.left}
+                      y2={p2.top}
+                      stroke={isRepaired ? 'rgba(255, 224, 130, 0.35)' : 'rgba(255, 255, 255, 0.12)'}
+                      strokeWidth="1.5"
+                    />
+                  );
+                })}
+              </g>
+            )}
           </g>
         );
       })}
@@ -513,6 +541,19 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
   );
 }
 
+// 大地圖合並偏移量配置（天橋、報攤和公園拼合）
+function getOffsetPos(locationId: string, pos: { x: number; y: number }) {
+  if (locationId === 'newsstand') {
+    // 報攤移動至天橋下方 (天橋 Y: 8~10)，設為 y+1 偏移，使報攤中心在 Y=12 左右
+    return { x: pos.x + 3, y: pos.y + 1 };
+  }
+  if (locationId === 'park') {
+    // 公園 Y 軸偏移增加 0.5，設為 y+6.5
+    return { x: pos.x + 10, y: pos.y + 6.5 };
+  }
+  return pos;
+}
+
 export default function OuterWorldExplorer({
   save,
   collectClue,
@@ -534,12 +575,26 @@ export default function OuterWorldExplorer({
   const hasMoved = useRef(false);
   const keys = useRef(new Set<string>());
 
-  const currentLocation = locations[save.currentLocation];
+  const displayLocation = useMemo(() => {
+    if (save.currentLocation === 'skybridge') {
+      return {
+        id: 'skybridge' as LocationId,
+        name: '表世界',
+        subtitle: '街道、報攤與公園',
+        description: '天橋、報攤與公園，這些在白晝下失色的微光之處，正透過漫長的道路和臺階連接在一起。往事在這裡延伸，等待著你去探索。',
+        ambient: '雨後的車流低鳴、舊報紙的油墨味、潮濕泥土與落葉的微光',
+        spawn: locations['skybridge'].spawn,
+      };
+    }
+    return locations[save.currentLocation];
+  }, [save.currentLocation]);
+
   const bridgeArtist = save.npcs.bridge_artist;
 
   const entities = useMemo<Entity[]>(() => {
     const list: Entity[] = [];
 
+    // 當前在天橋大世界 (skybridge) 時，一併加載並重映射報攤和公園的 entities
     if (save.currentLocation === 'skybridge') {
       list.push({
         id: 'painter',
@@ -562,12 +617,20 @@ export default function OuterWorldExplorer({
 
     clueOrder.forEach(clueId => {
       const clue = bridgeArtistClues[clueId];
-      if (clue.locationId === save.currentLocation && !save.collectedClues.includes(clueId)) {
+      // 只要 clue 的 locationId 是當前場景，或者 (當前是天橋，且 clue 屬於報攤或公園) 且未被收集
+      const isVisibleInSkybridge = save.currentLocation === 'skybridge' && (clue.locationId === 'skybridge' || clue.locationId === 'newsstand' || clue.locationId === 'park');
+      const isVisibleInOthers = clue.locationId === save.currentLocation;
+
+      if ((isVisibleInSkybridge || isVisibleInOthers) && !save.collectedClues.includes(clueId)) {
+        // 獲取重映射後的坐標
+        let actualPos = save.currentLocation === 'skybridge' ? getOffsetPos(clue.locationId, clue.pos) : clue.pos;
+        
+
         list.push({
           id: clue.id,
           label: clue.label,
           type: 'clue',
-          pos: clue.pos,
+          pos: actualPos,
           color: clue.color,
           icon: clue.icon,
         });
@@ -710,6 +773,19 @@ export default function OuterWorldExplorer({
   }, []);
 
   useEffect(() => {
+    // 當前如果加載了單獨的報攤或公園存檔，自動重定向到合並後的表世界 (skybridge) 相同重生點上
+    if (save.currentLocation === 'newsstand' || save.currentLocation === 'park') {
+      const originalLoc = save.currentLocation;
+      const originalSpawn = locations[originalLoc].spawn;
+      const newSpawn = getOffsetPos(originalLoc, originalSpawn);
+
+      setCurrentLocation('skybridge');
+      setPlayerPos(newSpawn);
+      focusCameraOnPlayer(newSpawn);
+    }
+  }, [save.currentLocation, setCurrentLocation]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
 
@@ -765,34 +841,49 @@ export default function OuterWorldExplorer({
             const stepX = (dx / length) * PLAYER_SPEED;
             const stepY = (dy / length) * PLAYER_SPEED;
 
-            const buffer = 1.0;
+            const buffer = 0.4;
+            const maxX = save.currentLocation === 'skybridge' ? 28 : 22;
+            const maxY = save.currentLocation === 'skybridge' ? 22 : 18;
 
             const checkCollision = (pt: Point) => {
               // 1. 地圖邊界碰撞
-              if (pt.x < 1 || pt.x > 22 || pt.y < 1 || pt.y > 18) return true;
+              if (pt.x < 1 || pt.x > maxX || pt.y < 1 || pt.y > maxY) return true;
 
-              // 2. 建築物碰撞檢測
+              // 2. 建築物碰撞檢測 (支持偏移合並後的大樓碰撞)
               const hasBuildCollision = buildings.some(b => {
-                if (b.locationId !== save.currentLocation) return false;
-                return pt.x >= b.pos.x - buffer &&
-                       pt.x <= b.pos.x + b.size.x + buffer &&
-                       pt.y >= b.pos.y - buffer &&
-                       pt.y <= b.pos.y + b.size.y + buffer;
+                let actualPos = b.pos;
+                let actualSize = b.size;
+                if (save.currentLocation === 'skybridge') {
+                  if (b.locationId !== 'skybridge' && b.locationId !== 'newsstand' && b.locationId !== 'park') return false;
+                  actualPos = getOffsetPos(b.locationId, b.pos);
+                } else {
+                  if (b.locationId !== save.currentLocation) return false;
+                }
+                return pt.x >= actualPos.x - buffer &&
+                       pt.x <= actualPos.x + actualSize.x + buffer &&
+                       pt.y >= actualPos.y - buffer &&
+                       pt.y <= actualPos.y + actualSize.y + buffer;
               });
 
               if (hasBuildCollision) return true;
 
               // 3. 場景特有邊界阻擋
               if (save.currentLocation === 'skybridge') {
-                // 玩家只能在以下兩個平面連通的可行走區域內移動，否則視為撞牆：
+                // 玩家只能在合並大地圖的 4 個連通可行走道路區域內移動，否則視為撞牆：
                 
                 // 區域 A：天橋橫向橋面 (x: 3.0 ~ 19.0, y: 8.0 ~ 10.0)
                 const inBridge = pt.x >= 3.5 && pt.x <= 19.0 && pt.y >= 8.5 && pt.y <= 10.0;
                 
                 // 區域 B：通往右上角畫廊的縱向通道 (x: 17.0 ~ 19.0, y: 4.0 ~ 8.0)
-                const inPassage = pt.x >= 17.5 && pt.x <= 19.0 && pt.y >= 4.5 && pt.y <= 8.5;
+                const inPassage = pt.x >= 17.0 && pt.x <= 19.0 && pt.y >= 4.0 && pt.y <= 8.0;
 
-                if (!inBridge && !inPassage) {
+                // 區域 C：連接樓梯 (x: 3.0 ~ 5.0, y: 10.0 ~ 16.0) - 延長以連接下移後的道路
+                const inStairs = pt.x >= 3.5 && pt.x <= 5.0 && pt.y >= 10.0 && pt.y <= 17.0;
+
+                // 區域 D：地面直線連接大路 (x: 3.0 ~ 26.0, y: 16.0 ~ 18.0) - 平移 Y+2
+                const inGroundRoad = pt.x >= 3.5 && pt.x <= 26.0 && pt.y >= 16.5 && pt.y <= 19.0;
+
+                if (!inBridge && !inPassage && !inStairs && !inGroundRoad) {
                   return true;
                 }
               }
@@ -801,21 +892,21 @@ export default function OuterWorldExplorer({
             };
 
             // 滑動碰撞檢測：嘗試同時移動
-            const nextBoth = { x: clamp(prev.x + stepX, 1, 22), y: clamp(prev.y + stepY, 1, 18) };
+            const nextBoth = { x: clamp(prev.x + stepX, 1, maxX), y: clamp(prev.y + stepY, 1, maxY) };
             if (!checkCollision(nextBoth)) {
               focusCameraOnPlayer(nextBoth);
               return nextBoth;
             }
 
-            // 如果兩軸移動撞牆，嘗試僅 X 軸移動（允許沿牆滑動）
-            const nextX = { x: clamp(prev.x + stepX, 1, 22), y: prev.y };
+            // 如果兩軸移動撞牆，嘗試僅 X 轴移動（允許沿牆滑動）
+            const nextX = { x: clamp(prev.x + stepX, 1, maxX), y: prev.y };
             if (!checkCollision(nextX)) {
               focusCameraOnPlayer(nextX);
               return nextX;
             }
 
-            // 如果 X 軸也撞牆，嘗試僅 Y 軸移動
-            const nextY = { x: prev.x, y: clamp(prev.y + stepY, 1, 18) };
+            // 如果 X 軸也撞牆，嘗試僅 Y 轴移動
+            const nextY = { x: prev.x, y: clamp(prev.y + stepY, 1, maxY) };
             if (!checkCollision(nextY)) {
               focusCameraOnPlayer(nextY);
               return nextY;
@@ -907,21 +998,23 @@ export default function OuterWorldExplorer({
       </GlassPanel>
 
       <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 110, display: 'flex', gap: 8, padding: 8, background: 'rgba(0,0,0,0.72)', border: '1px solid #333', borderRadius: 999 }}>
-        {locationOrder.map(locationId => (
-          <GlimmerButton
-            key={locationId}
-            onClick={() => handleLocationChange(locationId)}
-            tone={save.currentLocation === locationId ? 'primary' : 'ghost'}
-            style={{ borderRadius: 999, minHeight: 32, padding: '6px 12px' }}
-          >
-            {locations[locationId].name}
-          </GlimmerButton>
-        ))}
+        {locationOrder
+          .filter(locId => locId === 'skybridge' || locId === 'abandoned_studio')
+          .map(locationId => (
+            <GlimmerButton
+              key={locationId}
+              onClick={() => handleLocationChange(locationId)}
+              tone={save.currentLocation === locationId ? 'primary' : 'ghost'}
+              style={{ borderRadius: 999, minHeight: 32, padding: '6px 12px' }}
+            >
+              {locationId === 'skybridge' ? '表世界' : locations[locationId].name}
+            </GlimmerButton>
+          ))}
       </div>
 
       <GlassPanel variant="dark" style={{ position: 'absolute', top: 20, right: 20, zIndex: 100, maxWidth: 330, pointerEvents: 'none' }} contentStyle={{ padding: '12px 16px', color: '#bbb', fontSize: 13, lineHeight: 1.7 }}>
-        <strong style={{ color: '#eee' }}>{currentLocation.name}</strong> · {currentLocation.subtitle}<br />
-        {currentLocation.ambient}<br />
+        <strong style={{ color: '#eee' }}>{displayLocation.name}</strong> · {displayLocation.subtitle}<br />
+        {displayLocation.ambient}<br />
         WASD / 方向鍵：移動<br />
         E / Space：互動
       </GlassPanel>
@@ -953,20 +1046,71 @@ export default function OuterWorldExplorer({
         <IsometricRoads locationId={save.currentLocation} isRepaired={bridgeArtist.ending === 'success'} />
 
         <div style={{ position: 'absolute', top: 58, left: '50%', transform: 'translateX(-50%)', width: 720, textAlign: 'center', pointerEvents: 'none', userSelect: 'none' }}>
-          <div style={{ color: 'rgba(255,255,255,0.16)', fontSize: 28, letterSpacing: 8, fontWeight: 'bold' }}>{currentLocation.name}</div>
-          <div style={{ color: 'rgba(255,255,255,0.28)', fontSize: 13, lineHeight: 1.7, marginTop: 10 }}>{currentLocation.description}</div>
+          <div style={{ color: 'rgba(255,255,255,0.16)', fontSize: 28, letterSpacing: 8, fontWeight: 'bold' }}>{displayLocation.name}</div>
+          <div style={{ color: 'rgba(255,255,255,0.28)', fontSize: 13, lineHeight: 1.7, marginTop: 10 }}>{displayLocation.description}</div>
         </div>
 
         {/* 渲染場景 3D 建築物 */}
-        {buildings.filter(b => b.locationId === save.currentLocation).map(b => (
-          <IsometricBuilding key={b.id} building={b} isRepaired={bridgeArtist.ending === 'success'} />
-        ))}
+        {buildings.filter(b => {
+          if (save.currentLocation === 'skybridge') {
+            return b.locationId === 'skybridge' || b.locationId === 'newsstand' || b.locationId === 'park';
+          }
+          return b.locationId === save.currentLocation;
+        }).map(b => {
+          // 如果在天橋合併大世界，則複製大樓並給予重映射後的 pos，以及為 news_cabin 重寫 decorations 偏移
+          let actualBuilding = b;
+          if (save.currentLocation === 'skybridge' && (b.locationId === 'newsstand' || b.locationId === 'park')) {
+            const mappedPos = getOffsetPos(b.locationId, b.pos);
+            actualBuilding = {
+              ...b,
+              pos: mappedPos,
+            };
+            
+            if (b.id === 'news_cabin') {
+              // 旋轉報攤：交換寬高使其面向道路 (轉右 90 度)
+              // 原 size {x:3, y:3}，旋轉後仍為 {x:3, y:3} 但窗戶要改到 left 面
+              actualBuilding.windows = [{ side: 'left', x: 0.2, y: 0.3, w: 0.6, h: 0.4 }];
+              actualBuilding.decorations = (isRepaired: boolean) => {
+                // 招牌也要跟隨報攤位置，放在面向道路的一側
+                const offsetPt = { x: actualBuilding.pos.x + 1.5, y: actualBuilding.pos.y + 3.0 };
+                const scr = isoToScreen(offsetPt);
+                return (
+                  <div style={{
+                    position: 'absolute',
+                    left: scr.left,
+                    top: scr.top - 12,
+                    width: 48,
+                    height: 18,
+                    background: isRepaired ? 'linear-gradient(90deg, #ffb300, #ff8f00)' : '#444',
+                    border: '1px solid #ffe082',
+                    borderRadius: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontSize: 9,
+                    fontWeight: 'bold',
+                    boxShadow: isRepaired ? '0 0 12px #ff8f00' : 'none',
+                    transform: 'skewY(-15deg)',
+                    transition: 'all 1.5s',
+                    pointerEvents: 'none'
+                  }}>
+                    OPEN
+                  </div>
+                );
+              };
+            }
+          }
+          return (
+            <IsometricBuilding key={actualBuilding.id} building={actualBuilding} isRepaired={bridgeArtist.ending === 'success'} />
+          );
+        })}
 
         {entities.map(entity => {
           const screen = isoToScreen(entity.pos);
           const isNear = nearbyEntity?.id === entity.id;
           const isGalleryDoor = entity.id === 'gallery_door';
-          const isPill = isGalleryDoor || entity.id === 'brush';
+          const isPill = isGalleryDoor || entity.id === 'brush' || entity.id === 'newspaper' || entity.id === 'sketchbook' || entity.id === 'accident_report';
 
           const btnWidth = isPill ? 94 : (entity.type === 'npc' ? 64 : 48);
           const btnHeight = isPill ? 36 : (entity.type === 'npc' ? 84 : 48);
