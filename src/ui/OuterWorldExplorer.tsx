@@ -1179,7 +1179,7 @@ export default function OuterWorldExplorer({
           );
         })}
 
-        <div style={{ position: 'absolute', left: playerScreen.left, top: playerScreen.top, transform: 'translate(-50%, -100%)', width: 56, height: 86, zIndex: Math.round(playerScreen.top) + 5, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', left: playerScreen.left, top: playerScreen.top, transform: 'translate(-50%, -100%)', width: 56, height: 86, zIndex: 9999, pointerEvents: 'none' }}>
           <div style={{ position: 'absolute', left: '50%', bottom: 4, transform: 'translateX(-50%)', width: 86, height: 34, background: 'radial-gradient(ellipse, rgba(0,0,0,0.5), transparent 68%)' }} />
           <div style={{ position: 'absolute', left: '50%', bottom: 22, transform: 'translateX(-50%)', width: 44, height: 52, borderRadius: '22px 22px 14px 14px', background: 'linear-gradient(#263341, #10151d)', border: '1px solid rgba(255,255,255,0.18)', boxShadow: '0 0 28px rgba(116,180,255,0.22)' }} />
           <div style={{ position: 'absolute', left: '50%', bottom: 68, transform: 'translateX(-50%)', width: 26, height: 26, borderRadius: '50%', background: '#c8d4df', border: '1px solid rgba(255,255,255,0.42)' }} />
