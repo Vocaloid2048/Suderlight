@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { GuiFrame, GlassPanel, GlimmerButton } from '../components';
 import { useGameStore } from '../store/gameStore';
 import {
@@ -152,71 +152,262 @@ function FloatingComments({ layerNum }: { layerNum: number }) {
   );
 }
 
-function AccidentVideoPlaceholder() {
+const PIN_COORDINATES: Record<string, { top: string; left: string }> = {
+  // Layer 2 (Accident Site)
+  shattered_windshield: { top: '35%', left: '22%' },
+  accident_newspaper: { top: '25%', left: '72%' },
+  color_test_chart: { top: '65%', left: '16%' },
+  broken_brush_scene: { top: '72%', left: '84%' },
+  bridge_railing: { top: '80%', left: '50%' },
+
+  // Layer 3 (Fading Studio)
+  fading_canvas_series: { top: '22%', left: '28%' },
+  unsent_withdrawal_letter: { top: '65%', left: '18%' },
+  cracked_mirror: { top: '42%', left: '50%' },
+  empty_tubes_pile: { top: '75%', left: '72%' },
+  last_fan_letter: { top: '62%', left: '82%' },
+
+  // Layer 4 (Blank Frame Chamber)
+  the_empty_frame: { top: '44%', left: '50%' },
+  echo_trophy: { top: '22%', left: '24%' },
+  echo_broken_brush: { top: '22%', left: '76%' },
+  new_canvas: { top: '68%', left: '78%' }
+};
+
+interface InteractivePinProps {
+  icon: string;
+  name: string;
+  isCollected: boolean;
+  isDiscovered: boolean;
+  onClick: () => void;
+  style: React.CSSProperties;
+}
+
+function InteractivePin({
+  icon,
+  name,
+  isCollected,
+  isDiscovered,
+  onClick,
+  style
+}: InteractivePinProps) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        position: 'absolute',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        background: 'none',
+        border: 'none',
+        outline: 'none',
+        zIndex: 10,
+        transition: 'transform 0.2s ease',
+        ...style
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'scale(1.15) translate(-43%, -43%)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'scale(1) translate(-50%, -50%)';
+      }}
+    >
+      <div style={{
+        width: 44,
+        height: 44,
+        borderRadius: '50%',
+        background: isCollected 
+          ? 'linear-gradient(135deg, rgba(255, 224, 130, 0.95), rgba(214, 163, 94, 0.95))' 
+          : isDiscovered 
+            ? 'rgba(255, 255, 255, 0.28)' 
+            : 'rgba(255, 255, 255, 0.14)',
+        border: `2px solid ${isCollected ? '#ffd54f' : 'rgba(255, 255, 255, 0.45)'}`,
+        boxShadow: isCollected 
+          ? '0 0 16px #ffd54f, inset 0 0 8px rgba(255,255,255,0.5)' 
+          : '0 0 10px rgba(255,255,255,0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 22,
+        transition: 'all 0.3s ease'
+      }}>
+        {icon}
+      </div>
+      <div style={{
+        marginTop: 6,
+        color: isCollected ? '#ffd54f' : '#eee',
+        fontSize: 11,
+        fontWeight: 'bold',
+        padding: '2px 8px',
+        background: 'rgba(0, 0, 0, 0.72)',
+        borderRadius: 12,
+        border: '1px solid rgba(255, 255, 255, 0.18)',
+        whiteSpace: 'nowrap',
+        textShadow: isCollected ? '0 0 4px rgba(255,213,79,0.5)' : 'none'
+      }}>
+        {name}{isCollected && ' ✦'}
+      </div>
+    </button>
+  );
+}
+
+function AccidentVideoPlaceholder({ children }: { children: React.ReactNode }) {
+  const [videoEnded, setVideoEnded] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   return (
     <div style={{
-      width: '100%',
-      height: 280,
-      borderRadius: 16,
-      background: 'rgba(0,0,0,0.6)',
+      width: 680,
+      height: 420,
+      borderRadius: 20,
+      background: '#000',
       border: '1px solid rgba(107, 158, 196, 0.3)',
-      boxShadow: '0 0 20px rgba(107, 158, 196, 0.1)',
+      boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
+      position: 'relative',
+      overflow: 'hidden',
       display: 'flex',
-      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 24,
-      position: 'relative',
-      overflow: 'hidden'
+      filter: videoEnded ? 'grayscale(100%)' : 'none',
+      transition: 'filter 2.5s ease-in-out',
     }}>
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6b9ec4" strokeWidth="1.5" style={{ opacity: 0.7, marginBottom: 16 }}>
-        <path d="M23 7l-7 5 7 5V7z" />
-        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-      </svg>
-      
-      <div style={{ color: '#b0c8dd', fontSize: 15, fontWeight: 'bold', marginBottom: 8, textAlign: 'center', letterSpacing: 1.5 }}>
-        【記憶影像預留 · 車禍重現】
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        controls
+        onEnded={() => setVideoEnded(true)}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          opacity: 0.65
+        }}
+      >
+        <source src="assets/videos/accident.mp4" type="video/mp4" />
+      </video>
+
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: videoEnded ? 'rgba(0,0,0,0.55)' : 'rgba(12,22,35,0.4)',
+        pointerEvents: 'none',
+        zIndex: 1
+      }}>
+        {!videoEnded && (
+          <div style={{
+            position: 'absolute',
+            top: 20,
+            right: 20,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'rgba(255,0,0,0.15)',
+            border: '1px solid rgba(255,0,0,0.3)',
+            padding: '4px 10px',
+            borderRadius: 6,
+            color: '#ff8a80',
+            fontSize: 11,
+            fontWeight: 'bold'
+          }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff3d00', display: 'inline-block' }} />
+            車禍回憶畫面播映中...
+          </div>
+        )}
+        {videoEnded && (
+          <div style={{
+            position: 'absolute',
+            top: 20,
+            right: 20,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            padding: '4px 10px',
+            borderRadius: 6,
+            color: '#bbb',
+            fontSize: 11,
+            fontWeight: 'bold'
+          }}>
+            🎥 播放結束 · 畫面定格（灰階）
+          </div>
+        )}
+
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6b9ec4" strokeWidth="1.5" style={{ opacity: 0.3, marginBottom: 12 }}>
+          <path d="M23 7l-7 5 7 5V7z" />
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+        </svg>
+        <div style={{ color: '#b0c8dd', fontSize: 13, opacity: 0.5, letterSpacing: 1.5 }}>
+          【記憶影片投影區】
+        </div>
       </div>
-      <div style={{ color: '#7a8fa0', fontSize: 13, lineHeight: 1.6, textAlign: 'center', maxWidth: 360 }}>
-        「原本敏銳感知世間萬彩的他，在卡車撞擊的刺耳剎那，視野瞬間崩解，從此被囚禁於寂靜的灰階世界。」
+
+      {!videoEnded && (
+        <button
+          onClick={() => setVideoEnded(true)}
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            background: 'rgba(107,158,196,0.2)',
+            border: '1px solid rgba(107,158,196,0.4)',
+            color: '#b0c8dd',
+            borderRadius: 6,
+            padding: '4px 10px',
+            fontSize: 11,
+            cursor: 'pointer',
+            zIndex: 5,
+            transition: 'background 0.2s'
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(107,158,196,0.4)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(107,158,196,0.2)'}
+        >
+          ⏩ 模擬播放結束
+        </button>
+      )}
+
+      {/* 讓交互按鈕浮在影片最上層 */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'auto' }}>
+        {children}
       </div>
-      <div style={{ marginTop: 16, fontSize: 11, color: '#6b9ec4', background: 'rgba(107,158,196,0.1)', padding: '4px 10px', borderRadius: 20, border: '1px solid rgba(107,158,196,0.2)' }}>
-        （已預留影片框架，後續由 AI 影片替換）
-      </div>
-      
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.15) 50%), linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03))', backgroundSize: '100% 4px, 6px 100%' }} />
     </div>
   );
 }
 
-function WhiteCanvasVisual() {
+function WhiteCanvasVisual({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      width: '100%',
-      height: 280,
-      borderRadius: 16,
-      background: 'radial-gradient(circle at center, rgba(38,34,28,0.6), rgba(16,14,12,0.95))',
+      width: 680,
+      height: 420,
+      borderRadius: 20,
+      background: 'radial-gradient(circle at center, rgba(38,34,28,0.7), rgba(16,14,12,0.98))',
       border: '1px solid rgba(168, 152, 128, 0.25)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
-      padding: 16
+      boxShadow: '0 10px 30px rgba(0,0,0,0.8)'
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', width: '100%', height: '100%', justifyContent: 'center' }}>
-        {/* Easel Leg */}
-        <div style={{ width: 6, height: 180, background: 'linear-gradient(to bottom, #5c4033, #3d2b1f)', position: 'absolute', top: 20, transform: 'rotate(-5deg)', zIndex: 1 }} />
-        {/* Easel Shelf */}
-        <div style={{ width: 140, height: 8, background: '#3d2b1f', borderRadius: 4, position: 'absolute', top: 160, zIndex: 3, boxShadow: '0 4px 6px rgba(0,0,0,0.4)' }} />
+        {/* Easel Stand */}
+        <div style={{ width: 8, height: 260, background: 'linear-gradient(to bottom, #5c4033, #3d2b1f)', position: 'absolute', top: 30, transform: 'rotate(-3deg)', zIndex: 1 }} />
+        <div style={{ width: 180, height: 10, background: '#3d2b1f', borderRadius: 5, position: 'absolute', top: 220, zIndex: 3, boxShadow: '0 4px 8px rgba(0,0,0,0.6)' }} />
         
         {/* Canvas */}
         <div style={{
-          width: 120,
-          height: 100,
+          width: 240,
+          height: 180,
           background: '#fcfcfc',
-          border: '3px solid #8d6e63',
-          borderRadius: 2,
-          boxShadow: '0 8px 16px rgba(0,0,0,0.5)',
+          border: '4px solid #8d6e63',
+          borderRadius: 3,
+          boxShadow: '0 12px 24px rgba(0,0,0,0.6)',
           zIndex: 2,
           display: 'flex',
           alignItems: 'center',
@@ -225,85 +416,85 @@ function WhiteCanvasVisual() {
           top: 55,
           transform: 'rotate(-1deg)'
         }}>
-          <div style={{ width: '100%', height: '100%', border: '1px solid rgba(0,0,0,0.05)', background: 'linear-gradient(135deg, #ffffff, #f5f5f5)' }} />
+          <div style={{ width: '100%', height: '100%', border: '1px solid rgba(0,0,0,0.05)', background: 'linear-gradient(135deg, #ffffff, #f7f7f7)' }} />
         </div>
         
         {/* Silhouette */}
         <div style={{
-          width: 44,
-          height: 60,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(40,35,30,0.4))',
-          borderRadius: '50% 50% 12px 12px',
+          width: 56,
+          height: 76,
+          background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(40,35,30,0.45))',
+          borderRadius: '50% 50% 16px 12px',
           position: 'absolute',
-          top: 130,
-          left: '30%',
+          top: 175,
+          left: '26%',
           zIndex: 4,
           filter: 'blur(1px)',
           transform: 'rotate(-8deg)'
         }} title="坐在畫架前的畫家" />
       </div>
       
-      <div style={{ position: 'absolute', bottom: 12, left: 16, right: 16, color: '#c8bca0', fontSize: 11.5, textAlign: 'center', background: 'rgba(0,0,0,0.6)', padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(168,152,128,0.15)', zIndex: 5 }}>
-        出院後的乾枯坐在畫架前，盯著那張毫無瑕疵、卻也毫無色彩的白色畫紙。
+      {/* 讓交互按鈕浮在畫布最上層 */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'auto' }}>
+        {children}
       </div>
     </div>
   );
 }
 
-function GlowingCanvasVisual() {
+function GlowingCanvasVisual({ children }: { children: React.ReactNode }) {
   const [isColored, setIsColored] = useState(false);
   useEffect(() => {
     const interval = setInterval(() => {
       setIsColored(true);
       setTimeout(() => {
         setIsColored(false);
-      }, 2200);
-    }, 5500);
+      }, 2500);
+    }, 6000);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div style={{
-      width: '100%',
-      height: 280,
-      borderRadius: 16,
-      background: 'radial-gradient(circle at center, rgba(30,25,35,0.6), rgba(8,6,12,0.95))',
+      width: 680,
+      height: 420,
+      borderRadius: 20,
+      background: 'radial-gradient(circle at center, rgba(30,25,35,0.7), rgba(8,6,12,0.98))',
       border: '1px solid rgba(184, 169, 201, 0.25)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
-      padding: 16
+      boxShadow: '0 10px 30px rgba(0,0,0,0.8)'
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', width: '100%', height: '100%', justifyContent: 'center' }}>
         {/* Easel Stand */}
-        <div style={{ width: 8, height: 190, background: 'linear-gradient(to bottom, #422a1d, #251811)', position: 'absolute', top: 15, transform: 'rotate(-3deg)', zIndex: 1 }} />
-        {/* Easel Shelf */}
-        <div style={{ width: 160, height: 10, background: '#251811', borderRadius: 5, position: 'absolute', top: 155, zIndex: 3, boxShadow: '0 4px 8px rgba(0,0,0,0.6)' }} />
+        <div style={{ width: 10, height: 270, background: 'linear-gradient(to bottom, #422a1d, #251811)', position: 'absolute', top: 25, transform: 'rotate(-2deg)', zIndex: 1 }} />
+        <div style={{ width: 200, height: 12, background: '#251811', borderRadius: 6, position: 'absolute', top: 215, zIndex: 3, boxShadow: '0 5px 10px rgba(0,0,0,0.6)' }} />
         
         {/* Canvas */}
         <div style={{
-          width: 130,
-          height: 105,
+          width: 260,
+          height: 190,
           background: isColored ? 'linear-gradient(135deg, #1e88e5, #1565c0)' : '#555555',
-          border: '4px solid #8d6e63',
+          border: '5px solid #8d6e63',
           borderRadius: 4,
           boxShadow: isColored 
-            ? '0 0 35px rgba(30, 136, 229, 0.85), 0 8px 24px rgba(0,0,0,0.6)' 
-            : '0 8px 16px rgba(0,0,0,0.5)',
+            ? '0 0 45px rgba(30, 136, 229, 0.95), 0 12px 30px rgba(0,0,0,0.7)' 
+            : '0 12px 24px rgba(0,0,0,0.6)',
           zIndex: 2,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           position: 'absolute',
-          top: 45,
+          top: 40,
           transform: 'rotate(1deg)',
           transition: 'background 1.5s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 1.5s ease',
         }}>
           <div style={{
             width: '100%',
             height: '100%',
-            opacity: 0.12,
+            opacity: 0.15,
             backgroundImage: 'repeating-linear-gradient(0deg, #000, #000 1px, transparent 1px, transparent 4px), repeating-linear-gradient(90deg, #000, #000 1px, transparent 1px, transparent 4px)',
             position: 'absolute',
             inset: 0
@@ -312,10 +503,10 @@ function GlowingCanvasVisual() {
           <div style={{
             position: 'absolute',
             color: isColored ? '#ffffff' : '#aaaaaa',
-            fontSize: 10.5,
+            fontSize: 12,
             fontWeight: 'bold',
-            letterSpacing: 2,
-            textShadow: isColored ? '0 0 8px rgba(255,255,255,0.7)' : 'none',
+            letterSpacing: 2.5,
+            textShadow: isColored ? '0 0 10px rgba(255,255,255,0.8)' : 'none',
             transition: 'color 1s ease',
             userSelect: 'none',
             pointerEvents: 'none'
@@ -326,21 +517,22 @@ function GlowingCanvasVisual() {
         
         {/* Silhouette */}
         <div style={{
-          width: 44,
-          height: 60,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(20,15,30,0.6))',
-          borderRadius: '50% 50% 12px 12px',
+          width: 52,
+          height: 72,
+          background: 'linear-gradient(to top, rgba(0,0,0,0.92), rgba(20,15,30,0.65))',
+          borderRadius: '50% 50% 14px 12px',
           position: 'absolute',
-          top: 130,
-          left: '32%',
+          top: 170,
+          left: '28%',
           zIndex: 4,
           filter: 'blur(1px)',
           transform: 'rotate(-4deg)',
         }} title="在畫架前的畫家" />
       </div>
       
-      <div style={{ position: 'absolute', bottom: 12, left: 16, right: 16, color: '#b8a9c9', fontSize: 11.5, textAlign: 'center', background: 'rgba(0,0,0,0.6)', padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(184,169,201,0.15)', zIndex: 5 }}>
-        巨大的空白畫框前，乾枯靜默端坐。灰色是他的畫筆，卻在蔚藍湧現的剎那，綻放出生命的救贖。
+      {/* 讓交互按鈕浮在空白畫框最上層 */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'auto' }}>
+        {children}
       </div>
     </div>
   );
@@ -539,94 +731,146 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           </div>
         </aside>
 
-        {/* 右側主區域（兩欄式：左網格、右視覺與快速切換） */}
+        {/* 右側主區域 */}
         <main style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 340px',
+          display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: 24,
+          justifyContent: 'center',
+          gap: 16,
           opacity: isModalOpen ? 0.3 : 1,
           pointerEvents: isModalOpen ? 'none' : 'auto',
           transition: 'opacity 0.3s ease',
           height: '100%',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          flex: 1
         }}>
-          {/* 網格與切換按鈕 */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 140px)', gridTemplateRows: 'repeat(3, 105px)', gap: 14, padding: 18, borderRadius: 20, background: colors.gridBg, border: `1px solid ${colors.border}` }}>
-              {Array.from({length:3}).map((_,row) =>
-                Array.from({length:3}).map((_,col) => {
-                  const obj = layer.interactables.find(o => o.row===row && o.col===col);
-                  const isDisc = obj ? discoveredIds.includes(obj.id) : false;
-                  const hasIn = obj ? hasInsight(understanding, obj.id) : false;
-                  if (!obj) return <div key={`${row}-${col}`} style={{ borderRadius:12,background:colors.cellEmpty,border:`1px dashed ${colors.accent}15` }}/>;
-                  return (
-                    <button key={obj.id} onClick={() => handleClickObject(obj)} style={{ borderRadius:12,background:hasIn?colors.cellInsight:isDisc?colors.cellDisc:colors.cellNorm,border:hasIn?`1px solid ${colors.accent}66`:isDisc?`1px solid ${colors.accent}20`:`1px solid ${colors.accent}10`,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,padding:8,transition:'all 0.2s ease',color:hasIn?colors.accent:isDisc?colors.text:colors.sub,zIndex:2 }}
-                      onMouseEnter={e => { e.currentTarget.style.background=`${colors.accent}18`; e.currentTarget.style.borderColor=`${colors.accent}55`; e.currentTarget.style.transform='scale(1.03)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background=hasIn?colors.cellInsight:isDisc?colors.cellDisc:colors.cellNorm; e.currentTarget.style.borderColor=hasIn?`1px solid ${colors.accent}66`:isDisc?`1px solid ${colors.accent}20`:`1px solid ${colors.accent}10`; e.currentTarget.style.transform='scale(1)'; }}
-                    >
-                      <div style={{ fontSize:22,opacity:hasIn?1:0.55 }}>{getIcon(obj.id)}</div>
-                      <div style={{ fontSize:10.5,letterSpacing:0.5,fontWeight:hasIn?600:400,textAlign:'center',lineHeight:1.2 }}>{obj.name}{hasIn&&<span style={{ marginLeft:2,fontSize:9 }}>✦</span>}</div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-            
-            {/* 快速層級切換（當心防抗拒值降低到一定數值後解鎖全部心理世界） */}
-            {isAllLayersUnlocked && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', width: '100%', maxWidth: 440, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
-                <span style={{ fontSize: 11, color: '#f5c16c', fontWeight: 'bold', letterSpacing: 1 }}>心防徹底解鎖：自由切換層級</span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {[1, 2, 3, 4].map(num => (
-                    <GlimmerButton
-                      key={num}
-                      tone={layerNum === num ? 'primary' : 'ghost'}
-                      onClick={() => {
-                        setLayerNum(num as number);
-                        setUnderstanding({ insightIds: [] });
-                        setDiscoveredIds([]);
-                        setPhase({ type: 'exploring' });
-                      }}
-                      style={{ fontSize: 10, padding: '4px 12px', minHeight: 24, borderRadius: 6 }}
-                    >
-                      第{CH[num-1]}層
-                    </GlimmerButton>
-                  ))}
-                </div>
+          {layerNum === 1 ? (
+            /* 第一層：展覽廳 - 網格佈局 */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 150px)', gridTemplateRows: 'repeat(3, 110px)', gap: 16, padding: 24, borderRadius: 20, background: colors.gridBg, border: `1px solid ${colors.border}` }}>
+                {Array.from({length:3}).map((_,row) =>
+                  Array.from({length:3}).map((_,col) => {
+                    const obj = layer.interactables.find(o => o.row===row && o.col===col);
+                    const isDisc = obj ? discoveredIds.includes(obj.id) : false;
+                    const hasIn = obj ? hasInsight(understanding, obj.id) : false;
+                    if (!obj) return <div key={`${row}-${col}`} style={{ borderRadius:12,background:colors.cellEmpty,border:`1px dashed ${colors.accent}15` }}/>;
+                    return (
+                      <button key={obj.id} onClick={() => handleClickObject(obj)} style={{ borderRadius:12,background:hasIn?colors.cellInsight:isDisc?colors.cellDisc:colors.cellNorm,border:hasIn?`1px solid ${colors.accent}66`:isDisc?`1px solid ${colors.accent}20`:`1px solid ${colors.accent}10`,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6,padding:12,transition:'all 0.2s ease',color:hasIn?colors.accent:isDisc?colors.text:colors.sub,zIndex:2 }}
+                        onMouseEnter={e => { e.currentTarget.style.background=`${colors.accent}18`; e.currentTarget.style.borderColor=`${colors.accent}55`; e.currentTarget.style.transform='scale(1.03)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background=hasIn?colors.cellInsight:isDisc?colors.cellDisc:colors.cellNorm; e.currentTarget.style.borderColor=hasIn?`1px solid ${colors.accent}66`:isDisc?`1px solid ${colors.accent}20`:`1px solid ${colors.accent}10`; e.currentTarget.style.transform='scale(1)'; }}
+                      >
+                        <div style={{ fontSize:24,opacity:hasIn?1:0.55 }}>{getIcon(obj.id)}</div>
+                        <div style={{ fontSize:11.5,letterSpacing:0.5,fontWeight:hasIn?600:400,textAlign:'center' }}>{obj.name}{hasIn&&<span style={{ marginLeft:4,fontSize:10 }}>✦</span>}</div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
-            )}
-          </div>
-
-          {/* 視覺展示區域 */}
-          <div style={{ width: '100%', zIndex: 2 }}>
-            {layerNum === 1 && (
+              
               <div style={{
-                width: '100%',
-                height: 280,
-                borderRadius: 16,
-                background: 'radial-gradient(circle at center, rgba(45,36,22,0.6), rgba(18,14,10,0.95))',
-                border: '1px solid rgba(214,163,94,0.25)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 24,
+                width: 450,
+                borderRadius: 12,
+                background: 'radial-gradient(circle at center, rgba(45,36,22,0.4), rgba(18,14,10,0.8))',
+                border: '1px solid rgba(214,163,94,0.15)',
+                padding: '12px 16px',
                 textAlign: 'center',
-                boxShadow: '0 0 20px rgba(214,163,94,0.1)',
-                position: 'relative'
               }}>
-                <span style={{ fontSize: 40, marginBottom: 12 }}>🖼️</span>
-                <div style={{ color: '#d4a35e', fontSize: 15, fontWeight: 'bold', marginBottom: 8, letterSpacing: 1 }}>【展覽廳 · 昔日榮耀】</div>
-                <div style={{ color: '#d8c29b', fontSize: 12, lineHeight: 1.7, maxWidth: 280 }}>
+                <div style={{ color: '#d4a35e', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>【展覽廳 · 昔日榮耀】</div>
+                <div style={{ color: '#d8c29b', fontSize: 11.5, lineHeight: 1.6 }}>
                   這曾是他站在聚光燈下的舞台。無數的讚美、不息的掌聲，以及那些精雕細琢卻缺乏溫度的完美畫作，共同組成了他對「自我」的全部定義。
                 </div>
               </div>
-            )}
-            {layerNum === 2 && <AccidentVideoPlaceholder />}
-            {layerNum === 3 && <WhiteCanvasVisual />}
-            {layerNum === 4 && <GlowingCanvasVisual />}
-          </div>
+            </div>
+          ) : (
+            /* 第二、三、四層：居中放大地圖式探索 */
+            <div style={{ position: 'relative', width: 680, height: 420 }}>
+              {layerNum === 2 && (
+                <AccidentVideoPlaceholder>
+                  {layer.interactables.map(obj => {
+                    const coord = PIN_COORDINATES[obj.id] || { top: '50%', left: '50%' };
+                    const isDisc = discoveredIds.includes(obj.id);
+                    const hasIn = hasInsight(understanding, obj.id);
+                    return (
+                      <InteractivePin
+                        key={obj.id}
+                        icon={getIcon(obj.id)}
+                        name={obj.name}
+                        isCollected={hasIn}
+                        isDiscovered={isDisc}
+                        onClick={() => handleClickObject(obj)}
+                        style={{ top: coord.top, left: coord.left, transform: 'translate(-50%, -50%)' }}
+                      />
+                    );
+                  })}
+                </AccidentVideoPlaceholder>
+              )}
+              {layerNum === 3 && (
+                <WhiteCanvasVisual>
+                  {layer.interactables.map(obj => {
+                    const coord = PIN_COORDINATES[obj.id] || { top: '50%', left: '50%' };
+                    const isDisc = discoveredIds.includes(obj.id);
+                    const hasIn = hasInsight(understanding, obj.id);
+                    return (
+                      <InteractivePin
+                        key={obj.id}
+                        icon={getIcon(obj.id)}
+                        name={obj.name}
+                        isCollected={hasIn}
+                        isDiscovered={isDisc}
+                        onClick={() => handleClickObject(obj)}
+                        style={{ top: coord.top, left: coord.left, transform: 'translate(-50%, -50%)' }}
+                      />
+                    );
+                  })}
+                </WhiteCanvasVisual>
+              )}
+              {layerNum === 4 && (
+                <GlowingCanvasVisual>
+                  {layer.interactables.map(obj => {
+                    const coord = PIN_COORDINATES[obj.id] || { top: '50%', left: '50%' };
+                    const isDisc = discoveredIds.includes(obj.id);
+                    const hasIn = hasInsight(understanding, obj.id);
+                    return (
+                      <InteractivePin
+                        key={obj.id}
+                        icon={getIcon(obj.id)}
+                        name={obj.name}
+                        isCollected={hasIn}
+                        isDiscovered={isDisc}
+                        onClick={() => handleClickObject(obj)}
+                        style={{ top: coord.top, left: coord.left, transform: 'translate(-50%, -50%)' }}
+                      />
+                    );
+                  })}
+                </GlowingCanvasVisual>
+              )}
+            </div>
+          )}
+
+          {/* 快速層級切換（當心防抗拒值降低到一定數值後解鎖全部心理世界） */}
+          {isAllLayersUnlocked && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', width: '100%', maxWidth: 440, padding: '6px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
+              <span style={{ fontSize: 11, color: '#f5c16c', fontWeight: 'bold', letterSpacing: 1 }}>心防徹底解鎖：自由切換層級</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[1, 2, 3, 4].map(num => (
+                  <GlimmerButton
+                    key={num}
+                    tone={layerNum === num ? 'primary' : 'ghost'}
+                    onClick={() => {
+                      setLayerNum(num as number);
+                      setUnderstanding({ insightIds: [] });
+                      setDiscoveredIds([]);
+                      setPhase({ type: 'exploring' });
+                    }}
+                    style={{ fontSize: 10, padding: '4px 12px', minHeight: 24, borderRadius: 6 }}
+                  >
+                    第{CH[num-1]}層
+                  </GlimmerButton>
+                ))}
+              </div>
+            </div>
+          )}
         </main>
 
         {/* 模態 */}

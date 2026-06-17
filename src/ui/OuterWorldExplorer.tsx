@@ -1,6 +1,6 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { GlimmerButton, GlassPanel } from '../components';
-import { bridgeArtistClues, clueOrder, locationOrder, locations, type ClueId, type LocationId } from '../data/verticalSlice';
+import { bridgeArtistClues, clueOrder, locations, type ClueId, type LocationId } from '../data/verticalSlice';
 import type { CollectClueResult } from '../store/gameStore';
 import type { GameSave } from '../systems/saveSystem';
 
@@ -198,26 +198,6 @@ const buildings: Building[] = [
       { side: 'left', x: 0.6, y: 0.2, w: 0.15, h: 0.6 },
       { side: 'right', x: 0.25, y: 0.2, w: 0.15, h: 0.6 },
       { side: 'right', x: 0.6, y: 0.2, w: 0.15, h: 0.6 },
-    ],
-  },
-  // 4. 廢棄畫室：舊公寓畫室大樓
-  {
-    id: 'studio_building',
-    name: '深空舊畫室',
-    locationId: 'abandoned_studio',
-    pos: { x: 15, y: 3 },
-    size: { x: 4, y: 4 },
-    tall: 280,
-    baseColor: '#00838f', // 藍綠色
-    windows: [
-      { side: 'left', x: 0.15, y: 0.2, w: 0.15, h: 0.15 },
-      { side: 'left', x: 0.4, y: 0.2, w: 0.15, h: 0.15 },
-      { side: 'left', x: 0.65, y: 0.2, w: 0.15, h: 0.15 },
-      { side: 'left', x: 0.15, y: 0.5, w: 0.15, h: 0.15 },
-      { side: 'left', x: 0.4, y: 0.5, w: 0.15, h: 0.15 },
-      { side: 'left', x: 0.65, y: 0.5, w: 0.15, h: 0.15 },
-      { side: 'right', x: 0.2, y: 0.3, w: 0.2, h: 0.3 },
-      { side: 'right', x: 0.6, y: 0.3, w: 0.2, h: 0.3 },
     ],
   }
 ];
@@ -958,14 +938,6 @@ export default function OuterWorldExplorer({
     interact(entity.id);
   };
 
-  const handleLocationChange = (locationId: LocationId) => {
-    setCurrentLocation(locationId);
-    const spawn = locations[locationId].spawn;
-    setPlayerPos(spawn);
-    focusCameraOnPlayer(spawn);
-    maybeTriggerGhost();
-  };
-
   const playerScreen = isoToScreen(playerPos);
   const traumaFilter = save.ghosts.length > 0 ? 'grayscale(0.22) contrast(0.95)' : 'none';
 
@@ -997,20 +969,7 @@ export default function OuterWorldExplorer({
         <GlimmerButton fullWidth tone="quiet" onClick={resetSave}>重置進度</GlimmerButton>
       </GlassPanel>
 
-      <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 110, display: 'flex', gap: 8, padding: 8, background: 'rgba(0,0,0,0.72)', border: '1px solid #333', borderRadius: 999 }}>
-        {locationOrder
-          .filter(locId => locId === 'skybridge' || locId === 'abandoned_studio')
-          .map(locationId => (
-            <GlimmerButton
-              key={locationId}
-              onClick={() => handleLocationChange(locationId)}
-              tone={save.currentLocation === locationId ? 'primary' : 'ghost'}
-              style={{ borderRadius: 999, minHeight: 32, padding: '6px 12px' }}
-            >
-              {locationId === 'skybridge' ? '表世界' : locations[locationId].name}
-            </GlimmerButton>
-          ))}
-      </div>
+
 
       <GlassPanel variant="dark" style={{ position: 'absolute', top: 20, right: 20, zIndex: 100, maxWidth: 330, pointerEvents: 'none' }} contentStyle={{ padding: '12px 16px', color: '#bbb', fontSize: 13, lineHeight: 1.7 }}>
         <strong style={{ color: '#eee' }}>{displayLocation.name}</strong> · {displayLocation.subtitle}<br />

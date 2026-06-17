@@ -1,5 +1,5 @@
 export type NpcId = 'bridge_artist' | 'victor';
-export type LocationId = 'skybridge' | 'newsstand' | 'park' | 'abandoned_studio';
+export type LocationId = 'skybridge' | 'newsstand' | 'park';
 export type ClueId = 'brush' | 'newspaper' | 'sketchbook' | 'accident_report';
 
 export type LocationData = {
@@ -49,17 +49,9 @@ export const locations: Record<LocationId, LocationData> = {
     ambient: '泥土、落葉、遲疑的雨聲',
     spawn: { x: 12, y: 12 },
   },
-  abandoned_studio: {
-    id: 'abandoned_studio',
-    name: '廢棄畫室',
-    subtitle: '被鎖住的舊工作室',
-    description: '窗簾長年拉著，灰塵在縫隙光裡漂浮。牆上仍留著過去展覽的釘痕，桌上壓著一份皺起的事故報導。',
-    ambient: '灰塵、乾掉的顏料、封存的春天',
-    spawn: { x: 14, y: 8 },
-  },
 };
 
-export const locationOrder: LocationId[] = ['skybridge', 'newsstand', 'park', 'abandoned_studio'];
+export const locationOrder: LocationId[] = ['skybridge'];
 
 export const bridgeArtistClues: Record<ClueId, ClueData> = {
   brush: {
@@ -103,8 +95,8 @@ export const bridgeArtistClues: Record<ClueId, ClueData> = {
     label: '車禍報導',
     shortLabel: '車禍報導',
     knowledge: 30,
-    locationId: 'abandoned_studio',
-    pos: { x: 16, y: 8 },
+    locationId: 'skybridge',
+    pos: { x: 23, y: 19 },
     color: '#fff6d8',
     icon: '檔',
     content: '這不是普通新聞，而是一份被折起來的完整報導。事故後的採訪標題寫著：「大家都在等他復出。」紙邊被指甲掐出深深痕跡。',
