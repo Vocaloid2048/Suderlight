@@ -495,10 +495,9 @@ export const gloryGalleryLayer: PsychLayerData = {
   symbol: "身份認同／成就／成功表象",
   atmosphere: "金色光芒、回音空蕩、展示櫃冰冷",
   sceneDescription:
-    "你踏入一座鋪滿金色燈光的美術館大廳。\n"
-    + "牆上掛滿輝煌的作品，玻璃櫃裡陳列著閃閃發光的獎盃。\n"
-    + "但不對勁——這裡太安靜了，沒有觀眾，沒有掌聲。\n"
-    + "所有的榮耀都像被保鮮膜包著，只是展示品。",
+    "這裡展示了畫家的作品，以及他本人。\n"
+    + "這裡有他過去獲獎的畫作，與他當初獲獎時的榮耀。\n"
+    + "金色的燈光照亮了曾經的輝煌，但一切都安靜得有些詭異。",
   emotionalForeword: "所有的成功，都是從某處開始的。但成功本身，也可以是牢籠。",
   playerUnderstanding: "他曾經非常成功——但成功本身，正在成為他的牢籠。",
   interactables: layer1Interactables,
@@ -514,10 +513,8 @@ export const accidentSceneLayer: PsychLayerData = {
   symbol: "創傷／失去／世界崩壞的瞬間",
   atmosphere: "冷藍雨夜、玻璃碎片、鐵鏽與潮濕",
   sceneDescription:
-    "天空下著灰色的雨。你站在一條被警用膠帶封鎖的街道上。\n"
-    + "破碎的車窗懸浮在半空，報紙碎片在雨中旋轉。\n"
-    + "空氣中沒有色彩——一切都被雨水洗成了深淺不一的灰。\n"
-    + "這是四年前的那個夜晚。這是他的世界失去顏色的瞬間。",
+    "冷藍的雨夜，這是他的世界崩塌的瞬間。\n"
+    + "原本對任何色彩都極其靈敏的他，在劇烈的撞擊後，眼前的色彩被粗暴地抹去，只留下了冰冷而單調的灰階。",
   emotionalForeword: "每一道傷痕，都是一次世界的重構。這裡，是他的世界崩塌的地方。",
   playerUnderstanding: "他的色彩不是慢慢褪去的——是一瞬間被剝奪的。而那之後，一切都不一樣了。",
   interactables: layer2Interactables,
@@ -533,10 +530,9 @@ export const fadedStudioLayer: PsychLayerData = {
   symbol: "身分崩解／虛無／自我認同的消融",
   atmosphere: "灰塵懸浮、褪色畫布、碎裂的倒影",
   sceneDescription:
-    "你走進一間灰塵瀰漫的畫室。窗簾緊閉，陽光只能透進細細的灰線。\n"
-    + "畫架上的畫布從彩色排列到全白——像一場慢速的告別。\n"
-    + "地上散落著空顏料管、未寄出的信、碎裂的鏡子。\n"
-    + "這裡不再有創作。這裡只有失去創作能力之後，留下來的空洞。",
+    "車禍醫治過後出院，他回到畫室。\n"
+    + "他在畫架上放了一張乾淨的白色畫紙，靜靜地坐在前面，畫布上是一片空白。\n"
+    + "這裡不再有創作。這裡只有失去創作能力之後，留下來的死寂與空洞。",
   emotionalForeword: "當一個人不能再做自己認定的「自己」，剩下來的，還能是誰？",
   playerUnderstanding: "失去創作能力之後，他失去的是一整個自我——畫家死了，留下來的人不知道該怎麼活。",
   interactables: layer3Interactables,
@@ -552,10 +548,9 @@ export const blankFrameLayer: PsychLayerData = {
   symbol: "接納／存在本身即是完成／釋放",
   atmosphere: "純白虛空、寂靜、輕盈的迴聲",
   sceneDescription:
-    "你來到一片純白的空間。沒有牆，沒有地板，沒有天空。\n"
-    + "中央懸浮著一個精緻的木質畫框——裡面什麼都沒有。\n"
-    + "從前三層帶來的記憶在這裡變成半透明的回聲，在邊緣輕輕發光。\n"
-    + "這裡沒有答案。或者說，這裡的答案就是：不需要答案。",
+    "一個巨大的空白畫框懸浮在純白虛空中，畫家坐在它的面前。\n"
+    + "他開始提筆作畫了，但眼前的畫布只有沉悶的灰色。\n"
+    + "但在短暫的瞬間，灰色畫布會變回有顏色的蔚藍，向世人展示他內心深處的渴望。",
   emotionalForeword: "最後一層不是結局，而是釋放。不是所有的故事都需要一個句號。",
   playerUnderstanding: "他意識到自己的存在不需要被任何東西定義——不畫畫也可以，只是活著就足夠。",
   interactables: layer4Interactables,
