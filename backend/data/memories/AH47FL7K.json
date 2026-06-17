@@ -1,1 +1,20 @@
-{}
+{
+  "bridge_artist": {
+    "lastInputTypes": [
+      "ordinary"
+    ],
+    "history": [
+      {
+        "role": "user",
+        "content": "解鎖內心世界",
+        "timestamp": 1781679427502
+      },
+      {
+        "role": "assistant",
+        "content": "他沒有立刻回答。畫筆停在半空，像一個還沒決定要不要落下的句號。",
+        "timestamp": 1781679427502
+      }
+    ],
+    "summary": ""
+  }
+}

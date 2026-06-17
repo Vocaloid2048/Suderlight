@@ -2,7 +2,7 @@
   "player": {
     "knowledge": 100
   },
-  "currentLocation": "park",
+  "currentLocation": "skybridge",
   "collectedClues": [
     "brush",
     "sketchbook",
@@ -21,7 +21,7 @@
       "ending": "none",
       "flags": [],
       "innerWorldDepth": 0,
-      "innerWorldLayer": 0
+      "innerWorldLayer": 2
     },
     "victor": {
       "id": "victor",
