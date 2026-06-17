@@ -1,29 +1,24 @@
 {
   "player": {
-    "knowledge": 100
+    "knowledge": 70
   },
   "currentLocation": "skybridge",
-  "collectedClues": [
-    "brush",
-    "sketchbook",
-    "accident_report",
-    "newspaper"
-  ],
+  "collectedClues": [],
   "npcs": {
     "bridge_artist": {
       "id": "bridge_artist",
       "name": "天橋畫家",
       "trust": 50,
-      "stress": 35,
+      "stress": 80,
       "knowledgeRequired": 70,
       "trustRequired": 50,
       "innerWorldUnlocked": true,
-      "ending": "success",
+      "ending": "none",
       "flags": [
-        "bridge_artist_repaired"
+        "inner_world_unlocked"
       ],
-      "innerWorldDepth": 3,
-      "innerWorldLayer": 4
+      "innerWorldDepth": 2,
+      "innerWorldLayer": 0
     },
     "victor": {
       "id": "victor",
