@@ -13,15 +13,17 @@
     "bridge_artist": {
       "id": "bridge_artist",
       "name": "天橋畫家",
-      "trust": 20,
-      "stress": 80,
+      "trust": 50,
+      "stress": 35,
       "knowledgeRequired": 70,
       "trustRequired": 50,
-      "innerWorldUnlocked": false,
-      "ending": "none",
-      "flags": [],
-      "innerWorldDepth": 0,
-      "innerWorldLayer": 2
+      "innerWorldUnlocked": true,
+      "ending": "success",
+      "flags": [
+        "bridge_artist_repaired"
+      ],
+      "innerWorldDepth": 3,
+      "innerWorldLayer": 4
     },
     "victor": {
       "id": "victor",
