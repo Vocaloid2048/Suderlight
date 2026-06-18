@@ -17,6 +17,7 @@ import {
   type UnderstandingState,
 } from '../systems/understandingSystem';
 import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
+import accidentMemoryVideo from '../video/grok-video-5614ed35-6339-496a-bc6b-027280fb9c19.mp4';
 
 // ============================================================
 // Props
@@ -115,11 +116,11 @@ function FloatingComments({ layerNum }: { layerNum: number }) {
   const items = useMemo(() => {
     return Array.from({ length: 6 }).map((_, idx) => {
       const text = texts[idx % texts.length];
-      const top = 12 + (idx * 13) + Math.random() * 6;
-      const left = 5 + (idx * 14) + Math.random() * 8;
-      const duration = 12 + Math.random() * 6;
-      const delay = idx * 2.2;
-      const fontSize = 13 + Math.random() * 3;
+      const top = 5 + Math.random() * 85;
+      const left = 3 + Math.random() * 70;
+      const duration = 12 + Math.random() * 8;
+      const delay = Math.random() * 10;
+      const fontSize = 12 + Math.random() * 5;
       return { text, top, left, duration, delay, fontSize };
     });
   }, [layerNum, texts]);
@@ -253,14 +254,14 @@ function InteractivePin({
   );
 }
 
-function AccidentVideoPlaceholder({ children }: { children: React.ReactNode }) {
+function AccidentVideoPlaceholder({ children, layerNum }: { children: React.ReactNode; layerNum: number }) {
   const [videoEnded, setVideoEnded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   return (
     <div style={{
-      width: 680,
-      height: 420,
+      width: 'min(95vw, 100%)',
+      height: 'min(95vh, 100%)',
       borderRadius: 20,
       background: '#000',
       border: '1px solid rgba(107, 158, 196, 0.3)',
@@ -286,7 +287,7 @@ function AccidentVideoPlaceholder({ children }: { children: React.ReactNode }) {
           opacity: 0.65
         }}
       >
-        <source src="assets/videos/accident.mp4" type="video/mp4" />
+        <source src={accidentMemoryVideo} type="video/mp4" />
       </video>
 
       <div style={{
@@ -373,6 +374,11 @@ function AccidentVideoPlaceholder({ children }: { children: React.ReactNode }) {
         </button>
       )}
 
+      {/* 漂浮心聲文字 */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}>
+        <FloatingComments layerNum={layerNum} />
+      </div>
+
       {/* 讓交互按鈕浮在影片最上層 */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'auto' }}>
         {children}
@@ -381,11 +387,11 @@ function AccidentVideoPlaceholder({ children }: { children: React.ReactNode }) {
   );
 }
 
-function WhiteCanvasVisual({ children }: { children: React.ReactNode }) {
+function WhiteCanvasVisual({ children, layerNum }: { children: React.ReactNode; layerNum: number }) {
   return (
     <div style={{
-      width: 680,
-      height: 420,
+      width: 'min(95vw, 100%)',
+      height: 'min(95vh, 100%)',
       borderRadius: 20,
       background: 'radial-gradient(circle at center, rgba(38,34,28,0.7), rgba(16,14,12,0.98))',
       border: '1px solid rgba(168, 152, 128, 0.25)',
@@ -397,23 +403,23 @@ function WhiteCanvasVisual({ children }: { children: React.ReactNode }) {
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', width: '100%', height: '100%', justifyContent: 'center' }}>
         {/* Easel Stand */}
-        <div style={{ width: 8, height: 260, background: 'linear-gradient(to bottom, #5c4033, #3d2b1f)', position: 'absolute', top: 30, transform: 'rotate(-3deg)', zIndex: 1 }} />
-        <div style={{ width: 180, height: 10, background: '#3d2b1f', borderRadius: 5, position: 'absolute', top: 220, zIndex: 3, boxShadow: '0 4px 8px rgba(0,0,0,0.6)' }} />
+        <div style={{ width: 14, height: '72%', background: 'linear-gradient(to bottom, #5c4033, #3d2b1f)', position: 'absolute', top: '5%', transform: 'rotate(-3deg)', zIndex: 1 }} />
+        <div style={{ width: '38%', height: 16, background: '#3d2b1f', borderRadius: 8, position: 'absolute', top: '58%', zIndex: 3, boxShadow: '0 4px 8px rgba(0,0,0,0.6)' }} />
         
         {/* Canvas */}
         <div style={{
-          width: 240,
-          height: 180,
+          width: '55%',
+          height: '58%',
           background: '#fcfcfc',
-          border: '4px solid #8d6e63',
-          borderRadius: 3,
-          boxShadow: '0 12px 24px rgba(0,0,0,0.6)',
+          border: '8px solid #8d6e63',
+          borderRadius: 5,
+          boxShadow: '0 16px 32px rgba(0,0,0,0.65)',
           zIndex: 2,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           position: 'absolute',
-          top: 55,
+          top: '8%',
           transform: 'rotate(-1deg)'
         }}>
           <div style={{ width: '100%', height: '100%', border: '1px solid rgba(0,0,0,0.05)', background: 'linear-gradient(135deg, #ffffff, #f7f7f7)' }} />
@@ -421,19 +427,24 @@ function WhiteCanvasVisual({ children }: { children: React.ReactNode }) {
         
         {/* Silhouette */}
         <div style={{
-          width: 56,
-          height: 76,
+          width: '10%',
+          height: '20%',
           background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(40,35,30,0.45))',
           borderRadius: '50% 50% 16px 12px',
           position: 'absolute',
-          top: 175,
-          left: '26%',
+          top: '46%',
+          left: '24%',
           zIndex: 4,
           filter: 'blur(1px)',
           transform: 'rotate(-8deg)'
         }} title="坐在畫架前的畫家" />
       </div>
       
+      {/* 漂浮心聲文字 */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none' }}>
+        <FloatingComments layerNum={layerNum} />
+      </div>
+
       {/* 讓交互按鈕浮在畫布最上層 */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'auto' }}>
         {children}
@@ -442,7 +453,7 @@ function WhiteCanvasVisual({ children }: { children: React.ReactNode }) {
   );
 }
 
-function GlowingCanvasVisual({ children }: { children: React.ReactNode }) {
+function GlowingCanvasVisual({ children, layerNum }: { children: React.ReactNode; layerNum: number }) {
   const [isColored, setIsColored] = useState(false);
   useEffect(() => {
     const interval = setInterval(() => {
@@ -456,8 +467,8 @@ function GlowingCanvasVisual({ children }: { children: React.ReactNode }) {
 
   return (
     <div style={{
-      width: 680,
-      height: 420,
+      width: 'min(95vw, 100%)',
+      height: 'min(95vh, 100%)',
       borderRadius: 20,
       background: 'radial-gradient(circle at center, rgba(30,25,35,0.7), rgba(8,6,12,0.98))',
       border: '1px solid rgba(184, 169, 201, 0.25)',
@@ -469,37 +480,28 @@ function GlowingCanvasVisual({ children }: { children: React.ReactNode }) {
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', width: '100%', height: '100%', justifyContent: 'center' }}>
         {/* Easel Stand */}
-        <div style={{ width: 10, height: 270, background: 'linear-gradient(to bottom, #422a1d, #251811)', position: 'absolute', top: 25, transform: 'rotate(-2deg)', zIndex: 1 }} />
-        <div style={{ width: 200, height: 12, background: '#251811', borderRadius: 6, position: 'absolute', top: 215, zIndex: 3, boxShadow: '0 5px 10px rgba(0,0,0,0.6)' }} />
+        <div style={{ width: 16, height: '72%', background: 'linear-gradient(to bottom, #422a1d, #251811)', position: 'absolute', top: '5%', transform: 'rotate(-2deg)', zIndex: 1 }} />
+        <div style={{ width: '40%', height: 18, background: '#251811', borderRadius: 9, position: 'absolute', top: '58%', zIndex: 3, boxShadow: '0 5px 10px rgba(0,0,0,0.6)' }} />
         
         {/* Canvas */}
         <div style={{
-          width: 260,
-          height: 190,
+          width: '58%',
+          height: '58%',
           background: isColored ? 'linear-gradient(135deg, #1e88e5, #1565c0)' : '#555555',
-          border: '5px solid #8d6e63',
-          borderRadius: 4,
+          border: '9px solid #8d6e63',
+          borderRadius: 6,
           boxShadow: isColored 
-            ? '0 0 45px rgba(30, 136, 229, 0.95), 0 12px 30px rgba(0,0,0,0.7)' 
-            : '0 12px 24px rgba(0,0,0,0.6)',
+            ? '0 0 80px rgba(30, 136, 229, 0.95), 0 16px 36px rgba(0,0,0,0.7)' 
+            : '0 16px 32px rgba(0,0,0,0.65)',
           zIndex: 2,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           position: 'absolute',
-          top: 40,
+          top: '8%',
           transform: 'rotate(1deg)',
           transition: 'background 1.5s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 1.5s ease',
         }}>
-          <div style={{
-            width: '100%',
-            height: '100%',
-            opacity: 0.15,
-            backgroundImage: 'repeating-linear-gradient(0deg, #000, #000 1px, transparent 1px, transparent 4px), repeating-linear-gradient(90deg, #000, #000 1px, transparent 1px, transparent 4px)',
-            position: 'absolute',
-            inset: 0
-          }} />
-          
           <div style={{
             position: 'absolute',
             color: isColored ? '#ffffff' : '#aaaaaa',
@@ -517,19 +519,24 @@ function GlowingCanvasVisual({ children }: { children: React.ReactNode }) {
         
         {/* Silhouette */}
         <div style={{
-          width: 52,
-          height: 72,
+          width: '9%',
+          height: '20%',
           background: 'linear-gradient(to top, rgba(0,0,0,0.92), rgba(20,15,30,0.65))',
           borderRadius: '50% 50% 14px 12px',
           position: 'absolute',
-          top: 170,
-          left: '28%',
+          top: '46%',
+          left: '25%',
           zIndex: 4,
           filter: 'blur(1px)',
           transform: 'rotate(-4deg)',
         }} title="在畫架前的畫家" />
       </div>
       
+      {/* 漂浮心聲文字 */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none' }}>
+        <FloatingComments layerNum={layerNum} />
+      </div>
+
       {/* 讓交互按鈕浮在空白畫框最上層 */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'auto' }}>
         {children}
@@ -659,9 +666,6 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
 
   return (
     <GuiFrame tone="inner">
-      {/* 飄浮心聲背景效果 */}
-      <FloatingComments layerNum={layerNum} />
-
       <div style={{ position:'relative',zIndex:2,height:'100%',display:'grid',gridTemplateColumns:'270px 1fr',gap:20,padding:28 }}>
         {/* 左側欄 */}
         <aside style={{ display:'flex',flexDirection:'column',gap:14,overflowY:'auto',maxHeight:'calc(100vh - 100px)' }}>
@@ -745,6 +749,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           overflow: 'hidden',
           flex: 1
         }}>
+          {layerNum === 1 && <FloatingComments layerNum={layerNum} />}
           {layerNum === 1 ? (
             /* 第一層：展覽廳 - 網格佈局 */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
@@ -784,9 +789,10 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
             </div>
           ) : (
             /* 第二、三、四層：居中放大地圖式探索 */
-            <div style={{ position: 'relative', width: 680, height: 420 }}>
+            <div style={{ position: 'relative', width: '100%', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {layerNum === 2 && (
-                <AccidentVideoPlaceholder>
+                <AccidentVideoPlaceholder layerNum={layerNum}>
+
                   {layer.interactables.map(obj => {
                     const coord = PIN_COORDINATES[obj.id] || { top: '50%', left: '50%' };
                     const isDisc = discoveredIds.includes(obj.id);
@@ -806,7 +812,8 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                 </AccidentVideoPlaceholder>
               )}
               {layerNum === 3 && (
-                <WhiteCanvasVisual>
+                <WhiteCanvasVisual layerNum={layerNum}>
+
                   {layer.interactables.map(obj => {
                     const coord = PIN_COORDINATES[obj.id] || { top: '50%', left: '50%' };
                     const isDisc = discoveredIds.includes(obj.id);
@@ -826,7 +833,8 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                 </WhiteCanvasVisual>
               )}
               {layerNum === 4 && (
-                <GlowingCanvasVisual>
+                <GlowingCanvasVisual layerNum={layerNum}>
+
                   {layer.interactables.map(obj => {
                     const coord = PIN_COORDINATES[obj.id] || { top: '50%', left: '50%' };
                     const isDisc = discoveredIds.includes(obj.id);
@@ -848,29 +856,29 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
             </div>
           )}
 
-          {/* 快速層級切換（當心防抗拒值降低到一定數值後解鎖全部心理世界） */}
-          {isAllLayersUnlocked && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', width: '100%', maxWidth: 440, padding: '6px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
-              <span style={{ fontSize: 11, color: '#f5c16c', fontWeight: 'bold', letterSpacing: 1 }}>心防徹底解鎖：自由切換層級</span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[1, 2, 3, 4].map(num => (
-                  <GlimmerButton
-                    key={num}
-                    tone={layerNum === num ? 'primary' : 'ghost'}
-                    onClick={() => {
-                      setLayerNum(num as number);
-                      setUnderstanding({ insightIds: [] });
-                      setDiscoveredIds([]);
-                      setPhase({ type: 'exploring' });
-                    }}
-                    style={{ fontSize: 10, padding: '4px 12px', minHeight: 24, borderRadius: 6 }}
-                  >
-                    第{CH[num-1]}層
-                  </GlimmerButton>
-                ))}
-              </div>
+          {/* 快速層級切換 */}
+          <div style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', zIndex: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', width: 'calc(100% - 28px)', maxWidth: 600, padding: '6px 12px', background: 'rgba(255,255,255,0.06)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(2px)' }}>
+            <span style={{ fontSize: 13, color: '#f5c16c', fontWeight: 'bold', letterSpacing: 1 }}>
+              {isAllLayersUnlocked ? '心防徹底解鎖：自由切換層級' : '層級切換'}
+            </span>
+            <div style={{ display: 'flex', gap: 16, width: '100%', justifyContent: 'center' }}>
+              {[1, 2, 3, 4].map(num => (
+                <GlimmerButton
+                  key={num}
+                  tone={layerNum === num ? 'primary' : 'ghost'}
+                  onClick={() => {
+                    setLayerNum(num as number);
+                    setUnderstanding({ insightIds: [] });
+                    setDiscoveredIds([]);
+                    setPhase({ type: 'exploring' });
+                  }}
+                  style={{ fontSize: 15, padding: '10px 32px', minHeight: 44, borderRadius: 10, flex: 1, maxWidth: 160 }}
+                >
+                  第{CH[num-1]}層
+                </GlimmerButton>
+              ))}
             </div>
-          )}
+          </div>
         </main>
 
         {/* 模態 */}
