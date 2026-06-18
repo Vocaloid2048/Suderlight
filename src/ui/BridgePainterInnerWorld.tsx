@@ -154,6 +154,13 @@ function FloatingComments({ layerNum }: { layerNum: number }) {
 }
 
 const PIN_COORDINATES: Record<string, { top: string; left: string }> = {
+  // Layer 1 (Glory Museum)
+  champion_painting: { top: '34%', left: '50%' },
+  award_trophy: { top: '20%', left: '24%' },
+  media_interview: { top: '23%', left: '78%' },
+  audience_wall: { top: '70%', left: '28%' },
+  signature_display: { top: '72%', left: '76%' },
+
   // Layer 2 (Accident Site)
   shattered_windshield: { top: '35%', left: '22%' },
   accident_newspaper: { top: '25%', left: '72%' },
@@ -381,6 +388,59 @@ function AccidentVideoPlaceholder({ children, layerNum }: { children: React.Reac
 
       {/* 讓交互按鈕浮在影片最上層 */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'auto' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function GloryMuseumVisual({ children, layerNum }: { children: React.ReactNode; layerNum: number }) {
+  return (
+    <div style={{
+      width: 'min(95vw, 100%)',
+      height: 'min(95vh, 100%)',
+      borderRadius: 20,
+      background: 'radial-gradient(circle at 50% 30%, rgba(120,92,48,0.45), rgba(22,16,10,0.98))',
+      border: '1px solid rgba(214, 163, 94, 0.28)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
+      overflow: 'hidden'
+    }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 0%, rgba(255,230,180,0.16), transparent 55%)', pointerEvents: 'none' }} />
+
+      {/* 美術館主展牆 */}
+      <div style={{
+        position: 'absolute',
+        top: '10%',
+        width: '58%',
+        height: '52%',
+        borderRadius: 16,
+        background: 'linear-gradient(160deg, rgba(78,58,32,0.85), rgba(35,24,14,0.92))',
+        border: '2px solid rgba(214,163,94,0.32)',
+        boxShadow: '0 16px 36px rgba(0,0,0,0.45), inset 0 0 24px rgba(255,220,150,0.08)'
+      }}>
+        <div style={{ position: 'absolute', inset: 18, border: '2px solid rgba(245,213,141,0.24)', borderRadius: 12 }} />
+      </div>
+
+      {/* 左右聚光氛圍（去除格子感） */}
+      <div style={{ position: 'absolute', left: '6%', top: '12%', width: '26%', height: '48%', borderRadius: '50%', background: 'radial-gradient(circle at center, rgba(255,230,170,0.16), rgba(255,230,170,0.02) 65%, transparent 75%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', right: '6%', top: '12%', width: '26%', height: '48%', borderRadius: '50%', background: 'radial-gradient(circle at center, rgba(255,230,170,0.16), rgba(255,230,170,0.02) 65%, transparent 75%)', pointerEvents: 'none' }} />
+
+      {/* 掌聲與媒體氛圍 */}
+      <div style={{ position: 'absolute', bottom: '10%', left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,220,160,0.42)', fontSize: 12, letterSpacing: 3, fontStyle: 'italic', userSelect: 'none', pointerEvents: 'none' }}>
+        掌聲不息 · 媒體聚焦 · 榮耀陳列
+      </div>
+
+      {/* 漂浮心聲文字 */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none' }}>
+        <FloatingComments layerNum={layerNum} />
+      </div>
+
+      {/* 交互點 */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'auto' }}>
         {children}
       </div>
     </div>
@@ -749,49 +809,33 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           overflow: 'hidden',
           flex: 1
         }}>
-          {layerNum === 1 && <FloatingComments layerNum={layerNum} />}
-          {layerNum === 1 ? (
-            /* 第一層：展覽廳 - 網格佈局 */
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 150px)', gridTemplateRows: 'repeat(3, 110px)', gap: 16, padding: 24, borderRadius: 20, background: colors.gridBg, border: `1px solid ${colors.border}` }}>
-                {Array.from({length:3}).map((_,row) =>
-                  Array.from({length:3}).map((_,col) => {
-                    const obj = layer.interactables.find(o => o.row===row && o.col===col);
-                    const isDisc = obj ? discoveredIds.includes(obj.id) : false;
-                    const hasIn = obj ? hasInsight(understanding, obj.id) : false;
-                    if (!obj) return <div key={`${row}-${col}`} style={{ borderRadius:12,background:colors.cellEmpty,border:`1px dashed ${colors.accent}15` }}/>;
+
+          {/* 第一到四層：居中放大地圖式探索 */}
+          <div style={{ position: 'relative', width: '100%', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {layerNum === 1 && (
+                <GloryMuseumVisual layerNum={layerNum}>
+                  {layer.interactables.map(obj => {
+                    const coord = PIN_COORDINATES[obj.id] || { top: '50%', left: '50%' };
+                    const isDisc = discoveredIds.includes(obj.id);
+                    const hasIn = hasInsight(understanding, obj.id);
                     return (
-                      <button key={obj.id} onClick={() => handleClickObject(obj)} style={{ borderRadius:12,background:hasIn?colors.cellInsight:isDisc?colors.cellDisc:colors.cellNorm,border:hasIn?`1px solid ${colors.accent}66`:isDisc?`1px solid ${colors.accent}20`:`1px solid ${colors.accent}10`,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6,padding:12,transition:'all 0.2s ease',color:hasIn?colors.accent:isDisc?colors.text:colors.sub,zIndex:2 }}
-                        onMouseEnter={e => { e.currentTarget.style.background=`${colors.accent}18`; e.currentTarget.style.borderColor=`${colors.accent}55`; e.currentTarget.style.transform='scale(1.03)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background=hasIn?colors.cellInsight:isDisc?colors.cellDisc:colors.cellNorm; e.currentTarget.style.borderColor=hasIn?`1px solid ${colors.accent}66`:isDisc?`1px solid ${colors.accent}20`:`1px solid ${colors.accent}10`; e.currentTarget.style.transform='scale(1)'; }}
-                      >
-                        <div style={{ fontSize:24,opacity:hasIn?1:0.55 }}>{getIcon(obj.id)}</div>
-                        <div style={{ fontSize:11.5,letterSpacing:0.5,fontWeight:hasIn?600:400,textAlign:'center' }}>{obj.name}{hasIn&&<span style={{ marginLeft:4,fontSize:10 }}>✦</span>}</div>
-                      </button>
+                      <InteractivePin
+                        key={obj.id}
+                        icon={getIcon(obj.id)}
+                        name={obj.name}
+                        isCollected={hasIn}
+                        isDiscovered={isDisc}
+                        onClick={() => handleClickObject(obj)}
+                        style={{ top: coord.top, left: coord.left, transform: 'translate(-50%, -50%)' }}
+                      />
                     );
-                  })
-                )}
-              </div>
-              
-              <div style={{
-                width: 450,
-                borderRadius: 12,
-                background: 'radial-gradient(circle at center, rgba(45,36,22,0.4), rgba(18,14,10,0.8))',
-                border: '1px solid rgba(214,163,94,0.15)',
-                padding: '12px 16px',
-                textAlign: 'center',
-              }}>
-                <div style={{ color: '#d4a35e', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>【展覽廳 · 昔日榮耀】</div>
-                <div style={{ color: '#d8c29b', fontSize: 11.5, lineHeight: 1.6 }}>
-                  這曾是他站在聚光燈下的舞台。無數的讚美、不息的掌聲，以及那些精雕細琢卻缺乏溫度的完美畫作，共同組成了他對「自我」的全部定義。
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* 第二、三、四層：居中放大地圖式探索 */
-            <div style={{ position: 'relative', width: '100%', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  })}
+                </GloryMuseumVisual>
+              )}
+
               {layerNum === 2 && (
                 <AccidentVideoPlaceholder layerNum={layerNum}>
+
 
                   {layer.interactables.map(obj => {
                     const coord = PIN_COORDINATES[obj.id] || { top: '50%', left: '50%' };
@@ -854,7 +898,6 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                 </GlowingCanvasVisual>
               )}
             </div>
-          )}
 
           {/* 快速層級切換 */}
           <div style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', zIndex: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', width: 'calc(100% - 28px)', maxWidth: 600, padding: '6px 12px', background: 'rgba(255,255,255,0.06)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(2px)' }}>
