@@ -73,8 +73,8 @@ export default function App() {
     setScreen(nextScreen);
   };
 
-  const resetAndReturnTitle = () => {
-    resetSave();
+  const resetAndReturnTitle = async () => {
+    await resetSave();
     setReturnScreen('city');
     setScreen('title');
   };

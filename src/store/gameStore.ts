@@ -218,7 +218,23 @@ export const useGameStore = create<GameStore>((set) => ({
     });
   },
 
-  resetSave: () => {
+  resetSave: async () => {
+    const playerId = getPlayerId();
+    if (playerId) {
+      try {
+        // 並行但等待兩者完成
+        await Promise.all([
+          syncSaveToBackend(createInitialSave()),
+          fetch('/api/chat/reset-all', {
+            method: 'POST',
+            headers: { 'X-Player-ID': playerId }
+          })
+        ]);
+      } catch (err) {
+        console.error('Remote reset failed:', err);
+      }
+    }
+    
     clearSave();
     const fresh = createInitialSave();
     persistSave(fresh);

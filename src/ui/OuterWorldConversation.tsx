@@ -1,8 +1,9 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState, useEffect } from 'react';
 import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
 import type { DialogueEvaluationResult, NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
+import { getPlayerId } from '../lib/playerId';
 
 type ChatMessage = {
   role: 'player' | 'npc' | 'system';
@@ -202,14 +203,55 @@ export default function OuterWorldConversation({
     return blankPainterCard.firstMessage;
   })();
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'system', content: initialSystemMessage },
-    { role: 'npc', content: initialNpcMessage },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
 
-  const triggeredLore = useMemo(() => {
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const playerId = getPlayerId();
+        const response = await fetch(`/api/chat/history/bridge_artist`, {
+          headers: { 'X-Player-ID': playerId }
+        });
+        if (!response.ok) throw new Error('Failed to load history');
+        const data = await response.json();
+        
+        if (data.history && data.history.length > 0) {
+          // Map backend history (user/assistant) to frontend format (player/npc)
+          const mappedHistory: ChatMessage[] = data.history.map((msg: any) => ({
+            role: msg.role === 'user' ? 'player' : msg.role === 'assistant' ? 'npc' : msg.role,
+            content: msg.content
+          }));
+          
+          // 保留初始打招呼文本在最前面
+      setMessages([
+        { role: 'system', content: initialSystemMessage },
+        { role: 'npc', content: initialNpcMessage },
+        ...mappedHistory
+      ]);
+    } else {
+      // 如果沒有紀錄，顯示初始打招呼文本
+      setMessages([
+        { role: 'system', content: initialSystemMessage },
+        { role: 'npc', content: initialNpcMessage },
+      ]);
+    }
+  } catch (error) {
+    console.error('Failed to load chat history:', error);
+    setMessages([
+      { role: 'system', content: initialSystemMessage },
+      { role: 'npc', content: initialNpcMessage },
+    ]);
+  } finally {
+    setIsInitializing(false);
+  }
+}
+loadHistory();
+}, [innerWorldDepth, initialSystemMessage, initialNpcMessage]);
+
+const triggeredLore = useMemo(() => {
     const flags = new Set(inventory.map(item => `inventory.${item}`));
     return blankPainterLorebook.filter(entry => {
       const hasRequiredFlags = entry.requiredFlags.every(flag => flags.has(flag));
@@ -279,25 +321,31 @@ export default function OuterWorldConversation({
     <GuiFrame tone="inner">
       <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', gridTemplateColumns: 'minmax(420px, 760px) 260px', justifyContent: 'center', gap: 16, padding: 24 }}>
         <GlassPanel title={blankPainterCard.displayName} subtitle="Outer World Conversation" variant="dark" style={{ alignSelf: 'center', maxHeight: '88vh', minHeight: 560, display: 'flex', flexDirection: 'column' }} contentStyle={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
-          <div style={{ padding: '0 20px 16px', display: 'grid', gap: 10 }}>
+          <div style={{ padding: '0 20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>{blankPainterCard.coreEmotion}</p>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: 20, backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)', backgroundSize: '100% 42px' }}>
-            {isEnded && (
-              <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, color: npcState.ending === 'success' ? '#b8ffd6' : '#ffd0d0', border: `1px solid ${npcState.ending === 'success' ? 'rgba(120,255,180,0.28)' : 'rgba(255,120,120,0.28)'}`, background: npcState.ending === 'success' ? 'rgba(80,180,120,0.08)' : 'rgba(180,60,60,0.1)', fontSize: 13 }}>
-                {npcState.ending === 'success' ? '修復完成：他沒有痊癒，但願意暫時放下畫筆，聽見雨聲。' : '失敗結局：他關上了最後的空白，Ghost System 已留下殘影。'}
-              </div>
-            )}
+            {isInitializing ? (
+              <div style={{ color: '#888', fontSize: 13, textAlign: 'center', marginTop: 20 }}>正在同步記憶...</div>
+            ) : (
+              <>
+                {isEnded && (
+                  <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, color: npcState.ending === 'success' ? '#b8ffd6' : '#ffd0d0', border: `1px solid ${npcState.ending === 'success' ? 'rgba(120,255,180,0.28)' : 'rgba(255,120,120,0.28)'}`, background: npcState.ending === 'success' ? 'rgba(80,180,120,0.08)' : 'rgba(180,60,60,0.1)', fontSize: 13 }}>
+                    {npcState.ending === 'success' ? '修復完成：他沒有痊癒，但願意暫時放下畫筆，聽見雨聲。' : '失敗結局：他關上了最後的空白，Ghost System 已留下殘影。'}
+                  </div>
+                )}
 
-            {messages.map((message, index) => (
+                {messages.map((message, index) => (
               <div key={`${message.role}-${index}`} style={{ marginBottom: 14, display: 'flex', justifyContent: message.role === 'player' ? 'flex-end' : 'flex-start' }}>
                 <div style={{ maxWidth: message.role === 'system' ? '100%' : '78%', padding: message.role === 'system' ? '8px 12px' : '12px 14px', borderRadius: message.role === 'player' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: message.role === 'player' ? 'rgba(86, 116, 148, 0.42)' : message.role === 'system' ? 'rgba(245, 193, 108, 0.08)' : 'rgba(255,255,255,0.07)', border: message.role === 'system' ? '1px solid rgba(245,193,108,0.16)' : '1px solid rgba(255,255,255,0.08)', color: message.role === 'system' ? '#d7b77a' : '#eee', lineHeight: 1.75, whiteSpace: 'pre-line', fontSize: message.role === 'system' ? 13 : 15 }}>
                   {message.content}
                 </div>
               </div>
-            ))}
-            {isThinking && <div style={{ color: '#888', fontSize: 13 }}>畫家沉默了一下，像是在等待雨聲替他組織句子……</div>}
+                ))}
+                {isThinking && <div style={{ color: '#888', fontSize: 13 }}>畫家沉默了一下，像是在等待雨聲替他組織句子……</div>}
+              </>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} style={{ padding: 16, borderTop: '1px solid rgba(255,255,255,0.1)' }}>

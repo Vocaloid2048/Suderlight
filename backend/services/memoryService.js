@@ -5,9 +5,8 @@ const logger = require('../middleware/logger');
 const dataDir = path.join(__dirname, '..', 'data');
 const memoriesDir = path.join(dataDir, 'memories');
 const MAX_TYPES = 10;
-const MAX_HISTORY = 100;
+// We no longer strictly limit history inside recentDialogue slice, but we will store full history
 
-// 确保记忆目录存在
 if (!fs.existsSync(memoriesDir)) {
   fs.mkdirSync(memoriesDir, { recursive: true });
 }
@@ -38,15 +37,19 @@ function writeMemory(playerId, memory) {
   fs.writeFileSync(memoryPath(playerId), `${JSON.stringify(memory, null, 2)}\n`, 'utf8');
 }
 
+function getDefaultNpcMemory() {
+  return { lastInputTypes: [], history: [], fullHistory: [], summary: '', roundCount: 0 };
+}
+
 function getRecentTypes(npcId, playerId) {
   const memory = readMemory(playerId);
-  const npcMemory = memory[npcId] || {};
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
   return Array.isArray(npcMemory.lastInputTypes) ? npcMemory.lastInputTypes : [];
 }
 
 function addInputType(npcId, inputType, playerId) {
   const memory = readMemory(playerId);
-  const npcMemory = memory[npcId] || { lastInputTypes: [], history: [], summary: '' };
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
   const nextTypes = [...(npcMemory.lastInputTypes || []), inputType].slice(-MAX_TYPES);
 
   memory[npcId] = { ...npcMemory, lastInputTypes: nextTypes };
@@ -54,9 +57,14 @@ function addInputType(npcId, inputType, playerId) {
   return nextTypes;
 }
 
-function saveDialogue(npcId, userMessage, npcReply, playerId) {
+function saveDialogue(npcId, userMessage, npcReply, playerId, userTimestamp) {
   const memory = readMemory(playerId);
-  const npcMemory = memory[npcId] || { lastInputTypes: [], history: [], summary: '' };
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  
+  if (!Array.isArray(npcMemory.fullHistory)) {
+    // 兼容舊資料：若沒有 fullHistory，就把舊的 history 搬過來
+    npcMemory.fullHistory = Array.isArray(npcMemory.history) ? [...npcMemory.history] : [];
+  }
   if (!Array.isArray(npcMemory.history)) {
     npcMemory.history = [];
   }
@@ -69,7 +77,7 @@ function saveDialogue(npcId, userMessage, npcReply, playerId) {
   const userEntry = {
     role: 'user',
     content: String(userMessage || '').trim(),
-    timestamp: Date.now(),
+    timestamp: userTimestamp || Date.now(),
   };
 
   const assistantEntry = {
@@ -78,14 +86,18 @@ function saveDialogue(npcId, userMessage, npcReply, playerId) {
     timestamp: Date.now(),
   };
 
-  const nextHistory = [...npcMemory.history, userEntry, assistantEntry].slice(-MAX_HISTORY);
-  memory[npcId] = { ...npcMemory, history: nextHistory };
+  npcMemory.fullHistory.push(userEntry, assistantEntry);
+  npcMemory.history.push(userEntry, assistantEntry);
+  npcMemory.roundCount = (npcMemory.roundCount || 0) + 1;
+
+  memory[npcId] = npcMemory;
   writeMemory(playerId, memory);
 }
 
-function getRecentDialogue(npcId, limit = 20, playerId) {
+function getRecentDialogue(npcId, limit = 20, playerId) { // default 20 messages = 10 rounds
   const memory = readMemory(playerId);
-  const npcMemory = memory[npcId] || {};
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  // 只返回當前 10 輪循環內的歷史
   const history = Array.isArray(npcMemory.history) ? npcMemory.history : [];
 
   return history.slice(-limit).map(item => ({
@@ -94,31 +106,56 @@ function getRecentDialogue(npcId, limit = 20, playerId) {
   }));
 }
 
+function getFullDialogue(npcId, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  const history = Array.isArray(npcMemory.fullHistory) && npcMemory.fullHistory.length > 0 
+    ? npcMemory.fullHistory 
+    : (Array.isArray(npcMemory.history) ? npcMemory.history : []);
+    
+  return history.map(item => ({
+    role: item.role,
+    content: item.content,
+  }));
+}
+
 function getSummary(npcId, playerId) {
   const memory = readMemory(playerId);
-  const npcMemory = memory[npcId] || {};
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
   return npcMemory.summary || '';
 }
 
 function updateSummary(npcId, newSummary, playerId) {
   const memory = readMemory(playerId);
-  const npcMemory = memory[npcId] || { lastInputTypes: [], history: [], summary: '' };
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
   memory[npcId] = { ...npcMemory, summary: String(newSummary || '').trim() };
   writeMemory(playerId, memory);
 }
 
-function getDialogueHistorySlice(npcId, startOffsetFromEnd = 30, endOffsetFromEnd = 10, playerId) {
+function resetCurrentHistory(npcId, playerId) {
   const memory = readMemory(playerId);
-  const npcMemory = memory[npcId] || {};
-  const history = Array.isArray(npcMemory.history) ? npcMemory.history : [];
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  npcMemory.history = [];
+  memory[npcId] = npcMemory;
+  writeMemory(playerId, memory);
+}
 
-  if (history.length <= endOffsetFromEnd) {
-    return history.map(item => ({ role: item.role, content: item.content }));
-  }
+function resetHistory(npcId, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  memory[npcId] = { ...npcMemory, history: [], fullHistory: [], summary: '', roundCount: 0 };
+  writeMemory(playerId, memory);
+}
 
-  return history
-    .slice(-startOffsetFromEnd, -endOffsetFromEnd)
-    .map(item => ({ role: item.role, content: item.content }));
+function resetAll(playerId) {
+  logger.info({ playerId }, 'Resetting all memory for player');
+  writeMemory(playerId, {});
+}
+
+function getRoundCount(npcId, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  return npcMemory.roundCount || 0;
 }
 
 module.exports = {
@@ -126,7 +163,11 @@ module.exports = {
   addInputType,
   saveDialogue,
   getRecentDialogue,
+  getFullDialogue,
   getSummary,
   updateSummary,
-  getDialogueHistorySlice,
+  resetCurrentHistory,
+  resetHistory,
+  resetAll,
+  getRoundCount
 };

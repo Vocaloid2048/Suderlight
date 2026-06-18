@@ -18,6 +18,45 @@ const chatSchema = z.object({
   message: z.string().min(1).max(5000),
 });
 
+// GET /api/chat/history/:npcId — 獲取完整的對話紀錄
+router.get('/history/:npcId', (req, res, next) => {
+  try {
+    const npcId = req.params.npcId;
+    const playerId = req.playerId;
+    const history = playerId ? memoryService.getFullDialogue(npcId, playerId) : [];
+    res.json({ history });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/chat/reset/:npcId — 重置對話紀錄
+router.post('/reset/:npcId', (req, res, next) => {
+  try {
+    const npcId = req.params.npcId;
+    const playerId = req.playerId;
+    if (playerId) {
+      memoryService.resetHistory(npcId, playerId);
+    }
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/chat/reset-all — 重置該球員的所有對話紀錄
+router.post('/reset-all', (req, res, next) => {
+  try {
+    const playerId = req.playerId;
+    if (playerId) {
+      memoryService.resetAll(playerId);
+    }
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/', async (req, res, next) => {
   try {
     // Input validation — fail fast
@@ -30,6 +69,7 @@ router.post('/', async (req, res, next) => {
     }
     const { npcId, message } = parsed.data;
     const playerId = req.playerId;
+    const userTimestamp = Date.now(); // 記錄收到用戶請求的精確時間
 
     const npc = saveService.getNpc(npcId, playerId);
     if (!npc) {
@@ -63,15 +103,10 @@ router.post('/', async (req, res, next) => {
       ? memoryService.getRecentTypes(npcId, playerId)
       : [];
 
-    // 3. 獲取最近歷史對話（按球员隔离）
-    const recentHistory = playerId
-      ? memoryService.getRecentDialogue(npcId, 20, playerId)
-      : [];
-
-    // 4. 建立與 LLM 互動的 messages 陣列（按球员隔离）
+    // 3. 建立與 LLM 互動的 messages 陣列（按球员隔离）
     const messages = promptBuilder.buildPrompt(npcId, message, recentInputTypes, playerId);
 
-    // 5. 調用 AI 生成 NPC 回覆
+    // 4. 調用 AI 生成 NPC 回覆
     const reply = await deepseekService.chat(messages);
 
     // 6. 更新 NPC 情感狀態
@@ -80,7 +115,7 @@ router.post('/', async (req, res, next) => {
     // 7. 保存對話語氣、NPC 狀態與實體對話歷史（按球员隔离）
     if (playerId) {
       memoryService.addInputType(npcId, stateUpdate.dialogueType, playerId);
-      memoryService.saveDialogue(npcId, message, reply, playerId);
+      memoryService.saveDialogue(npcId, message, reply, playerId, userTimestamp);
     }
     saveService.saveNpc(stateUpdate.npc, playerId);
 
@@ -111,15 +146,22 @@ router.post('/', async (req, res, next) => {
     });
 
     // 10. 異步非阻塞地更新「長期摘要記憶」
-    if (playerId && recentHistory.length >= 8) {
+    // 當新增對話滿 10 輪 (roundCount % 10 == 0) 時觸發摘要強化
+    if (playerId && memoryService.getRoundCount(npcId, playerId) % 10 == 0) {
       const oldSummary = memoryService.getSummary(npcId, playerId);
-      const segment = memoryService.getRecentDialogue(npcId, 8, playerId);
+      const segment = memoryService.getRecentDialogue(npcId, 20, playerId); // 拿最近 10 輪(20條)做摘要
 
-      summaryService.generateUpdatedSummary(oldSummary, segment)
+      // 立即清空當前 10 輪的 history 與 roundCount，讓第 11 輪進入全新的空白 history 陣列
+      memoryService.resetCurrentHistory(npcId, playerId);
+
+      console.log('aaa','segment', segment,'oldSummary = \"', oldSummary, '\"|LINE-END|')
+      await summaryService.generateUpdatedSummary(oldSummary, segment)
         .then(newSummary => {
+          
+          console.log('newSummary', newSummary)
           if (newSummary && newSummary !== '無' && newSummary.trim() !== '') {
             memoryService.updateSummary(npcId, newSummary, playerId);
-            logger.info({ npcId, playerId }, 'Long-term summary updated');
+            logger.info({ npcId, playerId }, 'Long-term summary updated after 10 rounds');
           }
         })
         .catch(err => {

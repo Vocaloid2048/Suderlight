@@ -35,7 +35,7 @@ function buildPrompt(npcId, playerMessage, recentInputTypes = [], playerId = nul
   // 2. 獲取長期情感與修復摘要（按球员隔离）
   const longTermSummary = playerId ? memoryService.getSummary(npcId, playerId) : '';
 
-  // 3. 獲取最近 20 條對話歷史（按球员隔离）
+  // 3. 獲取最近 20 條對話歷史 (即 10 輪)（按球员隔离）
   const recentHistory = playerId ? memoryService.getRecentDialogue(npcId, 20, playerId) : [];
 
   const name = npc.name || card.name || npcId;
@@ -50,7 +50,7 @@ function buildPrompt(npcId, playerMessage, recentInputTypes = [], playerId = nul
   const systemMessageContent = `
 你正在《情緒修復師：微光城市》中扮演 NPC。
 
-【世界書（當前感知）】
+【世界書（當前感知與解鎖進度）】
 ${worldbookText || '無特殊場景感知'}
 
 【角色名稱】
@@ -62,7 +62,8 @@ ${description}
 【角色個性與心理狀態】
 ${personality}
 
-【長期記憶與情感進度】
+【前情提要：長期記憶與情感進度摘要】
+（請基於此摘要中的心結、聯繫與承諾進行回覆，保持情感連貫性）
 ${longTermSummary || '無先前記憶，這是你們的初次交談。'}
 
 【場景】
@@ -84,7 +85,7 @@ ${creatorNotes}
 ${recentInputTypes.length > 0 ? recentInputTypes.join(', ') : '無'}
 
 【輸出規則】
-- 請完全以角色身份回覆。
+- 請完全以角色身份回覆，並參考前情提要中的記憶摘要。
 - 不要變成心理醫生。
 - 不要分析自己。
 - 不要一次說太多。
@@ -96,12 +97,13 @@ ${recentInputTypes.length > 0 ? recentInputTypes.join(', ') : '無'}
 `;
 
   // 組裝完整的 messages 陣列
+  // System Prompt -> 最近 10 輪歷史 (避免 token 燃燒) -> 當前 User
   return [
     {
       role: 'system',
       content: systemMessageContent.trim()
     },
-    ...recentHistory, // 展開最近的對話歷史 (最多20條/10輪)
+    ...recentHistory,
     {
       role: 'user',
       content: playerMessage
