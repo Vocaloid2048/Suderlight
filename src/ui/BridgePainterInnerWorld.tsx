@@ -156,10 +156,10 @@ function FloatingComments({ layerNum }: { layerNum: number }) {
 const PIN_COORDINATES: Record<string, { top: string; left: string }> = {
   // Layer 1 (Glory Museum)
   champion_painting: { top: '34%', left: '50%' },
-  award_trophy: { top: '20%', left: '24%' },
-  media_interview: { top: '23%', left: '78%' },
-  audience_wall: { top: '70%', left: '28%' },
-  signature_display: { top: '72%', left: '76%' },
+  award_trophy: { top: '58%', left: '14%' },
+  media_interview: { top: '18%', left: '86%' },
+  audience_wall: { top: '82%', left: '22%' },
+  signature_display: { top: '82%', left: '82%' },
 
   // Layer 2 (Accident Site)
   shattered_windshield: { top: '35%', left: '22%' },
@@ -213,6 +213,7 @@ function InteractivePin({
         outline: 'none',
         zIndex: 10,
         transition: 'transform 0.2s ease',
+        pointerEvents: 'auto',
         ...style
       }}
       onMouseEnter={e => {
@@ -261,6 +262,78 @@ function InteractivePin({
   );
 }
 
+interface MuseumTrophyArtifactProps {
+  isCollected: boolean;
+  isDiscovered: boolean;
+  onClick: () => void;
+  style: React.CSSProperties;
+}
+
+function MuseumTrophyArtifact({ isCollected, isDiscovered, onClick, style }: MuseumTrophyArtifactProps) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        position: 'absolute',
+        cursor: 'pointer',
+        background: 'none',
+        border: 'none',
+        outline: 'none',
+        zIndex: 10,
+        transform: 'translate(-50%, -50%)',
+        transition: 'transform 0.2s ease, filter 0.2s ease',
+        pointerEvents: 'auto',
+        ...style
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.08)';
+        e.currentTarget.style.filter = 'brightness(1.08)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+        e.currentTarget.style.filter = 'brightness(1)';
+      }}
+      title="獲獎獎盃"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        <div style={{
+          width: 58,
+          height: 58,
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 34,
+          background: isCollected
+            ? 'radial-gradient(circle, rgba(255,244,180,0.98), rgba(232,185,74,0.92))'
+            : isDiscovered
+              ? 'radial-gradient(circle, rgba(255,230,170,0.88), rgba(186,140,58,0.78))'
+              : 'radial-gradient(circle, rgba(255,220,150,0.78), rgba(130,96,40,0.62))',
+          border: `2px solid ${isCollected ? 'rgba(255,223,120,0.95)' : 'rgba(255,215,160,0.7)'}`,
+          boxShadow: isCollected
+            ? '0 0 18px rgba(255,214,90,0.75), inset 0 0 10px rgba(255,255,255,0.45)'
+            : '0 0 12px rgba(255,214,120,0.38), inset 0 0 8px rgba(255,255,255,0.28)'
+        }}>
+          🏆
+        </div>
+        <div style={{
+          padding: '2px 8px',
+          borderRadius: 6,
+          fontSize: 10.5,
+          fontWeight: 'bold',
+          letterSpacing: 0.8,
+          color: isCollected ? '#ffe082' : '#f3d6a0',
+          background: 'rgba(25,18,10,0.78)',
+          border: '1px solid rgba(255,216,142,0.28)',
+          whiteSpace: 'nowrap'
+        }}>
+          榮耀獎盃{isCollected ? ' ✦' : ''}
+        </div>
+      </div>
+    </button>
+  );
+}
+
 function AccidentVideoPlaceholder({ children, layerNum }: { children: React.ReactNode; layerNum: number }) {
   const [videoEnded, setVideoEnded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -285,101 +358,16 @@ function AccidentVideoPlaceholder({ children, layerNum }: { children: React.Reac
         ref={videoRef}
         autoPlay
         muted
-        controls
         onEnded={() => setVideoEnded(true)}
         style={{
           width: '100%',
           height: '100%',
           objectFit: 'cover',
-          opacity: 0.65
+          opacity: 0.92
         }}
       >
         <source src={accidentMemoryVideo} type="video/mp4" />
       </video>
-
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: videoEnded ? 'rgba(0,0,0,0.55)' : 'rgba(12,22,35,0.4)',
-        pointerEvents: 'none',
-        zIndex: 1
-      }}>
-        {!videoEnded && (
-          <div style={{
-            position: 'absolute',
-            top: 20,
-            right: 20,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: 'rgba(255,0,0,0.15)',
-            border: '1px solid rgba(255,0,0,0.3)',
-            padding: '4px 10px',
-            borderRadius: 6,
-            color: '#ff8a80',
-            fontSize: 11,
-            fontWeight: 'bold'
-          }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff3d00', display: 'inline-block' }} />
-            車禍回憶畫面播映中...
-          </div>
-        )}
-        {videoEnded && (
-          <div style={{
-            position: 'absolute',
-            top: 20,
-            right: 20,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: 'rgba(255,255,255,0.1)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            padding: '4px 10px',
-            borderRadius: 6,
-            color: '#bbb',
-            fontSize: 11,
-            fontWeight: 'bold'
-          }}>
-            🎥 播放結束 · 畫面定格（灰階）
-          </div>
-        )}
-
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6b9ec4" strokeWidth="1.5" style={{ opacity: 0.3, marginBottom: 12 }}>
-          <path d="M23 7l-7 5 7 5V7z" />
-          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-        </svg>
-        <div style={{ color: '#b0c8dd', fontSize: 13, opacity: 0.5, letterSpacing: 1.5 }}>
-          【記憶影片投影區】
-        </div>
-      </div>
-
-      {!videoEnded && (
-        <button
-          onClick={() => setVideoEnded(true)}
-          style={{
-            position: 'absolute',
-            bottom: 20,
-            left: 20,
-            background: 'rgba(107,158,196,0.2)',
-            border: '1px solid rgba(107,158,196,0.4)',
-            color: '#b0c8dd',
-            borderRadius: 6,
-            padding: '4px 10px',
-            fontSize: 11,
-            cursor: 'pointer',
-            zIndex: 5,
-            transition: 'background 0.2s'
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(107,158,196,0.4)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(107,158,196,0.2)'}
-        >
-          ⏩ 模擬播放結束
-        </button>
-      )}
 
       {/* 漂浮心聲文字 */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}>
@@ -394,7 +382,19 @@ function AccidentVideoPlaceholder({ children, layerNum }: { children: React.Reac
   );
 }
 
-function GloryMuseumVisual({ children, layerNum }: { children: React.ReactNode; layerNum: number }) {
+function GloryMuseumVisual({
+  children,
+  layerNum,
+  onPaintingClick,
+  isPaintingCollected,
+  isPaintingDiscovered,
+}: {
+  children: React.ReactNode;
+  layerNum: number;
+  onPaintingClick: () => void;
+  isPaintingCollected: boolean;
+  isPaintingDiscovered: boolean;
+}) {
   return (
     <div style={{
       width: 'min(95vw, 100%)',
@@ -422,7 +422,97 @@ function GloryMuseumVisual({ children, layerNum }: { children: React.ReactNode; 
         border: '2px solid rgba(214,163,94,0.32)',
         boxShadow: '0 16px 36px rgba(0,0,0,0.45), inset 0 0 24px rgba(255,220,150,0.08)'
       }}>
-        <div style={{ position: 'absolute', inset: 18, border: '2px solid rgba(245,213,141,0.24)', borderRadius: 12 }} />
+        {/* 畫框（獲獎作品） */}
+        <button
+          onClick={onPaintingClick}
+          style={{
+            position: 'absolute',
+            inset: 18,
+            border: isPaintingCollected ? '2px solid rgba(255, 221, 120, 0.75)' : '2px solid rgba(245,213,141,0.24)',
+            borderRadius: 12,
+            background: 'linear-gradient(140deg, rgba(248,243,234,0.96), rgba(239,232,218,0.94))',
+            overflow: 'hidden',
+            cursor: 'pointer',
+            padding: 0,
+            outline: 'none',
+            boxShadow: isPaintingCollected
+              ? '0 0 20px rgba(255, 209, 102, 0.35), inset 0 0 14px rgba(255,255,255,0.24)'
+              : isPaintingDiscovered
+                ? '0 0 0 1px rgba(255,255,255,0.16)'
+                : 'none',
+            transition: 'all 0.22s ease',
+            zIndex: 3
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'scale(1.01)';
+            e.currentTarget.style.boxShadow = '0 0 16px rgba(255, 214, 130, 0.25), inset 0 0 12px rgba(255,255,255,0.18)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = isPaintingCollected
+              ? '0 0 20px rgba(255, 209, 102, 0.35), inset 0 0 14px rgba(255,255,255,0.24)'
+              : isPaintingDiscovered
+                ? '0 0 0 1px rgba(255,255,255,0.16)'
+                : 'none';
+          }}
+          title="獲獎畫作"
+        >
+          {/* 畫布肌理 */}
+          <div style={{ position: 'absolute', inset: 0, opacity: 0.1, backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(56,42,23,0.35) 1px, transparent 1px)', backgroundSize: '8px 8px' }} />
+
+          {/* 中央主體：完整構圖 */}
+          <div style={{ position: 'absolute', inset: '2% 2%', borderRadius: 10, background: 'linear-gradient(160deg, rgba(28,35,56,0.96), rgba(67,36,36,0.9) 48%, rgba(24,30,47,0.95))', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.12)' }}>
+
+            {/* 藍色主弧（冷色秩序） */}
+            <div style={{ position: 'absolute', width: '72%', height: '46%', left: '7%', top: '12%', borderRadius: '60% 40% 58% 42%', transform: 'rotate(-9deg)', background: 'radial-gradient(circle at 38% 42%, rgba(116,197,255,0.95), rgba(39,127,224,0.88) 46%, rgba(23,74,156,0.75) 74%, rgba(12,34,82,0.35) 100%)', boxShadow: '0 0 18px rgba(65,145,235,0.35)' }} />
+
+            {/* 紅色主弧（情感張力） */}
+            <div style={{ position: 'absolute', width: '68%', height: '42%', right: '6%', bottom: '12%', borderRadius: '42% 58% 44% 56%', transform: 'rotate(11deg)', background: 'radial-gradient(circle at 55% 48%, rgba(255,142,142,0.94), rgba(226,59,59,0.9) 45%, rgba(166,27,27,0.78) 73%, rgba(79,9,9,0.32) 100%)', boxShadow: '0 0 18px rgba(220,70,70,0.32)' }} />
+
+            {/* 紅藍交匯：紫色核心 */}
+            <div style={{ position: 'absolute', width: '38%', height: '22%', left: '31%', top: '39%', borderRadius: '55% 45% 60% 40%', transform: 'rotate(-3deg)', background: 'radial-gradient(circle at 46% 50%, rgba(176,108,232,0.86), rgba(126,76,196,0.58), rgba(78,44,136,0.24), transparent 74%)', boxShadow: '0 0 14px rgba(146,88,214,0.35)' }} />
+          </div>
+
+          {/* 作品信息牌 */}
+          <div style={{ position: 'absolute', right: '5.5%', bottom: '5.5%', color: 'rgba(78,58,34,0.82)', fontSize: 11, letterSpacing: 1.1, fontWeight: 600, pointerEvents: 'none' }}>
+            《紅與藍的和聲》
+          </div>
+        </button>
+      </div>
+
+      {/* 畫作前的觀眾群像（加密） */}
+      <div style={{ position: 'absolute', left: '50%', bottom: '16%', transform: 'translateX(-50%)', width: '78%', height: '22%', pointerEvents: 'none', zIndex: 2 }}>
+        {/* 前排 */}
+        {[
+          { left: '4%', h: '56%', w: '4.8%' },
+          { left: '10%', h: '64%', w: '5.2%' },
+          { left: '17%', h: '58%', w: '5%' },
+          { left: '24%', h: '70%', w: '5.5%' },
+          { left: '31%', h: '60%', w: '5.1%' },
+          { left: '38%', h: '76%', w: '5.9%' },
+          { left: '46%', h: '63%', w: '5.2%' },
+          { left: '54%', h: '72%', w: '5.7%' },
+          { left: '62%', h: '58%', w: '5%' },
+          { left: '69%', h: '66%', w: '5.4%' },
+          { left: '76%', h: '61%', w: '5.1%' },
+          { left: '83%', h: '69%', w: '5.6%' },
+          { left: '90%', h: '57%', w: '4.8%' }
+        ].map((p, i) => (
+          <div key={`front-${i}`} style={{ position: 'absolute', bottom: 0, left: p.left, width: p.w, height: p.h, background: 'linear-gradient(to top, rgba(8,7,10,0.94), rgba(34,30,36,0.8))', borderRadius: '46% 46% 12px 12px', filter: 'blur(0.35px)' }} />
+        ))}
+
+        {/* 后排 */}
+        {[
+          { left: '8%', h: '48%', w: '4.2%' },
+          { left: '20%', h: '52%', w: '4.4%' },
+          { left: '33%', h: '50%', w: '4.3%' },
+          { left: '47%', h: '54%', w: '4.6%' },
+          { left: '61%', h: '49%', w: '4.2%' },
+          { left: '74%', h: '53%', w: '4.5%' },
+          { left: '86%', h: '47%', w: '4.2%' }
+        ].map((p, i) => (
+          <div key={`back-${i}`} style={{ position: 'absolute', bottom: '18%', left: p.left, width: p.w, height: p.h, background: 'linear-gradient(to top, rgba(16,13,19,0.72), rgba(46,40,52,0.58))', borderRadius: '46% 46% 10px 10px', opacity: 0.92 }} />
+        ))}
       </div>
 
       {/* 左右聚光氛圍（去除格子感） */}
@@ -440,7 +530,7 @@ function GloryMuseumVisual({ children, layerNum }: { children: React.ReactNode; 
       </div>
 
       {/* 交互點 */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'auto' }}>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none' }}>
         {children}
       </div>
     </div>
@@ -619,6 +709,9 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
   const [discoveredIds, setDiscoveredIds] = useState<string[]>([]);
 
   const layer = useMemo(() => getPsychLayer(layerNum)!, [layerNum]);
+  const championPaintingObj = useMemo(() => layer.interactables.find(o => o.id === 'champion_painting'), [layer]);
+  const isChampionPaintingDiscovered = championPaintingObj ? discoveredIds.includes(championPaintingObj.id) : false;
+  const isChampionPaintingCollected = championPaintingObj ? hasInsight(understanding, championPaintingObj.id) : false;
   const colors = getSchemeColors(layer.colorScheme);
   const score = useMemo(() => getCurrentLayerUnderstanding(understanding, layerNum), [understanding, layerNum]);
   const thresholdMet = score >= layer.nextLayerThreshold && layer.nextLayerThreshold > 0;
@@ -813,11 +906,33 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           {/* 第一到四層：居中放大地圖式探索 */}
           <div style={{ position: 'relative', width: '100%', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {layerNum === 1 && (
-                <GloryMuseumVisual layerNum={layerNum}>
+                <GloryMuseumVisual
+                  layerNum={layerNum}
+                  onPaintingClick={() => {
+                    if (championPaintingObj) handleClickObject(championPaintingObj);
+                  }}
+                  isPaintingCollected={isChampionPaintingCollected}
+                  isPaintingDiscovered={isChampionPaintingDiscovered}
+                >
                   {layer.interactables.map(obj => {
+                    if (obj.id === 'champion_painting') return null;
+
                     const coord = PIN_COORDINATES[obj.id] || { top: '50%', left: '50%' };
                     const isDisc = discoveredIds.includes(obj.id);
                     const hasIn = hasInsight(understanding, obj.id);
+
+                    if (obj.id === 'award_trophy') {
+                      return (
+                        <MuseumTrophyArtifact
+                          key={obj.id}
+                          isCollected={hasIn}
+                          isDiscovered={isDisc}
+                          onClick={() => handleClickObject(obj)}
+                          style={{ top: coord.top, left: coord.left }}
+                        />
+                      );
+                    }
+
                     return (
                       <InteractivePin
                         key={obj.id}
@@ -966,7 +1081,7 @@ function ObservingPanel({ phase, colors, onLookCloser, onStartReflection, onChoo
   const showDeep = phase.type==='reflecting' ? true : (phase as {showDeep:boolean}).showDeep;
   return (
     <GlassPanel title={target.name} subtitle={phase.type==='reflecting'?'你的想法是…':'觀察'} variant="warm"
-      style={{ position:'absolute',right:48,top:'50%',transform:'translateY(-50%)',zIndex:4,width:380,maxHeight:'80vh',overflowY:'auto' }}>
+      style={{ position:'absolute',left:'50%',top:'50%',transform:'translate(-50%, -50%)',zIndex:4,width:380,maxHeight:'80vh',overflowY:'auto' }}>
       <div style={{ color:colors.text,fontSize:14,lineHeight:1.9,whiteSpace:'pre-line',marginBottom:16 }}>{target.surfaceInfo}</div>
       {showDeep && <div style={{ marginTop:0,marginBottom:16,padding:'14px 16px',borderRadius:10,background:'rgba(0,0,0,0.35)',border:`1px solid ${colors.accent}22`,color:colors.text,fontSize:13.5,lineHeight:2,whiteSpace:'pre-line' }}>{target.deepMessage}</div>}
       <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
@@ -994,7 +1109,7 @@ function InsightPanel({ phase, colors, onClose }: {
   const { target, reward } = phase;
   return (
     <GlassPanel title="理解片段" subtitle={target.name} variant="paper"
-      style={{ position:'absolute',right:48,top:'50%',transform:'translateY(-50%)',zIndex:4,width:380 }}>
+      style={{ position:'absolute',left:'50%',top:'50%',transform:'translate(-50%, -50%)',zIndex:4,width:380 }}>
       <div style={{ padding:'16px 0',color:'#3a2a14',fontSize:15,lineHeight:2,fontStyle:'italic',textAlign:'center' }}>「{reward.reason}」</div>
       <div style={{ marginTop:8,padding:'10px 14px',borderRadius:8,background:'rgba(214,163,94,0.15)',border:'1px solid rgba(214,163,94,0.2)',color:'#5a4328',fontSize:12.5,lineHeight:1.7 }}>{target.insight}</div>
       <div style={{ marginTop:18 }}><GlimmerButton tone="primary" onClick={onClose} fullWidth>繼續探索</GlimmerButton></div>
