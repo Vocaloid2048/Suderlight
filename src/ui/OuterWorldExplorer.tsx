@@ -855,7 +855,7 @@ export default function OuterWorldExplorer({
                 const inBridge = pt.x >= 3.5 && pt.x <= 19.0 && pt.y >= 8.5 && pt.y <= 10.0;
                 
                 // 區域 B：通往右上角畫廊的縱向通道 (x: 17.0 ~ 19.0, y: 4.0 ~ 8.0)
-                const inPassage = pt.x >= 17.0 && pt.x <= 19.0 && pt.y >= 4.0 && pt.y <= 8.0;
+                const inPassage = pt.x >= 17.5 && pt.x <= 19.0 && pt.y >= 4.0 && pt.y <= 8.5;
 
                 // 區域 C：連接樓梯 (x: 3.0 ~ 5.0, y: 10.0 ~ 16.0) - 延長以連接下移後的道路
                 const inStairs = pt.x >= 3.5 && pt.x <= 5.0 && pt.y >= 10.0 && pt.y <= 17.0;
