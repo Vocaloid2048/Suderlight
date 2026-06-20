@@ -107,7 +107,12 @@ router.post('/', async (req, res, next) => {
     const messages = promptBuilder.buildPrompt(npcId, message, recentInputTypes, playerId);
 
     // 4. 調用 AI 生成 NPC 回覆
-    const reply = await deepseekService.chat(messages);
+    let reply = await deepseekService.chat(messages);
+
+    // 若回覆為空，給予一個符合角色設定的沈默描述
+    if (!reply || reply.trim() === '') {
+      reply = '他只是沈默地看著畫布，雨聲填滿了對話的空白。';
+    }
 
     // 6. 更新 NPC 情感狀態
     const stateUpdate = npcStateEngine.updateAfterDialogue(npc, message, dialogueType);

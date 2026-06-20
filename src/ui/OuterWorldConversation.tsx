@@ -292,7 +292,13 @@ const triggeredLore = useMemo(() => {
       try {
         const cleanedStr = replyStr.replace(/```json/gi, '').replace(/```/g, '').trim();
         reply = JSON.parse(cleanedStr) as AiReply;
-        if (!reply.dialogue) reply.dialogue = replyStr;
+        // 如果解析成功但 dialogue 欄位不存在，才回退到原始字串；
+        // 如果 dialogue 是空字串，則保留空字串（後續會處理）或給予預設值
+        if (reply.dialogue === undefined) {
+          reply.dialogue = replyStr;
+        } else if (reply.dialogue.trim() === '') {
+          reply.dialogue = '（他沈默著，沒有說話。）';
+        }
       } catch (error) {
         console.error('解析 LLM JSON 失敗:', error, replyStr);
         reply = {
