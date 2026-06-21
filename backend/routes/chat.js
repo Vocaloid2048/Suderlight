@@ -73,6 +73,8 @@ router.post('/', async (req, res, next) => {
       throw new ValidationError('Missing X-Player-Id header');
     }
     const userTimestamp = Date.now(); // 記錄收到用戶請求的精確時間
+    
+    const npc = saveService.getNpc(npcId, playerId);
     if (!npc) {
       throw new NotFoundError('NPC', npcId);
     }
