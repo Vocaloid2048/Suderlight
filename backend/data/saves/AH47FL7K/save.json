@@ -1,0 +1,51 @@
+{
+  "player": {
+    "knowledge": 100
+  },
+  "currentLocation": "skybridge",
+  "collectedClues": [
+    "brush",
+    "newspaper",
+    "sketchbook",
+    "accident_report"
+  ],
+  "npcs": {
+    "bridge_artist": {
+      "id": "bridge_artist",
+      "name": "天橋畫家",
+      "trust": 40,
+      "stress": 64,
+      "knowledgeRequired": 70,
+      "trustRequired": 50,
+      "innerWorldUnlocked": false,
+      "ending": "none",
+      "flags": [
+        "player_offered_presence"
+      ],
+      "innerWorldDepth": 0,
+      "innerWorldLayer": 0
+    },
+    "victor": {
+      "id": "victor",
+      "name": "調香師 維克多",
+      "trust": 10,
+      "stress": 90,
+      "knowledgeRequired": 70,
+      "trustRequired": 50,
+      "innerWorldUnlocked": false,
+      "ending": "none",
+      "flags": [],
+      "innerWorldDepth": 0,
+      "innerWorldLayer": 0
+    }
+  },
+  "ghosts": [],
+  "unlockedWorldbookIds": [
+    1,
+    2,
+    3,
+    10,
+    11,
+    12
+  ]
+}

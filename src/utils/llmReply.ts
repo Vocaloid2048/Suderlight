@@ -1,3 +1,5 @@
+import { getPlayerIdHeader } from '../lib/playerId';
+
 export type BackendNpcState = {
   trust: number;
   stress: number;
@@ -33,7 +35,7 @@ export async function sendMessage(text: string): Promise<{ reply: string; emotio
   try {
     const res = await fetch(`/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getPlayerIdHeader() },
       body: JSON.stringify({ npcId: 'bridge_artist', message: text })
     });
     if (!res.ok) {
@@ -73,7 +75,7 @@ export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge
 
     const response = await fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getPlayerIdHeader() },
       body: JSON.stringify({
         npcId: finalNpcId,
         message: playerMessage,

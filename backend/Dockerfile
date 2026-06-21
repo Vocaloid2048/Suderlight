@@ -1,20 +1,24 @@
 FROM node:20-bookworm-slim
 
-# 設定工作目錄
 WORKDIR /app
 
-# 複製 package.json 和 package-lock.json (如果存在)
+# 创建非 root 用户
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 --gid 1001 nodejs
+
 COPY package*.json ./
+RUN npm ci --only=production
 
-# 安裝依賴套件
-RUN npm install
-
-# 複製所有原始碼
 COPY . .
 
-# 預設對外曝露的 Port
+# 安全：非 root 运行
+USER nodejs
+
+ENV NODE_ENV=production
 ENV PORT=4000
 EXPOSE 4000
 
-# 啟動命令
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:4000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
 CMD ["node", "server.js"]

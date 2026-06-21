@@ -1,5 +1,5 @@
 export type NpcId = 'bridge_artist' | 'victor';
-export type LocationId = 'skybridge' | 'newsstand' | 'park' | 'abandoned_studio';
+export type LocationId = 'skybridge' | 'newsstand' | 'park';
 export type ClueId = 'brush' | 'newspaper' | 'sketchbook' | 'accident_report';
 
 export type LocationData = {
@@ -49,17 +49,9 @@ export const locations: Record<LocationId, LocationData> = {
     ambient: '泥土、落葉、遲疑的雨聲',
     spawn: { x: 12, y: 12 },
   },
-  abandoned_studio: {
-    id: 'abandoned_studio',
-    name: '廢棄畫室',
-    subtitle: '被鎖住的舊工作室',
-    description: '窗簾長年拉著，灰塵在縫隙光裡漂浮。牆上仍留著過去展覽的釘痕，桌上壓著一份皺起的事故報導。',
-    ambient: '灰塵、乾掉的顏料、封存的春天',
-    spawn: { x: 14, y: 8 },
-  },
 };
 
-export const locationOrder: LocationId[] = ['skybridge', 'newsstand', 'park', 'abandoned_studio'];
+export const locationOrder: LocationId[] = ['skybridge'];
 
 export const bridgeArtistClues: Record<ClueId, ClueData> = {
   brush: {
@@ -68,7 +60,7 @@ export const bridgeArtistClues: Record<ClueId, ClueData> = {
     shortLabel: '畫筆',
     knowledge: 20,
     locationId: 'skybridge',
-    pos: { x: 15, y: 6 },
+    pos: { x: 18, y: 8.5 },
     color: '#fff6d8',
     icon: '筆',
     content: '你在潮濕的天橋角落找到一支畫筆。筆尖已經乾硬，上面殘留洗不掉的灰色顏料，像一段被迫停下來的句子。',
@@ -80,8 +72,8 @@ export const bridgeArtistClues: Record<ClueId, ClueData> = {
     shortLabel: '報紙',
     knowledge: 20,
     locationId: 'newsstand',
-    pos: { x: 8, y: 12 },
-    color: '#d8d8d8',
+    pos: { x: 10, y: 17 },
+    color: '#fff6d8',
     icon: '紙',
     content: '報紙被雨泡皺，只剩一角還能辨認：「天才青年畫家車禍後失去辨色能力……」旁邊的版面被人用力撕掉。',
     dictionaryHint: '失色不是黑暗，而是世界仍在發光，只是所有光都繞過了你。',
@@ -92,8 +84,8 @@ export const bridgeArtistClues: Record<ClueId, ClueData> = {
     shortLabel: '素描本',
     knowledge: 30,
     locationId: 'park',
-    pos: { x: 11, y: 13 },
-    color: '#b9d7ff',
+    pos: { x: 11, y: 11 },
+    color: '#fff6d8',
     icon: '本',
     content: '素描本前半本全是鮮活的花與街燈，後半本只剩反覆描過的灰階輪廓。最後一頁寫著：「如果春天只剩形狀，我還算畫家嗎？」',
     dictionaryHint: '自我價值崩塌時，人常把「做不到」誤認成「我不存在」。',
@@ -103,9 +95,9 @@ export const bridgeArtistClues: Record<ClueId, ClueData> = {
     label: '車禍報導',
     shortLabel: '車禍報導',
     knowledge: 30,
-    locationId: 'abandoned_studio',
-    pos: { x: 16, y: 8 },
-    color: '#ffb4a2',
+    locationId: 'skybridge',
+    pos: { x: 23, y: 19 },
+    color: '#fff6d8',
     icon: '檔',
     content: '這不是普通新聞，而是一份被折起來的完整報導。事故後的採訪標題寫著：「大家都在等他復出。」紙邊被指甲掐出深深痕跡。',
     dictionaryHint: '有些期待看似溫柔，實際上會把人再次釘回創傷現場。',

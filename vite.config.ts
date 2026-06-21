@@ -47,6 +47,11 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     plugins: [react()],
+    base: './',
+    build: {
+      outDir: 'dist',
+      assetsDir: 'assets',
+    },
     preview: {
       port: 8483,
       host: true,

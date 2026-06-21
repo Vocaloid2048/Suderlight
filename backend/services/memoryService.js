@@ -1,61 +1,74 @@
 const fs = require('fs');
 const path = require('path');
+const logger = require('../middleware/logger');
 
-const memoryPath = path.join(__dirname, '..', 'data', 'dialogueMemory.json');
+const dataDir = path.join(__dirname, '..', 'data');
+const memoriesDir = path.join(dataDir, 'memories');
 const MAX_TYPES = 10;
-const MAX_HISTORY = 100; // 最多保留 100 條實體歷史以節省磁碟空間
+// We no longer strictly limit history inside recentDialogue slice, but we will store full history
 
-function ensureMemoryFile() {
-  if (!fs.existsSync(memoryPath)) {
-    fs.writeFileSync(memoryPath, '{}\n', 'utf8');
+if (!fs.existsSync(memoriesDir)) {
+  fs.mkdirSync(memoriesDir, { recursive: true });
+}
+
+function memoryPath(playerId) {
+  const sanitized = String(playerId || 'global').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+  return path.join(memoriesDir, `${sanitized}.json`);
+}
+
+function ensureMemoryFile(playerId) {
+  const p = memoryPath(playerId);
+  if (!fs.existsSync(p)) {
+    fs.writeFileSync(p, '{}\n', 'utf8');
   }
 }
 
-function readMemory() {
-  ensureMemoryFile();
+function readMemory(playerId) {
+  ensureMemoryFile(playerId);
   try {
-    return JSON.parse(fs.readFileSync(memoryPath, 'utf8'));
+    return JSON.parse(fs.readFileSync(memoryPath(playerId), 'utf8'));
   } catch (err) {
-    console.error('Failed to parse dialogueMemory.json, resetting to empty object', err);
+    logger.error({ err, playerId }, 'Failed to parse dialogueMemory — resetting');
     return {};
   }
 }
 
-function writeMemory(memory) {
-  fs.writeFileSync(memoryPath, `${JSON.stringify(memory, null, 2)}\n`, 'utf8');
+function writeMemory(playerId, memory) {
+  fs.writeFileSync(memoryPath(playerId), `${JSON.stringify(memory, null, 2)}\n`, 'utf8');
 }
 
-function getRecentTypes(npcId) {
-  const memory = readMemory();
-  const npcMemory = memory[npcId] || {};
+function getDefaultNpcMemory() {
+  return { lastInputTypes: [], history: [], fullHistory: [], summary: '', roundCount: 0 };
+}
+
+function getRecentTypes(npcId, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
   return Array.isArray(npcMemory.lastInputTypes) ? npcMemory.lastInputTypes : [];
 }
 
-function addInputType(npcId, inputType) {
-  const memory = readMemory();
-  const npcMemory = memory[npcId] || { lastInputTypes: [], history: [], summary: '' };
+function addInputType(npcId, inputType, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
   const nextTypes = [...(npcMemory.lastInputTypes || []), inputType].slice(-MAX_TYPES);
 
-  memory[npcId] = {
-    ...npcMemory,
-    lastInputTypes: nextTypes,
-  };
-
-  writeMemory(memory);
+  memory[npcId] = { ...npcMemory, lastInputTypes: nextTypes };
+  writeMemory(playerId, memory);
   return nextTypes;
 }
 
-/**
- * 儲存單輪對話
- */
-function saveDialogue(npcId, userMessage, npcReply) {
-  const memory = readMemory();
-  const npcMemory = memory[npcId] || { lastInputTypes: [], history: [], summary: '' };
+function saveDialogue(npcId, userMessage, npcReply, playerId, userTimestamp) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  
+  if (!Array.isArray(npcMemory.fullHistory)) {
+    // 兼容舊資料：若沒有 fullHistory，就把舊的 history 搬過來
+    npcMemory.fullHistory = Array.isArray(npcMemory.history) ? [...npcMemory.history] : [];
+  }
   if (!Array.isArray(npcMemory.history)) {
     npcMemory.history = [];
   }
 
-  // 清洗對話格式，移除可能殘留的 markdown / JSON tags
   const cleanReply = String(npcReply || '')
     .replace(/```json/gi, '')
     .replace(/```/g, '')
@@ -64,81 +77,86 @@ function saveDialogue(npcId, userMessage, npcReply) {
   const userEntry = {
     role: 'user',
     content: String(userMessage || '').trim(),
-    timestamp: Date.now()
+    timestamp: userTimestamp || Date.now(),
   };
 
   const assistantEntry = {
     role: 'assistant',
     content: cleanReply,
-    timestamp: Date.now()
+    timestamp: Date.now(),
   };
 
-  // 追加對話歷史並截斷至最大歷史數
-  const nextHistory = [...npcMemory.history, userEntry, assistantEntry].slice(-MAX_HISTORY);
+  npcMemory.fullHistory.push(userEntry, assistantEntry);
+  if (npcMemory.fullHistory.length > 2000) npcMemory.fullHistory = npcMemory.fullHistory.slice(-2000);
+  npcMemory.history.push(userEntry, assistantEntry);
+  npcMemory.roundCount = (npcMemory.roundCount || 0) + 1;
 
-  memory[npcId] = {
-    ...npcMemory,
-    history: nextHistory
-  };
-
-  writeMemory(memory);
+  memory[npcId] = npcMemory;
+  writeMemory(playerId, memory);
 }
 
-/**
- * 獲取最近 limit 條對話歷史（用於滑動窗口）
- * 返回格式符合 OpenAI/DeepSeek messages 陣列
- */
-function getRecentDialogue(npcId, limit = 20) {
-  const memory = readMemory();
-  const npcMemory = memory[npcId] || {};
+function getRecentDialogue(npcId, limit = 20, playerId) { // default 20 messages = 10 rounds
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  // 只返回當前 10 輪循環內的歷史
   const history = Array.isArray(npcMemory.history) ? npcMemory.history : [];
-  
-  // 只返回最後 limit 條，且只提取 role 與 content
+
   return history.slice(-limit).map(item => ({
     role: item.role,
-    content: item.content
+    content: item.content,
   }));
 }
 
-/**
- * 獲取長期情感與對話摘要
- */
-function getSummary(npcId) {
-  const memory = readMemory();
-  const npcMemory = memory[npcId] || {};
+function getFullDialogue(npcId, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  const history = Array.isArray(npcMemory.fullHistory) && npcMemory.fullHistory.length > 0 
+    ? npcMemory.fullHistory 
+    : (Array.isArray(npcMemory.history) ? npcMemory.history : []);
+    
+  return history.map(item => ({
+    role: item.role,
+    content: item.content,
+  }));
+}
+
+function getSummary(npcId, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
   return npcMemory.summary || '';
 }
 
-/**
- * 更新長期情感與對話摘要
- */
-function updateSummary(npcId, newSummary) {
-  const memory = readMemory();
-  const npcMemory = memory[npcId] || { lastInputTypes: [], history: [], summary: '' };
-  
-  memory[npcId] = {
-    ...npcMemory,
-    summary: String(newSummary || '').trim()
-  };
-  
-  writeMemory(memory);
+function updateSummary(npcId, newSummary, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  memory[npcId] = { ...npcMemory, summary: String(newSummary || '').trim() };
+  writeMemory(playerId, memory);
 }
 
-/**
- * 獲取未摘要的新對話片斷用於滾動更新
- */
-function getDialogueHistorySlice(npcId, startOffsetFromEnd = 30, endOffsetFromEnd = 10) {
-  const memory = readMemory();
-  const npcMemory = memory[npcId] || {};
-  const history = Array.isArray(npcMemory.history) ? npcMemory.history : [];
-  
-  if (history.length <= endOffsetFromEnd) {
-    return history.map(item => ({ role: item.role, content: item.content }));
-  }
-  
-  return history
-    .slice(-startOffsetFromEnd, -endOffsetFromEnd)
-    .map(item => ({ role: item.role, content: item.content }));
+function resetCurrentHistory(npcId, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  npcMemory.history = [];
+  memory[npcId] = npcMemory;
+  writeMemory(playerId, memory);
+}
+
+function resetHistory(npcId, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  memory[npcId] = { ...npcMemory, history: [], fullHistory: [], summary: '', roundCount: 0 };
+  writeMemory(playerId, memory);
+}
+
+function resetAll(playerId) {
+  logger.info({ playerId }, 'Resetting all memory for player');
+  writeMemory(playerId, {});
+}
+
+function getRoundCount(npcId, playerId) {
+  const memory = readMemory(playerId);
+  const npcMemory = memory[npcId] || getDefaultNpcMemory();
+  return npcMemory.roundCount || 0;
 }
 
 module.exports = {
@@ -146,7 +164,11 @@ module.exports = {
   addInputType,
   saveDialogue,
   getRecentDialogue,
+  getFullDialogue,
   getSummary,
   updateSummary,
-  getDialogueHistorySlice
+  resetCurrentHistory,
+  resetHistory,
+  resetAll,
+  getRoundCount
 };

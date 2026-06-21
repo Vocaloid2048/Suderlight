@@ -1,0 +1,37 @@
+/**
+ * 集中化配置 —— 所有 env 统一在此校验，fail-fast。
+ * 禁止在业务代码中直接引用 process.env。
+ */
+function required(name) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required env var: ${name}. Check your .env file.`);
+  }
+  return value;
+}
+
+const config = {
+  port: parseInt(process.env.PORT || '4000', 10),
+  nodeEnv: process.env.NODE_ENV || 'development',
+  cors: {
+    origin: (process.env.CORS_ORIGIN || 'http://localhost:3000')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  },
+  deepseek: {
+    apiKey: process.env.DEEPSEEK_API_KEY,
+    model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+  },
+  ollama: {
+    url: process.env.OLLAMA_URL || 'http://host.docker.internal:11434',
+    model: process.env.OLLAMA_MODEL || 'gemma4:e2b',
+  },
+};
+
+// 生产环境强制校验 DeepSeek key
+if (config.nodeEnv === 'production' && (!config.deepseek.apiKey || config.deepseek.apiKey === 'YOUR_KEY')) {
+  console.warn('[Config] WARNING: DEEPSEEK_API_KEY not set — only Ollama or fallback replies will work.');
+}
+
+module.exports = config;

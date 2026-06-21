@@ -1,8 +1,9 @@
-import { FormEvent, useMemo, useState } from 'react';
-import { GlimmerButton, GlassPanel, GuiFrame, MeterBar } from '../components';
+import { FormEvent, useMemo, useState, useEffect } from 'react';
+import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
 import type { DialogueEvaluationResult, NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
+import { getPlayerId } from '../lib/playerId';
 
 type ChatMessage = {
   role: 'player' | 'npc' | 'system';
@@ -32,6 +33,8 @@ type AiReply = {
 type OuterWorldConversationProps = {
   inventory: string[];
   knowledge: number;
+  /** 橋上畫家心理世界探索深度：0=未進入, 1=理解不足, 2=理解中等, 3=理解很深 */
+  innerWorldDepth?: number;
   npcState: NpcRuntimeState;
   onClose: () => void;
   onDialogueEvaluated: (playerInput: string) => DialogueEvaluationResult;
@@ -43,7 +46,12 @@ function hasAny(input: string, words: string[]) {
   return words.some(word => input.includes(word));
 }
 
-function simulateBlankPainterReply(playerInput: string, inventory: string[], history: ChatMessage[]): AiReply {
+function simulateBlankPainterReply(
+  playerInput: string,
+  inventory: string[],
+  history: ChatMessage[],
+  depth: number,
+): AiReply {
   const input = playerInput.trim().toLowerCase();
   const hasBrush = inventory.includes('brush');
   const hasNewspaper = inventory.includes('newspaper') || inventory.includes('accident_report');
@@ -66,6 +74,27 @@ function simulateBlankPainterReply(playerInput: string, inventory: string[], his
   }
 
   if (hasAny(input, ['我陪你', '陪你', '不說話', '聽你說', '慢慢來', '不用立刻', '不用證明'])) {
+    if (depth === 1) {
+      return {
+        dialogue: '你剛才去過那裡了對不對。\n但你只是看到了獎盃吧。跟其他人一樣。\n算了……你回去吧。反正也一樣。',
+        dictionaryHint: '被看見和被理解是不同的事。只看見獎盃，等於沒進去過。',
+        safetyLevel: 'safe',
+      };
+    }
+    if (depth === 2) {
+      return {
+        dialogue: '……你剛才不是還在那個地方嗎？\n那個連我自己都不敢走進去的展廳。\n你看到了對不對。簽名一直在變。從「春天」變成只有一個日期。連簽名都在逃跑。',
+        dictionaryHint: '被理解不是被分析，而是有人願意踏進你心裡最亮也最空的那個房間。',
+        safetyLevel: 'safe',
+      };
+    }
+    if (depth >= 3) {
+      return {
+        dialogue: '……你不用說。\n我看你的表情就知道了。\n最後那幅畫對不對。沒畫完的那一幅。\n我不敢畫完它。我怕畫完之後，就再也沒有理由站在這座橋上了。',
+        dictionaryHint: '最深的理解不是分析，而是讓對方覺得「你本來就知道」。',
+        safetyLevel: 'safe',
+      };
+    }
     return {
       dialogue: playerTurns > 2
         ? '那你就站遠一點吧。\n不用看我，也不用看畫。雨聲如果夠大，也許能替我說完一點點。'
@@ -107,9 +136,31 @@ function simulateBlankPainterReply(playerInput: string, inventory: string[], his
   }
 
   if (hasAny(input, ['雨聲', '風', '聽見', '沉默'])) {
+    if (depth >= 2) {
+      return {
+        dialogue: '雨聲……\n剛才你在那裡的時候，雨有沒有也跟著你進去？\n我的展廳裡，是不是連雨聲都沒有。',
+        dictionaryHint: '當有人願意走進你的內心世界後回來，連沉默都會變得比較輕。',
+        safetyLevel: 'safe',
+      };
+    }
     return {
       dialogue: '雨聲……\n很久沒聽過了。\n我一直以為它也變成灰色了。',
       dictionaryHint: '把注意力帶回當下感官，有時比勸說更能降低防衛。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (depth >= 2 && hasAny(input, ['理解', '懂得', '知道', '看見', '去過', '美術館', '展廳', '畫廊'])) {
+    return {
+      dialogue: '你……真的進去了？\n我一直以為那個地方只有我自己能去。\n那些獎盃排列的方式，像一排等著被唸出來的墓碑對不對。',
+      dictionaryHint: '真正的理解不是同情，而是走進對方的世界後，回來告訴他你看見了什麼。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (depth === 1 && hasAny(input, ['理解', '懂得', '知道', '看見', '去過', '美術館', '展廳', '畫廊'])) {
+    return {
+      dialogue: '你去過了？\n但你不會懂的。\n那些獎盃很漂亮對吧。每個人都這麼說。',
       safetyLevel: 'safe',
     };
   }
@@ -122,35 +173,85 @@ function simulateBlankPainterReply(playerInput: string, inventory: string[], his
   };
 }
 
-function formatDelta(value: number) {
-  if (value > 0) return `+${value}`;
-  return `${value}`;
-}
-
-function buildSystemOutcomeMessage(result: DialogueEvaluationResult) {
-  const unlockText = result.innerWorldUnlocked ? '\n心理世界解鎖條件已滿足。' : '';
-  const endingText = result.ending === 'failed' ? '\nGhost System 已記錄一次失敗。' : '';
-
-  return `系統判定：${result.reason}\nTrust ${formatDelta(result.trustDelta)} / Stress ${formatDelta(result.stressDelta)}${unlockText}${endingText}`;
-}
-
 export default function OuterWorldConversation({
   inventory,
-  knowledge,
+  innerWorldDepth = 0,
   npcState,
   onClose,
   onDialogueEvaluated,
   onEnterInnerWorld,
   onEndingTriggered,
 }: OuterWorldConversationProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'system', content: '雨水沿著天橋欄杆滴落。提燈的光很低，只照見空白畫布的一角。' },
-    { role: 'npc', content: blankPainterCard.firstMessage },
-  ]);
+
+  const initialSystemMessage = (() => {
+    if (innerWorldDepth === 1) return '你回到了天橋。雨水仍在滴落。畫家看了你一眼，眼神像是在確認什麼——然後又移開了。';
+    if (innerWorldDepth === 2) return '你回到了天橋。雨水仍在滴落，但畫家看你的眼神有些不一樣——像是感覺到你曾去過某個他不敢獨自前往的地方。';
+    if (innerWorldDepth >= 3) return '你回到了天橋。畫家沒有抬頭。他的手停在畫布上方，像是不確定自己還能不能繼續畫——還是繼續不畫。';
+    return '雨水沿著天橋欄杆滴落。提燈的光很低，只照見空白畫布的一角。';
+  })();
+
+  const initialNpcMessage = (() => {
+    if (innerWorldDepth === 1) {
+      return '……你也去了那種地方。\n他把畫筆放下，看著你。\n「你看到那些獎盃之後，是不是也覺得我很厲害。對不對。」\n不是在問你。是在確認他一直害怕的那件事——全世界都只看到獎盃，從頭到尾沒有人看到過他。\n「算了……你回去吧。反正也一樣。」';
+    }
+    if (innerWorldDepth === 2) {
+      return '……原來你真的進去過。\n他沒有看你。他看著畫布。畫布是白的，但他的手在抖。\n「不是那種……走進展廳說好厲害就出來的那種。」\n他的聲音變得很小。\n「你看到了對不對。那些畫的簽名。從『春天』變成『春橋』，最後變成只有一個日期。連簽名都在逃跑。」\n雨聲變大了一點。\n「我以為這些事情只有我自己知道。」';
+    }
+    if (innerWorldDepth >= 3) {
+      return '……那些獎盃排列得很整齊吧。\n他說這句話的時候，像是在說別人的事。\n「一排一排的。像訃文前面排著的花。」\n他終於把頭轉向你。眼裡沒有淚，只有一個問題。\n「你看到那幅沒畫完的畫了嗎。最後那幅。畫框是空的。」\n他停了一拍。\n「那幅畫本來要畫春天。但我畫不出來。」\n「不是因為我沒顏色了。」\n「是因為我不敢。」\n「我怕畫完之後，就再也沒有理由站在這座橋上了。」\n雨在滴。沒有停。他也不打算停。';
+    }
+    return blankPainterCard.firstMessage;
+  })();
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
 
-  const triggeredLore = useMemo(() => {
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const playerId = getPlayerId();
+        const response = await fetch(`/api/chat/history/bridge_artist`, {
+          headers: { 'X-Player-Id': playerId }
+        });
+        if (!response.ok) throw new Error('Failed to load history');
+        const data = await response.json();
+        
+        if (data.history && data.history.length > 0) {
+          // Map backend history (user/assistant) to frontend format (player/npc)
+          const mappedHistory: ChatMessage[] = data.history.map((msg: any) => ({
+            role: msg.role === 'user' ? 'player' : msg.role === 'assistant' ? 'npc' : msg.role,
+            content: msg.content
+          }));
+          
+          // 保留初始打招呼文本在最前面
+      setMessages([
+        { role: 'system', content: initialSystemMessage },
+        { role: 'npc', content: initialNpcMessage },
+        ...mappedHistory
+      ]);
+    } else {
+      // 如果沒有紀錄，顯示初始打招呼文本
+      setMessages([
+        { role: 'system', content: initialSystemMessage },
+        { role: 'npc', content: initialNpcMessage },
+      ]);
+    }
+  } catch (error) {
+    console.error('Failed to load chat history:', error);
+    setMessages([
+      { role: 'system', content: initialSystemMessage },
+      { role: 'npc', content: initialNpcMessage },
+    ]);
+  } finally {
+    setIsInitializing(false);
+  }
+}
+loadHistory();
+}, [innerWorldDepth, initialSystemMessage, initialNpcMessage]);
+
+const triggeredLore = useMemo(() => {
     const flags = new Set(inventory.map(item => `inventory.${item}`));
     return blankPainterLorebook.filter(entry => {
       const hasRequiredFlags = entry.requiredFlags.every(flag => flags.has(flag));
@@ -164,7 +265,6 @@ export default function OuterWorldConversation({
     const nextMessages: ChatMessage[] = [
       { role: 'npc', content: reply.dialogue },
       ...(reply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${reply.dictionaryHint}` }] : []),
-      { role: 'system', content: buildSystemOutcomeMessage(evaluation) },
     ];
 
     setMessages(current => [...current, ...nextMessages]);
@@ -192,7 +292,13 @@ export default function OuterWorldConversation({
       try {
         const cleanedStr = replyStr.replace(/```json/gi, '').replace(/```/g, '').trim();
         reply = JSON.parse(cleanedStr) as AiReply;
-        if (!reply.dialogue) reply.dialogue = replyStr;
+        // 如果解析成功但 dialogue 欄位不存在，才回退到原始字串；
+        // 如果 dialogue 是空字串，則保留空字串（後續會處理）或給予預設值
+        if (reply.dialogue === undefined) {
+          reply.dialogue = replyStr;
+        } else if (reply.dialogue.trim() === '') {
+          reply.dialogue = '（他沈默著，沒有說話。）';
+        }
       } catch (error) {
         console.error('解析 LLM JSON 失敗:', error, replyStr);
         reply = {
@@ -204,7 +310,7 @@ export default function OuterWorldConversation({
       appendReplyAndSystemResult(reply, trimmed);
     } catch (error) {
       console.warn('LLM 連線失敗，切換至本地語意模擬:', error);
-      const simulatedReply = simulateBlankPainterReply(trimmed, inventory, nextMessages);
+      const simulatedReply = simulateBlankPainterReply(trimmed, inventory, nextMessages, innerWorldDepth);
       setMessages(current => [
         ...current,
         { role: 'system', content: '（連線錯誤：暫時由本地語意模擬回應。請確認 DeepSeek/Ollama/Tencent 代理是否正常運行。）' },
@@ -221,30 +327,31 @@ export default function OuterWorldConversation({
     <GuiFrame tone="inner">
       <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', gridTemplateColumns: 'minmax(420px, 760px) 260px', justifyContent: 'center', gap: 16, padding: 24 }}>
         <GlassPanel title={blankPainterCard.displayName} subtitle="Outer World Conversation" variant="dark" style={{ alignSelf: 'center', maxHeight: '88vh', minHeight: 560, display: 'flex', flexDirection: 'column' }} contentStyle={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
-          <div style={{ padding: '0 20px 16px', display: 'grid', gap: 10 }}>
+          <div style={{ padding: '0 20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>{blankPainterCard.coreEmotion}</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-              <MeterBar label="Knowledge" value={knowledge} tone="gold" />
-              <MeterBar label="Trust" value={npcState.trust} tone="green" />
-              <MeterBar label="Stress" value={npcState.stress} tone="red" />
-            </div>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: 20, backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)', backgroundSize: '100% 42px' }}>
-            {isEnded && (
-              <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, color: npcState.ending === 'success' ? '#b8ffd6' : '#ffd0d0', border: `1px solid ${npcState.ending === 'success' ? 'rgba(120,255,180,0.28)' : 'rgba(255,120,120,0.28)'}`, background: npcState.ending === 'success' ? 'rgba(80,180,120,0.08)' : 'rgba(180,60,60,0.1)', fontSize: 13 }}>
-                {npcState.ending === 'success' ? '修復完成：他沒有痊癒，但願意暫時放下畫筆，聽見雨聲。' : '失敗結局：他關上了最後的空白，Ghost System 已留下殘影。'}
-              </div>
-            )}
+            {isInitializing ? (
+              <div style={{ color: '#888', fontSize: 13, textAlign: 'center', marginTop: 20 }}>正在同步記憶...</div>
+            ) : (
+              <>
+                {isEnded && (
+                  <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, color: npcState.ending === 'success' ? '#b8ffd6' : '#ffd0d0', border: `1px solid ${npcState.ending === 'success' ? 'rgba(120,255,180,0.28)' : 'rgba(255,120,120,0.28)'}`, background: npcState.ending === 'success' ? 'rgba(80,180,120,0.08)' : 'rgba(180,60,60,0.1)', fontSize: 13 }}>
+                    {npcState.ending === 'success' ? '修復完成：他沒有痊癒，但願意暫時放下畫筆，聽見雨聲。' : '失敗結局：他關上了最後的空白，Ghost System 已留下殘影。'}
+                  </div>
+                )}
 
-            {messages.map((message, index) => (
+                {messages.map((message, index) => (
               <div key={`${message.role}-${index}`} style={{ marginBottom: 14, display: 'flex', justifyContent: message.role === 'player' ? 'flex-end' : 'flex-start' }}>
                 <div style={{ maxWidth: message.role === 'system' ? '100%' : '78%', padding: message.role === 'system' ? '8px 12px' : '12px 14px', borderRadius: message.role === 'player' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: message.role === 'player' ? 'rgba(86, 116, 148, 0.42)' : message.role === 'system' ? 'rgba(245, 193, 108, 0.08)' : 'rgba(255,255,255,0.07)', border: message.role === 'system' ? '1px solid rgba(245,193,108,0.16)' : '1px solid rgba(255,255,255,0.08)', color: message.role === 'system' ? '#d7b77a' : '#eee', lineHeight: 1.75, whiteSpace: 'pre-line', fontSize: message.role === 'system' ? 13 : 15 }}>
                   {message.content}
                 </div>
               </div>
-            ))}
-            {isThinking && <div style={{ color: '#888', fontSize: 13 }}>畫家沉默了一下，像是在等待雨聲替他組織句子……</div>}
+                ))}
+                {isThinking && <div style={{ color: '#888', fontSize: 13 }}>畫家沉默了一下，像是在等待雨聲替他組織句子……</div>}
+              </>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} style={{ padding: 16, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
@@ -271,7 +378,15 @@ export default function OuterWorldConversation({
           )}
           <GlimmerButton onClick={onClose}>離開對話</GlimmerButton>
           <GlassPanel title="心防指示器" variant="dark" contentStyle={{ color: '#9ba2ad', fontSize: 13, lineHeight: 1.7 }}>
-            {npcState.innerWorldUnlocked ? '鎖鏈已出現裂縫。請謹慎進入他的失色畫廊。' : '心鎖仍然閉合。更多線索與更溫柔的語氣，會讓門縫變亮。'}
+            {innerWorldDepth >= 3
+              ? '他已經不需要防備你了。那幅沒畫完的畫，他主動提起。不是因為信任，是因為他知道你本來就懂。'
+              : innerWorldDepth === 2
+                ? '你在他的美術館裡看見了簽名在逃跑。他感覺到了。不是每個進去過的人，都能看到簽名。'
+                : innerWorldDepth === 1
+                  ? '你去過他的榮耀美術館，但你只看見獎盃。他把你歸類為「和其他人一樣」。這比沒去過更糟。'
+                  : npcState.innerWorldUnlocked
+                    ? '鎖鏈已出現裂縫。請謹慎進入他的失色畫廊。'
+                    : '心鎖仍然閉合。更多線索與更溫柔的語氣，會讓門縫變亮。'}
           </GlassPanel>
         </div>
       </div>

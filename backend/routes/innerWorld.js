@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const saveService = require('../services/saveService');
+const { NotFoundError } = require('../middleware/errors');
 
 const router = express.Router();
 const innerWorldsPath = path.join(__dirname, '..', 'data', 'innerWorlds.json');
@@ -14,17 +15,18 @@ function readInnerWorlds() {
 router.get('/:npcId', (req, res, next) => {
   try {
     const { npcId } = req.params;
-    const npc = saveService.getNpc(npcId);
+    const playerId = req.playerId;
+    const npc = saveService.getNpc(npcId, playerId);
 
     if (!npc) {
-      return res.status(404).json({ error: 'NPC not found' });
+      throw new NotFoundError('NPC', npcId);
     }
 
     const innerWorlds = readInnerWorlds();
     const world = innerWorlds[npcId] || null;
 
     if (!world) {
-      return res.status(404).json({ error: 'Inner world not found' });
+      throw new NotFoundError('InnerWorld', npcId);
     }
 
     res.json({

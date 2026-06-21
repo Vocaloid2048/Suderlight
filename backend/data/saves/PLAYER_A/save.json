@@ -1,0 +1,19 @@
+{
+  "player": {
+    "knowledge": 50
+  },
+  "currentLocation": "skybridge",
+  "collectedClues": [
+    "newspaper"
+  ],
+  "npcs": {},
+  "ghosts": [],
+  "unlockedWorldbookIds": [
+    1,
+    2,
+    3,
+    10,
+    11,
+    12
+  ]
+}
