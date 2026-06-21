@@ -643,7 +643,7 @@ export default function OuterWorldExplorer({
   const openFailureModal = () => {
     setModal({
       title: '失敗結局：空白被關上',
-      content: '畫家最後看了你一眼。\n\n「連這最後的空白，你都不肯留給我嗎？」\n\n他收起畫布，走進天橋最暗的雨裡。Ghost System 已記錄：bridge_artist failed。',
+      content: '畫家最後看了你一眼。\n\n「連這最後的空白，你都不肯留給我嗎？」\n\n他收起畫布，走進天橋最暗的雨裡。',
       actions: [{ label: '查看餘波匯報', tone: 'primary', onClick: onOpenReport }],
     });
   };

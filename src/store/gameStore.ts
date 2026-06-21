@@ -227,7 +227,7 @@ export const useGameStore = create<GameStore>((set) => ({
           syncSaveToBackend(createInitialSave()),
           fetch('/api/chat/reset-all', {
             method: 'POST',
-            headers: { 'X-Player-ID': playerId }
+            headers: { 'X-Player-Id': playerId }
           })
         ]);
       } catch (err) {
