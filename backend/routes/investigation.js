@@ -2,8 +2,6 @@ const express = require('express');
 const clueEngine = require('../services/clueEngine');
 const { unlockByClue } = require('./dictionary');
 const { ValidationError } = require('../middleware/errors');
-const saveService = require('../services/saveService');
-
 const router = express.Router();
 
 router.post('/collect', (req, res, next) => {
