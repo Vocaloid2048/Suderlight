@@ -48,12 +48,14 @@ export function loadSave(): GameSave | null {
       return null;
     }
 
-    // Backward compat: ensure innerWorldLayer exists on older saves
-    if (parsed.npcs.bridge_artist && parsed.npcs.bridge_artist.innerWorldLayer === undefined) {
-      parsed.npcs.bridge_artist.innerWorldLayer = 0;
+    // Backward compat: ensure new fields exist on older saves
+    if (parsed.npcs.bridge_artist) {
+      if (parsed.npcs.bridge_artist.innerWorldDepth === undefined) parsed.npcs.bridge_artist.innerWorldDepth = 0;
+      if (parsed.npcs.bridge_artist.innerWorldLayer === undefined) parsed.npcs.bridge_artist.innerWorldLayer = 0;
     }
-    if (parsed.npcs.victor && parsed.npcs.victor.innerWorldLayer === undefined) {
-      parsed.npcs.victor.innerWorldLayer = 0;
+    if (parsed.npcs.victor) {
+      if (parsed.npcs.victor.innerWorldDepth === undefined) parsed.npcs.victor.innerWorldDepth = 0;
+      if (parsed.npcs.victor.innerWorldLayer === undefined) parsed.npcs.victor.innerWorldLayer = 0;
     }
 
     return parsed;
