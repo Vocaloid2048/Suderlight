@@ -28,7 +28,8 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null });
+    //this.setState({ hasError: false, error: null });
+    window.location.reload();
   };
 
   render() {

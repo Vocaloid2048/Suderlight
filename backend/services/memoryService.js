@@ -87,6 +87,7 @@ function saveDialogue(npcId, userMessage, npcReply, playerId, userTimestamp) {
   };
 
   npcMemory.fullHistory.push(userEntry, assistantEntry);
+  if (npcMemory.fullHistory.length > 2000) npcMemory.fullHistory = npcMemory.fullHistory.slice(-2000);
   npcMemory.history.push(userEntry, assistantEntry);
   npcMemory.roundCount = (npcMemory.roundCount || 0) + 1;
 

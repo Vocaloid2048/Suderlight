@@ -21,8 +21,10 @@ import { useNarrativePlaytestStore } from '../store/narrativePlaytestStore';
 const PLTEST_KEY = '__suderlight_playtest';
 
 // Check once at module load so sessionStorage isn't read every render
-const params = new URLSearchParams(window.location.search);
-const playtestEnabled = import.meta.env.DEV || params.has('playtest') || sessionStorage.getItem(PLTEST_KEY) === '1';
+const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+const playtestEnabled =
+   import.meta.env.DEV ||
+   (typeof window !== 'undefined' && (params.has('playtest') || sessionStorage.getItem(PLTEST_KEY) === '1'));
 
 const KONAMI = [
   'ArrowUp', 'ArrowUp',

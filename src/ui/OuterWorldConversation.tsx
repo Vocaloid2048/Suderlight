@@ -213,7 +213,7 @@ export default function OuterWorldConversation({
       try {
         const playerId = getPlayerId();
         const response = await fetch(`/api/chat/history/bridge_artist`, {
-          headers: { 'X-Player-ID': playerId }
+          headers: { 'X-Player-Id': playerId }
         });
         if (!response.ok) throw new Error('Failed to load history');
         const data = await response.json();

@@ -11,4 +11,4 @@ export { default as SubconsciousTavern } from './SubconsciousTavern';
 export { default as TitlePortal } from './TitlePortal';
 
 // Legacy alias — keep NarrativeDebugOverlay for any existing references
-export { default as NarrativeDebugOverlay } from './NarrativePlaytestDashboard';
+export { default as NarrativeDebugOverlay } from './NarrativeDebugOverlay';

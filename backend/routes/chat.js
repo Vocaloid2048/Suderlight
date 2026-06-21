@@ -159,11 +159,8 @@ router.post('/', async (req, res, next) => {
       // 立即清空當前 10 輪的 history 與 roundCount，讓第 11 輪進入全新的空白 history 陣列
       memoryService.resetCurrentHistory(npcId, playerId);
 
-      console.log('aaa','segment', segment,'oldSummary = \"', oldSummary, '\"|LINE-END|')
       await summaryService.generateUpdatedSummary(oldSummary, segment)
         .then(newSummary => {
-          
-          console.log('newSummary', newSummary)
           if (newSummary && newSummary !== '無' && newSummary.trim() !== '') {
             memoryService.updateSummary(npcId, newSummary, playerId);
             logger.info({ npcId, playerId }, 'Long-term summary updated after 10 rounds');
