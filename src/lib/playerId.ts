@@ -8,7 +8,10 @@
  */
 
 const PLAYER_ID_KEY = 'glimmer_city_player_id_v1';
-const SIGNATURE_SECRET = import.meta.env.VITE_PLAYER_SIGNATURE_SECRET || 'dev-signature-secret-change-me';
+const SIGNATURE_SECRET =
+  import.meta.env.VITE_PLAYER_SIGNATURE_SECRET ||
+  import.meta.env.VITE_SIGNATURE_SECRET ||
+  'dev-signature-secret-change-me';
 
 function generateId(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 排除易混淆字符 0/O/1/I
