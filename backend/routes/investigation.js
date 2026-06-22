@@ -1,10 +1,11 @@
 const express = require('express');
 const clueEngine = require('../services/clueEngine');
 const { unlockByClue } = require('./dictionary');
+const { withPlayerLock } = require('../services/playerLockService');
 const { ValidationError } = require('../middleware/errors');
 const router = express.Router();
 
-router.post('/collect', (req, res, next) => {
+router.post('/collect', async (req, res, next) => {
   try {
     const { clueId } = req.body || {};
     const playerId = req.playerId;
@@ -13,19 +14,22 @@ router.post('/collect', (req, res, next) => {
       throw new ValidationError('clueId is required');
     }
 
-    const result = clueEngine.collectClue(clueId, playerId);
+    await withPlayerLock(playerId, async () => {
+      const result = clueEngine.collectClue(clueId, playerId);
 
-    if (!result.ok) {
-      return res.status(result.status || 500).json({ error: result.error });
-    }
+      if (!result.ok) {
+        return res.status(result.status || 500).json({ error: result.error });
+      }
 
-    const newlyUnlocked = unlockByClue(clueId);
+      const newlyUnlocked = unlockByClue(clueId);
 
-    res.json({
-      ok: true,
-      clue: result.clue,
-      knowledgeAdded: result.knowledgeAdded,
-      newlyUnlockedDictionary: newlyUnlocked,
+      res.json({
+        ok: true,
+        clue: result.clue,
+        knowledgeAdded: result.knowledgeAdded,
+        newlyUnlockedDictionary: newlyUnlocked,
+        unlockedEntries: newlyUnlocked,
+      });
     });
   } catch (error) {
     next(error);

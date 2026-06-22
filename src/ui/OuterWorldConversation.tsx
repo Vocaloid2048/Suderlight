@@ -1,13 +1,29 @@
 import { FormEvent, useMemo, useState, useEffect } from 'react';
 import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
-import type { DialogueEvaluationResult, NpcRuntimeState } from '../systems/npcStateEngine';
+import type { NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
-import { getPlayerId } from '../lib/playerId';
+import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
 
 type ChatMessage = {
   role: 'player' | 'npc' | 'system';
   content: string;
+};
+
+type SystemJudgement = {
+  stateLabel: string;
+  trustDelta: number;
+  stressDelta: number;
+  knowledgeDelta?: number;
+  trust?: number;
+  stress?: number;
+  knowledge?: number;
+};
+
+type HistoryEntry = {
+  role: 'user' | 'assistant';
+  content: string;
+  systemJudgement?: SystemJudgement;
 };
 
 type BackendPsychology = {
@@ -30,6 +46,19 @@ type AiReply = {
   backendNpcState?: BackendNpcState;
 };
 
+function formatSystemJudgement(systemJudgement: SystemJudgement) {
+  const parts = [
+    `Trust ${systemJudgement.trustDelta >= 0 ? '+' : ''}${systemJudgement.trustDelta}`,
+    `Stress ${systemJudgement.stressDelta >= 0 ? '+' : ''}${systemJudgement.stressDelta}`,
+  ];
+
+  if (typeof systemJudgement.knowledgeDelta === 'number' && systemJudgement.knowledgeDelta !== 0) {
+    parts.push(`Knowledge ${systemJudgement.knowledgeDelta >= 0 ? '+' : ''}${systemJudgement.knowledgeDelta}`);
+  }
+
+  return `系統判定：${systemJudgement.stateLabel || '未知'}（${parts.join(' / ')}）`;
+}
+
 type OuterWorldConversationProps = {
   inventory: string[];
   knowledge: number;
@@ -37,7 +66,7 @@ type OuterWorldConversationProps = {
   innerWorldDepth?: number;
   npcState: NpcRuntimeState;
   onClose: () => void;
-  onDialogueEvaluated: (playerInput: string) => DialogueEvaluationResult;
+  onBackendNpcStateApplied: (state: BackendNpcState) => void;
   onEnterInnerWorld: () => void;
   onEndingTriggered: () => void;
 };
@@ -178,7 +207,7 @@ export default function OuterWorldConversation({
   innerWorldDepth = 0,
   npcState,
   onClose,
-  onDialogueEvaluated,
+  onBackendNpcStateApplied,
   onEnterInnerWorld,
   onEndingTriggered,
 }: OuterWorldConversationProps) {
@@ -212,44 +241,48 @@ export default function OuterWorldConversation({
     async function loadHistory() {
       try {
         const playerId = getPlayerId();
+        const authHeaders = await getPlayerAuthHeaders(playerId);
         const response = await fetch(`/api/chat/history/bridge_artist`, {
-          headers: { 'X-Player-Id': playerId }
+          headers: authHeaders
         });
         if (!response.ok) throw new Error('Failed to load history');
         const data = await response.json();
-        
-        if (data.history && data.history.length > 0) {
-          // Map backend history (user/assistant) to frontend format (player/npc)
-          const mappedHistory: ChatMessage[] = data.history.map((msg: any) => ({
-            role: msg.role === 'user' ? 'player' : msg.role === 'assistant' ? 'npc' : msg.role,
-            content: msg.content
-          }));
-          
-          // 保留初始打招呼文本在最前面
-      setMessages([
-        { role: 'system', content: initialSystemMessage },
-        { role: 'npc', content: initialNpcMessage },
-        ...mappedHistory
-      ]);
-    } else {
-      // 如果沒有紀錄，顯示初始打招呼文本
-      setMessages([
-        { role: 'system', content: initialSystemMessage },
-        { role: 'npc', content: initialNpcMessage },
-      ]);
+
+        const rebuiltHistory: ChatMessage[] = [
+          { role: 'system', content: initialSystemMessage },
+          { role: 'npc', content: initialNpcMessage },
+        ];
+
+        if (Array.isArray(data.history) && data.history.length > 0) {
+          data.history.forEach((msg: HistoryEntry) => {
+            if (msg.role === 'user') {
+              rebuiltHistory.push({ role: 'player', content: msg.content });
+              return;
+            }
+
+            if (msg.role === 'assistant') {
+              rebuiltHistory.push({ role: 'npc', content: msg.content });
+              if (msg.systemJudgement) {
+                rebuiltHistory.push({ role: 'system', content: formatSystemJudgement(msg.systemJudgement) });
+              }
+            }
+          });
+        }
+
+        setMessages(rebuiltHistory);
+      } catch (error) {
+        console.error('Failed to load chat history:', error);
+        setMessages([
+          { role: 'system', content: initialSystemMessage },
+          { role: 'npc', content: initialNpcMessage },
+        ]);
+      } finally {
+        setIsInitializing(false);
+      }
     }
-  } catch (error) {
-    console.error('Failed to load chat history:', error);
-    setMessages([
-      { role: 'system', content: initialSystemMessage },
-      { role: 'npc', content: initialNpcMessage },
-    ]);
-  } finally {
-    setIsInitializing(false);
-  }
-}
-loadHistory();
-}, [innerWorldDepth, initialSystemMessage, initialNpcMessage]);
+
+    loadHistory();
+  }, [innerWorldDepth, initialSystemMessage, initialNpcMessage]);
 
 const triggeredLore = useMemo(() => {
     const flags = new Set(inventory.map(item => `inventory.${item}`));
@@ -261,15 +294,39 @@ const triggeredLore = useMemo(() => {
   }, [input, inventory]);
 
   const appendReplyAndSystemResult = (reply: AiReply, trimmed: string) => {
-    const evaluation = onDialogueEvaluated(trimmed);
+    let isFailed = false;
+    const systemMessages: ChatMessage[] = [];
+
+    if (reply.backendNpcState) {
+      onBackendNpcStateApplied(reply.backendNpcState);
+      isFailed = reply.backendNpcState.ending === 'failed';
+
+      if (reply.backendPsychology) {
+        systemMessages.push({
+          role: 'system',
+          content: formatSystemJudgement({
+            stateLabel: reply.backendPsychology.stateLabel,
+            trustDelta: reply.backendPsychology.trustDelta,
+            stressDelta: reply.backendPsychology.stressDelta,
+          }),
+        });
+      }
+    } else {
+      systemMessages.push({
+        role: 'system',
+        content: '系統提示：後端未返回 npcState，本輪不套用本地狀態計算。',
+      });
+    }
+
     const nextMessages: ChatMessage[] = [
       { role: 'npc', content: reply.dialogue },
       ...(reply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${reply.dictionaryHint}` }] : []),
+      ...systemMessages,
     ];
 
     setMessages(current => [...current, ...nextMessages]);
 
-    if (evaluation.ending === 'failed') {
+    if (isFailed) {
       window.setTimeout(onEndingTriggered, 300);
     }
   };

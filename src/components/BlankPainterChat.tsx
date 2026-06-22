@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
-import type { NpcRuntimeState, DialogueEvaluationResult } from '../systems/npcStateEngine';
+import type { NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
 
 type ChatMessage = {
@@ -33,7 +33,6 @@ type BlankPainterChatProps = {
   knowledge: number;
   npcState: NpcRuntimeState;
   onClose: () => void;
-  onDialogueEvaluated: (playerInput: string) => DialogueEvaluationResult;
   onEnterInnerWorld: () => void;
   onEndingTriggered: (ending: 'failed') => void;
 };
@@ -121,24 +120,13 @@ function simulateBlankPainterReply(playerInput: string, inventory: string[], his
   };
 }
 
-function formatDelta(value: number) {
-  if (value > 0) return `+${value}`;
-  return `${value}`;
-}
 
-function buildSystemOutcomeMessage(result: DialogueEvaluationResult) {
-  const unlockText = result.innerWorldUnlocked ? '\n心理世界解鎖條件已滿足。' : '';
-  const endingText = result.ending === 'failed' ? '\nGhost System 已記錄一次失敗。' : '';
-
-  return `系統判定：${result.reason}\nTrust ${formatDelta(result.trustDelta)} / Stress ${formatDelta(result.stressDelta)}${unlockText}${endingText}`;
-}
 
 export default function BlankPainterChat({
   inventory,
   knowledge,
   npcState,
   onClose,
-  onDialogueEvaluated,
   onEnterInnerWorld,
   onEndingTriggered,
 }: BlankPainterChatProps) {
@@ -159,17 +147,21 @@ export default function BlankPainterChat({
     });
   }, [input, inventory]);
 
-  const appendReplyAndSystemResult = (reply: AiReply, trimmed: string) => {
-    const evaluation = onDialogueEvaluated(trimmed);
+  const appendReplyAndSystemResult = (reply: AiReply) => {
     const nextMessages: ChatMessage[] = [
       { role: 'npc', content: reply.dialogue },
       ...(reply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${reply.dictionaryHint}` }] : []),
-      { role: 'system', content: buildSystemOutcomeMessage(evaluation) },
+      ...(reply.backendPsychology
+        ? [{
+            role: 'system' as const,
+            content: `系統判定：${reply.backendPsychology.stateLabel}（Trust ${reply.backendPsychology.trustDelta >= 0 ? '+' : ''}${reply.backendPsychology.trustDelta} / Stress ${reply.backendPsychology.stressDelta >= 0 ? '+' : ''}${reply.backendPsychology.stressDelta}）`,
+          }]
+        : []),
     ];
 
     setMessages(current => [...current, ...nextMessages]);
 
-    if (evaluation.ending === 'failed') {
+    if (reply.backendNpcState?.ending === 'failed') {
       window.setTimeout(() => onEndingTriggered('failed'), 300);
     }
   };
@@ -207,7 +199,7 @@ export default function BlankPainterChat({
         };
       }
 
-      appendReplyAndSystemResult(reply, trimmed);
+      appendReplyAndSystemResult(reply);
     } catch (error) {
       console.warn('LLM 連線失敗，切換至本地語意模擬:', error);
       const simulatedReply = simulateBlankPainterReply(trimmed, inventory, nextMessages);
@@ -215,7 +207,7 @@ export default function BlankPainterChat({
         ...current,
         { role: 'system', content: '（連線錯誤：暫時由本地語意模擬回應。請確認 DeepSeek/Ollama/Tencent 代理是否正常運行。）' },
       ]);
-      appendReplyAndSystemResult(simulatedReply, trimmed);
+      appendReplyAndSystemResult(simulatedReply);
     } finally {
       setIsThinking(false);
     }

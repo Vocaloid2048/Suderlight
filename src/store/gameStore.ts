@@ -2,15 +2,12 @@ import { create } from 'zustand';
 import { bridgeArtistClues, type ClueId, type LocationId, type NpcId } from '../data/verticalSlice';
 import { getClueKnowledge } from '../systems/investigationSystem';
 import {
-  applyDialogueEvaluation,
-  evaluateBridgeArtistDialogue,
   markNpcFailed,
   markNpcSuccess,
   shouldUnlockInnerWorld,
-  type DialogueEvaluationResult,
 } from '../systems/npcStateEngine';
 import { clearSave, createInitialSave, loadSave, loadSaveFromBackend, persistSave, syncSaveToBackend, type GameSave, type GhostRecord } from '../systems/saveSystem';
-import { getPlayerId } from '../lib/playerId';
+import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
 import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
 
 export type CollectClueResult = {
@@ -21,14 +18,23 @@ export type CollectClueResult = {
   unlockedNow: boolean;
 };
 
+type BackendNpcStateSnapshot = {
+  trust: number;
+  stress: number;
+  knowledge: number;
+  innerWorldUnlocked: boolean;
+  ending: 'none' | 'success' | 'failed' | null;
+};
+
 type GameStore = {
   save: GameSave;
   setCurrentLocation: (locationId: LocationId) => void;
   collectClue: (clueId: ClueId) => CollectClueResult;
-  evaluateDialogue: (npcId: NpcId, playerInput: string) => DialogueEvaluationResult;
+  applyBackendNpcState: (npcId: NpcId, backendState: BackendNpcStateSnapshot) => void;
   completeNpcSuccess: (npcId: NpcId) => void;
   failNpc: (npcId: NpcId) => void;
   resetSave: () => void;
+
   /** 設定橋上畫家的心理世界探索深度 (0-3) */
   setInnerWorldDepth: (depth: number) => void;
   /** 記錄心理世界層級進展 (1-4) */
@@ -148,58 +154,28 @@ export const useGameStore = create<GameStore>((set) => ({
     return result;
   },
 
-  evaluateDialogue: (npcId, playerInput) => {
-    let result: DialogueEvaluationResult = {
-      trustDelta: 0,
-      stressDelta: 0,
-      reason: '此NPC尚未接入狀態判定。',
-      flags: [],
-      innerWorldUnlocked: false,
-      ending: 'none',
-    };
 
+
+  applyBackendNpcState: (npcId, backendState) => {
     set(state => {
       const next = cloneSave(state.save);
+      const target = next.npcs[npcId];
+      if (!target) return { save: state.save };
 
-      if (npcId !== 'bridge_artist') {
-        return { save: state.save };
-      }
-
-      result = evaluateBridgeArtistDialogue(playerInput, next.npcs.bridge_artist, {
-        knowledge: next.player.knowledge,
-        collectedClues: next.collectedClues,
-      });
-
-      next.npcs.bridge_artist = applyDialogueEvaluation(next.npcs.bridge_artist, result);
-      syncBridgeArtistUnlock(next);
-      result = {
-        ...result,
-        innerWorldUnlocked: next.npcs.bridge_artist.innerWorldUnlocked,
-        ending: next.npcs.bridge_artist.ending,
+      next.npcs[npcId] = {
+        ...target,
+        trust: backendState.trust,
+        stress: backendState.stress,
+        innerWorldUnlocked: Boolean(backendState.innerWorldUnlocked),
+        ending: backendState.ending === null ? 'none' : backendState.ending,
       };
 
-      // ---- playtest: capture AI reasoning + state change ----
-      if (isPlaytestEnabled()) {
-        void import('../store/narrativePlaytestStore').then(mod => {
-          const store = mod.useNarrativePlaytestStore.getState();
-          store.setLastEvaluation(result);
-          // Push to event log
-          store.pushLog({
-            type: 'dialogue',
-            message: `對話評估: ${result.reason.slice(0, 40)}...`,
-            detail: `信任${result.trustDelta >= 0 ? '+' : ''}${result.trustDelta}, 壓力${result.stressDelta >= 0 ? '+' : ''}${result.stressDelta}`,
-          });
-        }).catch(() => {});
+      if (next.npcs[npcId].ending === 'failed') {
+        return { save: persistAndReturn(addGhostIfNeeded(next, npcId)) };
       }
 
-      const finalSave = next.npcs.bridge_artist.ending === 'failed'
-        ? addGhostIfNeeded(next, 'bridge_artist')
-        : next;
-
-      return { save: persistAndReturn(finalSave) };
+      return { save: persistAndReturn(next) };
     });
-
-    return result;
   },
 
   completeNpcSuccess: (npcId) => {
@@ -225,10 +201,12 @@ export const useGameStore = create<GameStore>((set) => ({
         // 並行但等待兩者完成
         await Promise.all([
           syncSaveToBackend(createInitialSave()),
-          fetch('/api/chat/reset-all', {
-            method: 'POST',
-            headers: { 'X-Player-Id': playerId }
-          })
+          getPlayerAuthHeaders(playerId).then((headers) =>
+            fetch('/api/chat/reset-all', {
+              method: 'POST',
+              headers,
+            })
+          )
         ]);
       } catch (err) {
         console.error('Remote reset failed:', err);

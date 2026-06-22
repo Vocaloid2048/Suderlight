@@ -8,6 +8,7 @@ const config = require('./config');
 const logger = require('./middleware/logger');
 const requestIdMiddleware = require('./middleware/requestId');
 const playerIdMiddleware = require('./middleware/playerId');
+const authSignatureMiddleware = require('./middleware/authSignature');
 const { AppError } = require('./middleware/errors');
 
 const chatRoutes = require('./routes/chat');
@@ -16,6 +17,8 @@ const investigationRoutes = require('./routes/investigation');
 const saveRoutes = require('./routes/save');
 const innerWorldRoutes = require('./routes/innerWorld');
 const dictionaryRoutes = require('./routes/dictionary');
+const worldbookRoutes = require('./routes/worldbook');
+
 
 const app = express();
 
@@ -24,7 +27,7 @@ app.set('trust proxy', 1); // Docker 反向代理后面
 app.use(requestIdMiddleware);
 app.use(playerIdMiddleware); // 提取 X-Player-Id → req.playerId
 app.use(helmet());
-app.use(cors({ origin: config.cors.origin, methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'X-Player-Id', 'X-Request-Id'] }));
+app.use(cors({ origin: config.cors.origin, methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'X-Player-Id', 'X-Request-Id', 'X-Timestamp', 'X-Player-Signature'] }));
 app.use(express.json({ limit: '50kb' })); // 限制请求体大小
 
 // ---- Rate Limiting ----
@@ -73,11 +76,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // ---- Routes ----
-app.use('/api/chat', llmLimiter, chatRoutes);
-app.use('/api/npc', npcRoutes);
-app.use('/api/investigation', investigationRoutes);
-app.use('/api/save', saveRoutes);
-app.use('/api/inner-world', innerWorldRoutes);
+app.use('/api/chat', authSignatureMiddleware, llmLimiter, chatRoutes);
+app.use('/api/npc', authSignatureMiddleware, npcRoutes);
+app.use('/api/investigation', authSignatureMiddleware, investigationRoutes);
+app.use('/api/save', authSignatureMiddleware, saveRoutes);
+app.use('/api/inner-world', authSignatureMiddleware, innerWorldRoutes);
+app.use('/api/worldbook', authSignatureMiddleware, worldbookRoutes);
 app.use('/api/dictionary', dictionaryRoutes);
 
 // ---- 404 Catch-all ----

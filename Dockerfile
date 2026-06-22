@@ -7,6 +7,10 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+
+ARG VITE_SIGNATURE_SECRET
+ENV VITE_SIGNATURE_SECRET=$VITE_SIGNATURE_SECRET
+
 RUN npm run build
 
 

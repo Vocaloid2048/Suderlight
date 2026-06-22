@@ -1,6 +1,7 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { GlimmerButton, GlassPanel } from '../components';
 import { bridgeArtistClues, clueOrder, locations, type ClueId, type LocationId } from '../data/verticalSlice';
+import { getPlayerAuthHeaders } from '../lib/playerId';
 import type { CollectClueResult } from '../store/gameStore';
 import type { GameSave } from '../systems/saveSystem';
 
@@ -8,8 +9,11 @@ type Point = { x: number; y: number };
 type EntityId = 'painter' | 'gallery_door' | ClueId;
 type ModalAction = { label: string; tone?: 'primary' | 'danger' | 'ghost'; onClick: () => void };
 type ModalState = { title: string; content: string; actions?: ModalAction[] } | null;
+type DiscoveryPhase = 'intro' | 'moving';
+type DiscoveryState = { name: string; description: string; phase: DiscoveryPhase } | null;
 
 type Entity = {
+
   id: EntityId;
   label: string;
   type: 'npc' | 'clue';
@@ -550,10 +554,13 @@ export default function OuterWorldExplorer({
   const [mapPos, setMapPos] = useState({ x: -320, y: -160 });
   const [modal, setModal] = useState<ModalState>(null);
   const [ghostFlash, setGhostFlash] = useState<string | null>(null);
-  const [discoveryNote, setDiscoveryNote] = useState<string | null>(null);
+  const [discoveryState, setDiscoveryState] = useState<DiscoveryState>(null);
   const dragStart = useRef({ x: 0, y: 0 });
   const hasMoved = useRef(false);
   const keys = useRef(new Set<string>());
+  const discoveryTimersRef = useRef<number[]>([]);
+  const pendingClueModalRef = useRef<ModalState>(null);
+
 
   const displayLocation = useMemo(() => {
     if (save.currentLocation === 'skybridge') {
@@ -640,6 +647,18 @@ export default function OuterWorldExplorer({
     window.setTimeout(() => setGhostFlash(null), 1800);
   };
 
+  const clearDiscoveryTimers = () => {
+    discoveryTimersRef.current.forEach(timer => window.clearTimeout(timer));
+    discoveryTimersRef.current = [];
+  };
+
+  const queueDiscoverySequence = (name: string, description: string, nextModal: ModalState) => {
+    clearDiscoveryTimers();
+    pendingClueModalRef.current = nextModal;
+    setDiscoveryState({ name, description, phase: 'intro' });
+  };
+
+
   const openFailureModal = () => {
     setModal({
       title: '失敗結局：空白被關上',
@@ -716,33 +735,52 @@ export default function OuterWorldExplorer({
     const clue = bridgeArtistClues[targetId];
     maybeTriggerGhost();
 
-    setModal({
+    const clueModal: ModalState = {
       title: `獲得線索：${result.label}`,
       content: `${clue.content}\n\n情緒詞典浮現：${clue.dictionaryHint}${result.unlockedNow ? '\n\n天橋盡頭傳來一聲很輕的門軸聲。某個通往內心深處的入口，似乎鬆動了。' : ''}`,
-    });
+    };
+
+    const openClueModal = () => setModal(clueModal);
 
     if (!result.alreadyCollected) {
-      fetch('/api/investigation/collect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clueId: targetId }),
-      })
+      getPlayerAuthHeaders().then((authHeaders) =>
+        fetch('/api/investigation/collect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({ clueId: targetId }),
+        })
+      )
         .then(res => res.json())
         .then(data => {
-          if (data.unlockedEntries && data.unlockedEntries.length > 0) {
-            fetch('/api/dictionary')
-              .then(r => r.json())
-              .then(dict => {
-                const entry = dict.entries.find((item: { id: string }) => data.unlockedEntries.includes(item.id));
-                if (entry) {
-                  setDiscoveryNote(entry.name);
-                  window.setTimeout(() => setDiscoveryNote(null), 2800);
-                }
-              });
+          const unlocked = Array.isArray(data.unlockedEntries)
+            ? data.unlockedEntries
+            : Array.isArray(data.newlyUnlockedDictionary)
+              ? data.newlyUnlockedDictionary
+              : [];
+
+          if (unlocked.length === 0) {
+            openClueModal();
+            return;
           }
+
+          fetch('/api/dictionary')
+            .then(r => r.json())
+            .then(dict => {
+              const entry = dict.entries.find((item: { id: string; name: string; description?: string }) => unlocked.includes(item.id));
+              if (entry) {
+                queueDiscoverySequence(entry.name, entry.description ?? clue.dictionaryHint, clueModal);
+                return;
+              }
+              openClueModal();
+            })
+            .catch(() => openClueModal());
         })
-        .catch(() => {});
+        .catch(() => openClueModal());
+      return;
     }
+
+    openClueModal();
+
   };
 
   useEffect(() => {
@@ -750,6 +788,40 @@ export default function OuterWorldExplorer({
     const onResize = () => focusCameraOnPlayer(playerPos);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    if (!discoveryState) return;
+
+    clearDiscoveryTimers();
+
+    if (discoveryState.phase === 'intro') {
+      discoveryTimersRef.current.push(
+        window.setTimeout(() => {
+          setDiscoveryState(prev => (prev ? { ...prev, phase: 'moving' } : prev));
+        }, 1200)
+      );
+      return;
+    }
+
+    discoveryTimersRef.current.push(
+      window.setTimeout(() => {
+        if (pendingClueModalRef.current) {
+          setModal(pendingClueModalRef.current);
+          pendingClueModalRef.current = null;
+        }
+      }, 700)
+    );
+
+    discoveryTimersRef.current.push(
+      window.setTimeout(() => {
+        setDiscoveryState(null);
+      }, 1800)
+    );
+  }, [discoveryState]);
+
+  useEffect(() => {
+    return () => clearDiscoveryTimers();
   }, []);
 
   useEffect(() => {
@@ -765,6 +837,7 @@ export default function OuterWorldExplorer({
     }
   }, [save.currentLocation, setCurrentLocation]);
 
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
@@ -774,7 +847,8 @@ export default function OuterWorldExplorer({
         return;
       }
 
-      if (modal) return;
+      if (modal || discoveryState) return;
+
 
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(key)) {
         event.preventDefault();
@@ -978,7 +1052,8 @@ export default function OuterWorldExplorer({
         E / Space：互動
       </GlassPanel>
 
-      {nearbyEntity && !modal && (
+      {nearbyEntity && !modal && !discoveryState && (
+
         <div style={{ position: 'absolute', bottom: 34, left: '50%', transform: 'translateX(-50%)', zIndex: 100, color: '#f4d99d', fontSize: 14, pointerEvents: 'none', background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(244,217,157,0.28)', borderRadius: 999, padding: '8px 16px' }}>
           按 E 觀察：{nearbyEntity.label}
         </div>
@@ -990,12 +1065,28 @@ export default function OuterWorldExplorer({
         </div>
       )}
 
-      {discoveryNote && (
-        <div style={{ position: 'absolute', top: '38%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 280, pointerEvents: 'none', textAlign: 'center' }}>
-          <div style={{ color: '#f4d99d', fontSize: 22, fontWeight: 'bold', textShadow: '0 0 30px rgba(244,217,157,0.6), 0 0 60px rgba(244,217,157,0.2)', letterSpacing: 3, marginBottom: 8 }}>新的理解</div>
-          <div style={{ color: '#e8e0d0', fontSize: 18, textShadow: '0 0 20px rgba(200,180,150,0.4)', letterSpacing: 2 }}>{discoveryNote}</div>
+      {discoveryState && (
+        <div
+          style={{
+            position: 'absolute',
+            top: discoveryState.phase === 'intro' ? '38%' : '18%',
+            left: '50%',
+            transform: `translate(-50%, -50%) scale(${discoveryState.phase === 'intro' ? 1 : 0.96})`,
+            zIndex: 280,
+            pointerEvents: 'none',
+            width: 540,
+            transition: 'top 0.7s ease, transform 0.7s ease, opacity 0.4s ease',
+            opacity: 1,
+          }}
+        >
+          <div style={{ background: 'rgba(8, 10, 14, 0.92)', border: '1px solid rgba(244,217,157,0.35)', borderRadius: 14, boxShadow: '0 10px 40px rgba(0,0,0,0.45), 0 0 26px rgba(244,217,157,0.2)', padding: '16px 18px' }}>
+            <div style={{ color: '#f4d99d', fontSize: 22, fontWeight: 'bold', textShadow: '0 0 30px rgba(244,217,157,0.6), 0 0 60px rgba(244,217,157,0.2)', letterSpacing: 3, marginBottom: 8 }}>新的理解</div>
+            <div style={{ color: '#f1e7d3', fontSize: 18, fontWeight: 700, letterSpacing: 2, marginBottom: 10 }}>{discoveryState.name}</div>
+            <div style={{ color: '#d0c8ba', fontSize: 14, lineHeight: 1.75, whiteSpace: 'pre-line' }}>{discoveryState.description}</div>
+          </div>
         </div>
       )}
+
 
       <div style={{ position: 'absolute', transform: `translate(${mapPos.x}px, ${mapPos.y}px)`, width: MAP_WIDTH, height: MAP_HEIGHT }}>
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 45% 35%, rgba(45,55,65,0.95), rgba(5,7,10,1) 70%)' }} />

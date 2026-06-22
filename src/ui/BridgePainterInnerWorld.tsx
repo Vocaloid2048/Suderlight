@@ -704,9 +704,22 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
   const trust = save?.npcs?.bridge_artist?.trust ?? 20;
   const resistance = 100 - trust;
   const isAllLayersUnlocked = resistance <= 50; // trust >= 50 (心防解開臨界點)
-  const [understanding, setUnderstanding] = useState<UnderstandingState>(() => ({ insightIds: [] }));
+  const [understandingByLayer, setUnderstandingByLayer] = useState<Record<number, UnderstandingState>>(() => ({
+    1: { insightIds: [] },
+    2: { insightIds: [] },
+    3: { insightIds: [] },
+    4: { insightIds: [] },
+  }));
   const [phase, setPhase] = useState<LayerPhase>({ type: 'entering' });
-  const [discoveredIds, setDiscoveredIds] = useState<string[]>([]);
+  const [discoveredByLayer, setDiscoveredByLayer] = useState<Record<number, string[]>>(() => ({
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+  }));
+
+  const understanding = understandingByLayer[layerNum] ?? { insightIds: [] };
+  const discoveredIds = discoveredByLayer[layerNum] ?? [];
 
   const layer = useMemo(() => getPsychLayer(layerNum)!, [layerNum]);
   const championPaintingObj = useMemo(() => layer.interactables.find(o => o.id === 'champion_painting'), [layer]);
@@ -720,9 +733,13 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
   const handleEnter = useCallback(() => setPhase({ type: 'exploring' }), []);
 
   const handleClickObject = useCallback((obj: PsychInteractable) => {
-    setDiscoveredIds(prev => prev.includes(obj.id) ? prev : [...prev, obj.id]);
+    setDiscoveredByLayer(prev => {
+      const current = prev[layerNum] ?? [];
+      if (current.includes(obj.id)) return prev;
+      return { ...prev, [layerNum]: [...current, obj.id] };
+    });
     setPhase({ type: 'observing', target: obj, showDeep: false });
-  }, []);
+  }, [layerNum]);
 
   const handleLookCloser = useCallback(() => {
     if (phase.type === 'observing') setPhase({ type: 'observing', target: phase.target, showDeep: true });
@@ -736,7 +753,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
     if (phase.type !== 'reflecting') return;
     const { state: newU, reward } = tryAddInsight(understanding, phase.target.id, choseInsight, layerNum);
     if (!reward) { setPhase({ type: 'exploring' }); return; }
-    setUnderstanding(newU);
+    setUnderstandingByLayer(prev => ({ ...prev, [layerNum]: newU }));
     setPhase({ type: 'insight_revealed', target: phase.target, reward });
   }, [phase, understanding, layerNum]);
 
@@ -746,8 +763,6 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
     if (onAdvanceLayer) onAdvanceLayer(layerNum);
     if (isLast) { setPhase({ type: 'arc_complete' }); return; }
     setLayerNum(layerNum + 1);
-    setUnderstanding({ insightIds: [] });
-    setDiscoveredIds([]);
     setPhase({ type: 'entering' });
   }, [layerNum, isLast, onAdvanceLayer]);
 
@@ -865,7 +880,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                 transition: 'width 0.5s ease'
               }} />
             </div>
-            <div style={{ fontSize: 11, color: colors.sub, marginTop: 4, lineHeight: 1.4 }}>
+            <div style={{ fontSize: 11, color: isAllLayersUnlocked ? '#4a4a4a' : '#7a7a7a', marginTop: 4, lineHeight: 1.4 }}>
               {isAllLayersUnlocked 
                 ? '✨ 他的心防已經瓦解，你現在可以自由穿梭並探索全部四層心理世界。' 
                 : `🚪 當抗拒值降低到 50% 或以下時（目前：${resistance}%），將會解鎖全部的心理世界。`}
@@ -1026,8 +1041,6 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                   tone={layerNum === num ? 'primary' : 'ghost'}
                   onClick={() => {
                     setLayerNum(num as number);
-                    setUnderstanding({ insightIds: [] });
-                    setDiscoveredIds([]);
                     setPhase({ type: 'exploring' });
                   }}
                   style={{ fontSize: 15, padding: '10px 32px', minHeight: 44, borderRadius: 10, flex: 1, maxWidth: 160 }}

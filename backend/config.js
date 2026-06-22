@@ -19,6 +19,10 @@ const config = {
       .map((s) => s.trim())
       .filter(Boolean),
   },
+  auth: {
+    signatureSecret: process.env.PLAYER_SIGNATURE_SECRET || 'dev-signature-secret-change-me',
+    maxSkewMs: parseInt(process.env.PLAYER_SIGNATURE_MAX_SKEW_MS || '300000', 10),
+  },
   deepseek: {
     apiKey: process.env.DEEPSEEK_API_KEY,
     model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',

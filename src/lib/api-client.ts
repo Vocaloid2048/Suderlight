@@ -7,7 +7,7 @@
  *   const result = await apiClient.post<MyType>('/api/chat', { npcId: '...', message: '...' });
  */
 
-import { getPlayerIdHeader } from './playerId';
+import { getPlayerAuthHeaders } from './playerId';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -56,12 +56,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const timeout = setTimeout(() => controller.abort(), 45000); // 45s 超时
 
   try {
+    const authHeaders = await getPlayerAuthHeaders();
     const res = await fetch(`${BASE_URL}${path}`, {
       ...options,
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
-        ...getPlayerIdHeader(), // 自动附加 X-Player-Id
+        ...authHeaders,
         ...options.headers,
       },
     });

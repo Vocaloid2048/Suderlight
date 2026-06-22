@@ -6,8 +6,11 @@ export type WorldbookEntry = {
   constant: boolean;
   enabled: boolean;
   priority: number;
+  npcId?: string;
+  unlockedByDefault?: boolean;
 };
 
+// 与 backend/data/worldbook.json 对齐（同一条目集合）
 export const worldbookEntries: WorldbookEntry[] = [
   {
     id: 1,
@@ -17,6 +20,7 @@ export const worldbookEntries: WorldbookEntry[] = [
     constant: false,
     enabled: true,
     priority: 50,
+    unlockedByDefault: true,
   },
   {
     id: 2,
@@ -26,6 +30,7 @@ export const worldbookEntries: WorldbookEntry[] = [
     constant: false,
     enabled: true,
     priority: 100,
+    unlockedByDefault: true,
   },
   {
     id: 3,
@@ -35,6 +40,7 @@ export const worldbookEntries: WorldbookEntry[] = [
     constant: false,
     enabled: true,
     priority: 90,
+    unlockedByDefault: true,
   },
   {
     id: 4,
@@ -44,6 +50,30 @@ export const worldbookEntries: WorldbookEntry[] = [
     constant: false,
     enabled: true,
     priority: 80,
+    npcId: 'bridge_artist',
+    unlockedByDefault: true,
+  },
+  {
+    id: 5,
+    keys: ['錄音室', '奧森', '諾亞', '廣播', '電台', '指揮', '樂團', '練團室', '廣播室', '地下室', '頻道'],
+    content: '一棟被爬山虎覆蓋的舊建築，外牆隔音棉剝落如垂死的皮膚。奧森霸佔三樓的樂團練習室，諾亞在地下室進行深夜廣播。這裡空氣極度乾燥，靜得能聽見自己血管流動的聲音，彷彿整棟建築都在屏息等待一個完美的音符。',
+    comment: '老舊錄音室 - 對應奧森與諾亞',
+    constant: false,
+    enabled: true,
+    priority: 80,
+    npcId: 'orson_noah',
+    unlockedByDefault: false,
+  },
+  {
+    id: 6,
+    keys: ['劇場', '蕾娜', '達米安', '舞台', '喜劇', '夢想家', '排練', '後台', '化妝間', '布幕', '觀眾席'],
+    content: '位於城市西區，招牌掉落，售票亭玻璃碎裂，塞滿枯死花束。舞台上的紅色布幕亮麗如凝固的血。蕾娜的化妝間鏡子上畫滿笑臉，達米安則在舞台正中央試圖跳出能讓世界和平的舞步。空氣中殘留笑聲與灰塵。',
+    comment: '廢棄劇場 - 對應蕾娜與達米安',
+    constant: false,
+    enabled: true,
+    priority: 80,
+    npcId: 'reina_damian',
+    unlockedByDefault: false,
   },
   {
     id: 7,
@@ -53,6 +83,30 @@ export const worldbookEntries: WorldbookEntry[] = [
     constant: false,
     enabled: true,
     priority: 80,
+    npcId: 'victor',
+    unlockedByDefault: false,
+  },
+  {
+    id: 8,
+    keys: ['公寓', '小葵', '魔方', '家庭', '紅舞鞋', '歪斜', '樓梯', '走廊', '門縫', '爭吵'],
+    content: '城市東區的老公寓，結構在物理上是歪斜的，走廊沒有完全水平，樓梯某幾階會發出孩童的嬉笑或哭聲。小葵家的門總是虛掩，門縫傳出劇烈爭吵聲，推門進去只看見一個抱著紅舞鞋、縮在角落的安靜女孩。',
+    comment: '歪斜的公寓大樓 - 對應小葵',
+    constant: false,
+    enabled: true,
+    priority: 80,
+    npcId: 'aoi',
+    unlockedByDefault: false,
+  },
+  {
+    id: 9,
+    keys: ['標本室', '尤里', '蝴蝶', '水晶', '河邊', '標本', '河岸', '玻璃屋', '標本櫃', '靜止'],
+    content: '孤立在河岸邊的玻璃屋。漲潮時河水漫進室內，但標本櫃永遠保持絕對乾燥。屋內陳列無數完美的蝴蝶與花草，牠們都睜著眼，卻沒有一絲生命氣息。這裡連灰塵都靜止在半空中。',
+    comment: '河邊的標本室 - 對應標本師尤里',
+    constant: false,
+    enabled: true,
+    priority: 80,
+    npcId: 'yuri',
+    unlockedByDefault: false,
   },
   {
     id: 10,
@@ -62,6 +116,7 @@ export const worldbookEntries: WorldbookEntry[] = [
     constant: false,
     enabled: true,
     priority: 90,
+    unlockedByDefault: true,
   },
   {
     id: 11,
@@ -71,6 +126,7 @@ export const worldbookEntries: WorldbookEntry[] = [
     constant: false,
     enabled: true,
     priority: 85,
+    unlockedByDefault: true,
   },
   {
     id: 12,
@@ -80,6 +136,7 @@ export const worldbookEntries: WorldbookEntry[] = [
     constant: true,
     enabled: true,
     priority: 120,
+    unlockedByDefault: true,
   },
 ];
 

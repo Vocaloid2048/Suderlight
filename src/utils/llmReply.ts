@@ -1,11 +1,11 @@
-import { getPlayerIdHeader } from '../lib/playerId';
+import { getPlayerAuthHeaders } from '../lib/playerId';
 
 export type BackendNpcState = {
   trust: number;
   stress: number;
   knowledge: number;
   innerWorldUnlocked: boolean;
-  ending: 'success' | 'failed' | null;
+  ending: 'none' | 'success' | 'failed' | null;
 };
 
 export type BackendChatResponse = {
@@ -33,9 +33,10 @@ export async function switchCharacter(name: string): Promise<void> {
  */
 export async function sendMessage(text: string): Promise<{ reply: string; emotion?: string }> {
   try {
+    const authHeaders = await getPlayerAuthHeaders();
     const res = await fetch(`/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getPlayerIdHeader() },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ npcId: 'bridge_artist', message: text })
     });
     if (!res.ok) {
@@ -73,9 +74,10 @@ export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge
       finalNpcId = 'bridge_artist';
     }
 
+    const authHeaders = await getPlayerAuthHeaders();
     const response = await fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getPlayerIdHeader() },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({
         npcId: finalNpcId,
         message: playerMessage,

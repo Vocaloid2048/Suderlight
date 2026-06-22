@@ -32,6 +32,10 @@ router.get('/:npcId', (req, res, next) => {
     res.json({
       npcId,
       unlocked: Boolean(npc.innerWorldUnlocked),
+      progress: {
+        depth: npc.innerWorldDepth || 0,
+        layer: npc.innerWorldLayer || 0,
+      },
       world: npc.innerWorldUnlocked ? world : null,
     });
   } catch (error) {
