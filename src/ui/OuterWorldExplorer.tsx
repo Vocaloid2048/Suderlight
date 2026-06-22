@@ -732,11 +732,17 @@ export default function OuterWorldExplorer({
       )
         .then(res => res.json())
         .then(data => {
-          if (data.unlockedEntries && data.unlockedEntries.length > 0) {
+          const unlocked = Array.isArray(data.unlockedEntries)
+            ? data.unlockedEntries
+            : Array.isArray(data.newlyUnlockedDictionary)
+              ? data.newlyUnlockedDictionary
+              : [];
+
+          if (unlocked.length > 0) {
             fetch('/api/dictionary')
               .then(r => r.json())
               .then(dict => {
-                const entry = dict.entries.find((item: { id: string }) => data.unlockedEntries.includes(item.id));
+                const entry = dict.entries.find((item: { id: string }) => unlocked.includes(item.id));
                 if (entry) {
                   setDiscoveryNote(entry.name);
                   window.setTimeout(() => setDiscoveryNote(null), 2800);

@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useGameStore } from './store/gameStore';
-import type { DialogueEvaluationResult } from './systems/npcStateEngine';
 import { useNarrativePlaytest } from './hooks/narrativePlaytest';
 import { useNarrativePlaytestStore } from './store/narrativePlaytestStore';
 import { isPlaytestEnabled } from './hooks/narrativePlaytest';
@@ -24,7 +23,6 @@ export default function App() {
   const save = useGameStore(state => state.save);
   const collectClue = useGameStore(state => state.collectClue);
   const setCurrentLocation = useGameStore(state => state.setCurrentLocation);
-  const evaluateDialogue = useGameStore(state => state.evaluateDialogue);
   const applyBackendNpcState = useGameStore(state => state.applyBackendNpcState);
   const completeNpcSuccess = useGameStore(state => state.completeNpcSuccess);
 
@@ -81,9 +79,7 @@ export default function App() {
     setScreen('title');
   };
 
-  const handleDialogueEvaluated = (playerInput: string): DialogueEvaluationResult => {
-    return evaluateDialogue('bridge_artist', playerInput);
-  };
+
 
   const content = (() => {
     if (screen === 'title') {
@@ -116,7 +112,6 @@ export default function App() {
           innerWorldDepth={bridgeArtist.innerWorldDepth}
           npcState={bridgeArtist}
           onClose={() => setScreen('city')}
-          onDialogueEvaluated={handleDialogueEvaluated}
           onBackendNpcStateApplied={(state) => applyBackendNpcState('bridge_artist', state)}
           onEnterInnerWorld={() => setScreen('innerWorld')}
 

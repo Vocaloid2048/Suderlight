@@ -1,7 +1,7 @@
 import { FormEvent, useMemo, useState, useEffect } from 'react';
 import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
-import type { DialogueEvaluationResult, NpcRuntimeState } from '../systems/npcStateEngine';
+import type { NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
 
@@ -37,7 +37,6 @@ type OuterWorldConversationProps = {
   innerWorldDepth?: number;
   npcState: NpcRuntimeState;
   onClose: () => void;
-  onDialogueEvaluated: (playerInput: string) => DialogueEvaluationResult;
   onBackendNpcStateApplied: (state: BackendNpcState) => void;
   onEnterInnerWorld: () => void;
   onEndingTriggered: () => void;
@@ -179,7 +178,6 @@ export default function OuterWorldConversation({
   innerWorldDepth = 0,
   npcState,
   onClose,
-  onDialogueEvaluated,
   onBackendNpcStateApplied,
   onEnterInnerWorld,
   onEndingTriggered,
@@ -278,9 +276,10 @@ const triggeredLore = useMemo(() => {
         });
       }
     } else {
-      // 僅在後端未返回狀態時，退回前端本地判定（離線兜底）
-      const evaluation = onDialogueEvaluated(trimmed);
-      isFailed = evaluation.ending === 'failed';
+      systemMessages.push({
+        role: 'system',
+        content: '系統提示：後端未返回 npcState，本輪不套用本地狀態計算。',
+      });
     }
 
     const nextMessages: ChatMessage[] = [

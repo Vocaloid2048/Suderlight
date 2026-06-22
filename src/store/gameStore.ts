@@ -2,12 +2,9 @@ import { create } from 'zustand';
 import { bridgeArtistClues, type ClueId, type LocationId, type NpcId } from '../data/verticalSlice';
 import { getClueKnowledge } from '../systems/investigationSystem';
 import {
-  applyDialogueEvaluation,
-  evaluateBridgeArtistDialogue,
   markNpcFailed,
   markNpcSuccess,
   shouldUnlockInnerWorld,
-  type DialogueEvaluationResult,
 } from '../systems/npcStateEngine';
 import { clearSave, createInitialSave, loadSave, loadSaveFromBackend, persistSave, syncSaveToBackend, type GameSave, type GhostRecord } from '../systems/saveSystem';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
@@ -33,7 +30,6 @@ type GameStore = {
   save: GameSave;
   setCurrentLocation: (locationId: LocationId) => void;
   collectClue: (clueId: ClueId) => CollectClueResult;
-  evaluateDialogue: (npcId: NpcId, playerInput: string) => DialogueEvaluationResult;
   applyBackendNpcState: (npcId: NpcId, backendState: BackendNpcStateSnapshot) => void;
   completeNpcSuccess: (npcId: NpcId) => void;
   failNpc: (npcId: NpcId) => void;
@@ -158,59 +154,7 @@ export const useGameStore = create<GameStore>((set) => ({
     return result;
   },
 
-  evaluateDialogue: (npcId, playerInput) => {
-    let result: DialogueEvaluationResult = {
-      trustDelta: 0,
-      stressDelta: 0,
-      reason: '此NPC尚未接入狀態判定。',
-      flags: [],
-      innerWorldUnlocked: false,
-      ending: 'none',
-    };
 
-    set(state => {
-      const next = cloneSave(state.save);
-
-      if (npcId !== 'bridge_artist') {
-        return { save: state.save };
-      }
-
-      result = evaluateBridgeArtistDialogue(playerInput, next.npcs.bridge_artist, {
-        knowledge: next.player.knowledge,
-        collectedClues: next.collectedClues,
-      });
-
-      next.npcs.bridge_artist = applyDialogueEvaluation(next.npcs.bridge_artist, result);
-      syncBridgeArtistUnlock(next);
-      result = {
-        ...result,
-        innerWorldUnlocked: next.npcs.bridge_artist.innerWorldUnlocked,
-        ending: next.npcs.bridge_artist.ending,
-      };
-
-      // ---- playtest: capture AI reasoning + state change ----
-      if (isPlaytestEnabled()) {
-        void import('../store/narrativePlaytestStore').then(mod => {
-          const store = mod.useNarrativePlaytestStore.getState();
-          store.setLastEvaluation(result);
-          // Push to event log
-          store.pushLog({
-            type: 'dialogue',
-            message: `對話評估: ${result.reason.slice(0, 40)}...`,
-            detail: `信任${result.trustDelta >= 0 ? '+' : ''}${result.trustDelta}, 壓力${result.stressDelta >= 0 ? '+' : ''}${result.stressDelta}`,
-          });
-        }).catch(() => {});
-      }
-
-      const finalSave = next.npcs.bridge_artist.ending === 'failed'
-        ? addGhostIfNeeded(next, 'bridge_artist')
-        : next;
-
-      return { save: persistAndReturn(finalSave) };
-    });
-
-    return result;
-  },
 
   applyBackendNpcState: (npcId, backendState) => {
     set(state => {
