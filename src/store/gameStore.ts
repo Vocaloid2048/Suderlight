@@ -10,7 +10,7 @@ import {
   type DialogueEvaluationResult,
 } from '../systems/npcStateEngine';
 import { clearSave, createInitialSave, loadSave, loadSaveFromBackend, persistSave, syncSaveToBackend, type GameSave, type GhostRecord } from '../systems/saveSystem';
-import { getPlayerId } from '../lib/playerId';
+import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
 import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
 
 export type CollectClueResult = {
@@ -21,14 +21,24 @@ export type CollectClueResult = {
   unlockedNow: boolean;
 };
 
+type BackendNpcStateSnapshot = {
+  trust: number;
+  stress: number;
+  knowledge: number;
+  innerWorldUnlocked: boolean;
+  ending: 'none' | 'success' | 'failed' | null;
+};
+
 type GameStore = {
   save: GameSave;
   setCurrentLocation: (locationId: LocationId) => void;
   collectClue: (clueId: ClueId) => CollectClueResult;
   evaluateDialogue: (npcId: NpcId, playerInput: string) => DialogueEvaluationResult;
+  applyBackendNpcState: (npcId: NpcId, backendState: BackendNpcStateSnapshot) => void;
   completeNpcSuccess: (npcId: NpcId) => void;
   failNpc: (npcId: NpcId) => void;
   resetSave: () => void;
+
   /** 設定橋上畫家的心理世界探索深度 (0-3) */
   setInnerWorldDepth: (depth: number) => void;
   /** 記錄心理世界層級進展 (1-4) */
@@ -202,6 +212,28 @@ export const useGameStore = create<GameStore>((set) => ({
     return result;
   },
 
+  applyBackendNpcState: (npcId, backendState) => {
+    set(state => {
+      const next = cloneSave(state.save);
+      const target = next.npcs[npcId];
+      if (!target) return { save: state.save };
+
+      next.npcs[npcId] = {
+        ...target,
+        trust: backendState.trust,
+        stress: backendState.stress,
+        innerWorldUnlocked: Boolean(backendState.innerWorldUnlocked),
+        ending: backendState.ending === null ? 'none' : backendState.ending,
+      };
+
+      if (next.npcs[npcId].ending === 'failed') {
+        return { save: persistAndReturn(addGhostIfNeeded(next, npcId)) };
+      }
+
+      return { save: persistAndReturn(next) };
+    });
+  },
+
   completeNpcSuccess: (npcId) => {
     set(state => {
       const next = cloneSave(state.save);
@@ -225,10 +257,12 @@ export const useGameStore = create<GameStore>((set) => ({
         // 並行但等待兩者完成
         await Promise.all([
           syncSaveToBackend(createInitialSave()),
-          fetch('/api/chat/reset-all', {
-            method: 'POST',
-            headers: { 'X-Player-Id': playerId }
-          })
+          getPlayerAuthHeaders(playerId).then((headers) =>
+            fetch('/api/chat/reset-all', {
+              method: 'POST',
+              headers,
+            })
+          )
         ]);
       } catch (err) {
         console.error('Remote reset failed:', err);

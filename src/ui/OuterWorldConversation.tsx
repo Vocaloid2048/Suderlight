@@ -3,7 +3,7 @@ import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
 import type { DialogueEvaluationResult, NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
-import { getPlayerId } from '../lib/playerId';
+import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
 
 type ChatMessage = {
   role: 'player' | 'npc' | 'system';
@@ -38,6 +38,7 @@ type OuterWorldConversationProps = {
   npcState: NpcRuntimeState;
   onClose: () => void;
   onDialogueEvaluated: (playerInput: string) => DialogueEvaluationResult;
+  onBackendNpcStateApplied: (state: BackendNpcState) => void;
   onEnterInnerWorld: () => void;
   onEndingTriggered: () => void;
 };
@@ -179,6 +180,7 @@ export default function OuterWorldConversation({
   npcState,
   onClose,
   onDialogueEvaluated,
+  onBackendNpcStateApplied,
   onEnterInnerWorld,
   onEndingTriggered,
 }: OuterWorldConversationProps) {
@@ -212,8 +214,9 @@ export default function OuterWorldConversation({
     async function loadHistory() {
       try {
         const playerId = getPlayerId();
+        const authHeaders = await getPlayerAuthHeaders(playerId);
         const response = await fetch(`/api/chat/history/bridge_artist`, {
-          headers: { 'X-Player-Id': playerId }
+          headers: authHeaders
         });
         if (!response.ok) throw new Error('Failed to load history');
         const data = await response.json();
@@ -261,15 +264,34 @@ const triggeredLore = useMemo(() => {
   }, [input, inventory]);
 
   const appendReplyAndSystemResult = (reply: AiReply, trimmed: string) => {
-    const evaluation = onDialogueEvaluated(trimmed);
+    let isFailed = false;
+    const systemMessages: ChatMessage[] = [];
+
+    if (reply.backendNpcState) {
+      onBackendNpcStateApplied(reply.backendNpcState);
+      isFailed = reply.backendNpcState.ending === 'failed';
+
+      if (reply.backendPsychology) {
+        systemMessages.push({
+          role: 'system',
+          content: `系統判定：${reply.backendPsychology.stateLabel}（Trust ${reply.backendPsychology.trustDelta >= 0 ? '+' : ''}${reply.backendPsychology.trustDelta} / Stress ${reply.backendPsychology.stressDelta >= 0 ? '+' : ''}${reply.backendPsychology.stressDelta}）`,
+        });
+      }
+    } else {
+      // 僅在後端未返回狀態時，退回前端本地判定（離線兜底）
+      const evaluation = onDialogueEvaluated(trimmed);
+      isFailed = evaluation.ending === 'failed';
+    }
+
     const nextMessages: ChatMessage[] = [
       { role: 'npc', content: reply.dialogue },
       ...(reply.dictionaryHint ? [{ role: 'system' as const, content: `情緒詞典浮現：${reply.dictionaryHint}` }] : []),
+      ...systemMessages,
     ];
 
     setMessages(current => [...current, ...nextMessages]);
 
-    if (evaluation.ending === 'failed') {
+    if (isFailed) {
       window.setTimeout(onEndingTriggered, 300);
     }
   };

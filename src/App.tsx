@@ -25,7 +25,9 @@ export default function App() {
   const collectClue = useGameStore(state => state.collectClue);
   const setCurrentLocation = useGameStore(state => state.setCurrentLocation);
   const evaluateDialogue = useGameStore(state => state.evaluateDialogue);
+  const applyBackendNpcState = useGameStore(state => state.applyBackendNpcState);
   const completeNpcSuccess = useGameStore(state => state.completeNpcSuccess);
+
   const resetSave = useGameStore(state => state.resetSave);
   const setInnerWorldDepth = useGameStore(state => state.setInnerWorldDepth);
   const advancePsychLayer = useGameStore(state => state.advancePsychLayer);
@@ -115,7 +117,9 @@ export default function App() {
           npcState={bridgeArtist}
           onClose={() => setScreen('city')}
           onDialogueEvaluated={handleDialogueEvaluated}
+          onBackendNpcStateApplied={(state) => applyBackendNpcState('bridge_artist', state)}
           onEnterInnerWorld={() => setScreen('innerWorld')}
+
           onEndingTriggered={() => setScreen('aftermath')}
         />
       );

@@ -16,6 +16,8 @@ const investigationRoutes = require('./routes/investigation');
 const saveRoutes = require('./routes/save');
 const innerWorldRoutes = require('./routes/innerWorld');
 const dictionaryRoutes = require('./routes/dictionary');
+const worldbookRoutes = require('./routes/worldbook');
+
 
 const app = express();
 
@@ -73,11 +75,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // ---- Routes ----
-app.use('/api/chat', llmLimiter, chatRoutes);
-app.use('/api/npc', npcRoutes);
-app.use('/api/investigation', investigationRoutes);
-app.use('/api/save', saveRoutes);
-app.use('/api/inner-world', innerWorldRoutes);
+app.use('/api/chat', authSignatureMiddleware, llmLimiter, chatRoutes);
+app.use('/api/npc', authSignatureMiddleware, npcRoutes);
+app.use('/api/investigation', authSignatureMiddleware, investigationRoutes);
+app.use('/api/save', authSignatureMiddleware, saveRoutes);
+app.use('/api/inner-world', authSignatureMiddleware, innerWorldRoutes);
+app.use('/api/worldbook', authSignatureMiddleware, worldbookRoutes);
 app.use('/api/dictionary', dictionaryRoutes);
 
 // ---- 404 Catch-all ----

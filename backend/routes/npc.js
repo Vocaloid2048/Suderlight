@@ -47,8 +47,9 @@ router.post('/:id/ending', (req, res, next) => {
     saveService.saveNpc(npc, playerId);
 
     if (ending === 'failed') {
-      ghostEngine.addFailedNPC(npc.id);
+      ghostEngine.addFailedNPC(npc.id, playerId);
     }
+
 
     res.json({
       id: npc.id,

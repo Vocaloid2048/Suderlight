@@ -1,6 +1,6 @@
 import type { ClueId, LocationId, NpcId } from '../data/verticalSlice';
 import { createBridgeArtistState, createVictorState, type NpcRuntimeState } from './npcStateEngine';
-import { getPlayerId, getPlayerIdHeader } from '../lib/playerId';
+import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
 
 export type GhostRecord = {
   npc: NpcId;
@@ -80,7 +80,7 @@ export async function syncSaveToBackend(save: GameSave): Promise<boolean> {
   if (!playerId) return false;
 
   try {
-    const headers = getPlayerIdHeader();
+    const headers = await getPlayerAuthHeaders();
     const res = await fetch('/api/save', {
       method: 'POST',
       headers: {
@@ -106,11 +106,12 @@ export async function loadSaveFromBackend(playerId?: string): Promise<GameSave |
   if (!id) return null;
 
   try {
+    const authHeaders = await getPlayerAuthHeaders(id);
     const res = await fetch('/api/save', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'X-Player-Id': id,
+        ...authHeaders,
       },
     });
     if (!res.ok) {

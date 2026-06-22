@@ -1,6 +1,7 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { GlimmerButton, GlassPanel } from '../components';
 import { bridgeArtistClues, clueOrder, locations, type ClueId, type LocationId } from '../data/verticalSlice';
+import { getPlayerAuthHeaders } from '../lib/playerId';
 import type { CollectClueResult } from '../store/gameStore';
 import type { GameSave } from '../systems/saveSystem';
 
@@ -722,11 +723,13 @@ export default function OuterWorldExplorer({
     });
 
     if (!result.alreadyCollected) {
-      fetch('/api/investigation/collect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clueId: targetId }),
-      })
+      getPlayerAuthHeaders().then((authHeaders) =>
+        fetch('/api/investigation/collect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({ clueId: targetId }),
+        })
+      )
         .then(res => res.json())
         .then(data => {
           if (data.unlockedEntries && data.unlockedEntries.length > 0) {
