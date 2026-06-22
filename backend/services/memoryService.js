@@ -41,6 +41,48 @@ function getDefaultNpcMemory() {
   return { lastInputTypes: [], history: [], fullHistory: [], summary: '', roundCount: 0 };
 }
 
+function cloneJudgement(systemJudgement) {
+  if (!systemJudgement || typeof systemJudgement !== 'object') return undefined;
+
+  const cloned = {
+    stateLabel: String(systemJudgement.stateLabel || ''),
+    trustDelta: Number(systemJudgement.trustDelta) || 0,
+    stressDelta: Number(systemJudgement.stressDelta) || 0,
+  };
+
+  if (systemJudgement.knowledgeDelta !== undefined) {
+    cloned.knowledgeDelta = Number(systemJudgement.knowledgeDelta) || 0;
+  }
+
+  if (systemJudgement.trust !== undefined) {
+    cloned.trust = Number(systemJudgement.trust);
+  }
+
+  if (systemJudgement.stress !== undefined) {
+    cloned.stress = Number(systemJudgement.stress);
+  }
+
+  if (systemJudgement.knowledge !== undefined) {
+    cloned.knowledge = Number(systemJudgement.knowledge);
+  }
+
+  return cloned;
+}
+
+function cloneHistoryEntry(item, includeJudgement = false) {
+  const entry = {
+    role: item.role,
+    content: item.content,
+    timestamp: item.timestamp,
+  };
+
+  if (includeJudgement && item.systemJudgement) {
+    entry.systemJudgement = cloneJudgement(item.systemJudgement);
+  }
+
+  return entry;
+}
+
 function getRecentTypes(npcId, playerId) {
   const memory = readMemory(playerId);
   const npcMemory = memory[npcId] || getDefaultNpcMemory();
@@ -57,7 +99,7 @@ function addInputType(npcId, inputType, playerId) {
   return nextTypes;
 }
 
-function saveDialogue(npcId, userMessage, npcReply, playerId, userTimestamp) {
+function saveDialogue(npcId, userMessage, npcReply, playerId, userTimestamp, systemJudgement = null) {
   const memory = readMemory(playerId);
   const npcMemory = memory[npcId] || getDefaultNpcMemory();
   
@@ -85,6 +127,11 @@ function saveDialogue(npcId, userMessage, npcReply, playerId, userTimestamp) {
     content: cleanReply,
     timestamp: Date.now(),
   };
+
+  const clonedJudgement = cloneJudgement(systemJudgement);
+  if (clonedJudgement) {
+    assistantEntry.systemJudgement = clonedJudgement;
+  }
 
   npcMemory.fullHistory.push(userEntry, assistantEntry);
   if (npcMemory.fullHistory.length > 2000) npcMemory.fullHistory = npcMemory.fullHistory.slice(-2000);
@@ -114,10 +161,7 @@ function getFullDialogue(npcId, playerId) {
     ? npcMemory.fullHistory 
     : (Array.isArray(npcMemory.history) ? npcMemory.history : []);
     
-  return history.map(item => ({
-    role: item.role,
-    content: item.content,
-  }));
+  return history.map(item => cloneHistoryEntry(item, true));
 }
 
 function getSummary(npcId, playerId) {

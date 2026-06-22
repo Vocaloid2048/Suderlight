@@ -124,9 +124,18 @@ router.post('/', async (req, res, next) => {
       }
 
       const stateUpdate = npcStateEngine.updateAfterDialogue(npc, message, dialogueType);
+      const systemJudgement = {
+        stateLabel: npcStateEngine.getStateLabel(stateUpdate.npc),
+        trustDelta: stateUpdate.trustDelta,
+        stressDelta: stateUpdate.stressDelta,
+        knowledgeDelta: stateUpdate.npc.knowledge - npc.knowledge,
+        trust: stateUpdate.npc.trust,
+        stress: stateUpdate.npc.stress,
+        knowledge: stateUpdate.npc.knowledge,
+      };
 
       memoryService.addInputType(npcId, stateUpdate.dialogueType, playerId);
-      memoryService.saveDialogue(npcId, message, reply, playerId, userTimestamp);
+      memoryService.saveDialogue(npcId, message, reply, playerId, userTimestamp, systemJudgement);
       saveService.saveNpc(stateUpdate.npc, playerId);
 
       unlockNpcWorldbookEntries(npcId, stateUpdate.npc, playerId);
@@ -136,7 +145,7 @@ router.post('/', async (req, res, next) => {
         psychology: {
           trustDelta: stateUpdate.trustDelta,
           stressDelta: stateUpdate.stressDelta,
-          stateLabel: npcStateEngine.getStateLabel(stateUpdate.npc),
+          stateLabel: systemJudgement.stateLabel,
           inputType: stateUpdate.dialogueType,
         },
         npcState: {
