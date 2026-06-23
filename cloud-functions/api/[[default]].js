@@ -13,9 +13,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { INLINE_NPC, INLINE_CLUES, INLINE_WORLDBOOK, INLINE_INNER_WORLDS, INLINE_DICTIONARY, INLINE_PROMPT } from './inline-data.js';
 
 // ============================================================
 // 環境變數 & 配置
@@ -60,9 +58,6 @@ const logger = {
 // 內存數據存儲 (EdgeOne 無狀態環境)
 // ============================================================
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const memoryStore = {
   saves: {},
   memories: {},
@@ -74,31 +69,14 @@ const memoryStore = {
 };
 
 function loadStaticData() {
+  // 直接从 inline-data.js 模块加载，无需文件 I/O
   try {
-    const dataDir = path.join(__dirname, 'data');
-
-    const loadJson = (filename) => {
-      try {
-        return JSON.parse(fs.readFileSync(path.join(dataDir, filename), 'utf8'));
-      } catch { return null; }
-    };
-
-    const npcData = loadJson('npc.json');
-    if (npcData) memoryStore.npcs = npcData;
-
-    const cluesData = loadJson('clues.json');
-    if (cluesData) memoryStore.clues = cluesData;
-
-    const worldbookData = loadJson('worldbook.json');
-    if (worldbookData) memoryStore.worldbook = worldbookData;
-
-    const innerData = loadJson('innerWorlds.json');
-    if (innerData) memoryStore.innerWorlds = innerData;
-
-    const dictData = loadJson('dictionary.json');
-    if (dictData) memoryStore.dictionary = dictData;
-
-    logger.info('Static data loaded into memory store');
+    if (INLINE_NPC) memoryStore.npcs = INLINE_NPC;
+    if (INLINE_CLUES) memoryStore.clues = INLINE_CLUES;
+    if (INLINE_WORLDBOOK) memoryStore.worldbook = INLINE_WORLDBOOK;
+    if (INLINE_INNER_WORLDS) memoryStore.innerWorlds = INLINE_INNER_WORLDS;
+    if (INLINE_DICTIONARY) memoryStore.dictionary = INLINE_DICTIONARY;
+    logger.info('Static data loaded from inline-data module');
   } catch (e) {
     logger.warn('Could not load static data:', e.message);
   }
@@ -440,22 +418,8 @@ async function deepseekChat(messages) {
 
 // Prompt Builder
 function loadCharacterPrompt(npcId) {
-  try {
-    // 嘗試從 characterCards 目錄加載角色卡
-    const cardPath = path.join(__dirname, 'data', 'characterCards', `${npcId}.json`);
-    if (fs.existsSync(cardPath)) {
-      const cardData = JSON.parse(fs.readFileSync(cardPath, 'utf8'));
-      return cardData.systemPrompt || cardData.prompt || '';
-    }
-  } catch { /* ignore */ }
-
-  // 回退到 prompts 目錄
-  try {
-    const promptPath = path.join(__dirname, 'prompts', 'artist.txt');
-    return fs.readFileSync(promptPath, 'utf8');
-  } catch {
-    return '你是一位內心受創的藝術家。請用中文回應玩家的對話。';
-  }
+  // 使用内联 prompt，无需文件 I/O
+  return INLINE_PROMPT || '你是一位內心受創的藝術家。請用中文回應玩家的對話。';
 }
 
 const promptBuilder = {
@@ -544,12 +508,12 @@ app.use((req, res, next) => {
 // ============================================================
 
 // Health Check
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'glimmer-city-backend', version: '0.2.0-edgeone' });
 });
 
 // Chat: 獲取歷史
-app.get('/api/chat/history/:npcId', authSignatureMiddleware, (req, res, next) => {
+app.get('/chat/history/:npcId', authSignatureMiddleware, (req, res, next) => {
   try {
     const history = req.playerId ? memoryService.getFullDialogue(req.params.npcId, req.playerId) : [];
     res.json({ history });
@@ -557,7 +521,7 @@ app.get('/api/chat/history/:npcId', authSignatureMiddleware, (req, res, next) =>
 });
 
 // Chat: 重置單個 NPC
-app.post('/api/chat/reset/:npcId', authSignatureMiddleware, (req, res, next) => {
+app.post('/chat/reset/:npcId', authSignatureMiddleware, (req, res, next) => {
   try {
     if (req.playerId) memoryService.resetHistory(req.params.npcId, req.playerId);
     res.json({ success: true });
@@ -565,7 +529,7 @@ app.post('/api/chat/reset/:npcId', authSignatureMiddleware, (req, res, next) => 
 });
 
 // Chat: 重置全部
-app.post('/api/chat/reset-all', authSignatureMiddleware, (req, res, next) => {
+app.post('/chat/reset-all', authSignatureMiddleware, (req, res, next) => {
   try {
     if (req.playerId) memoryService.resetAll(req.playerId);
     res.json({ success: true });
@@ -573,7 +537,7 @@ app.post('/api/chat/reset-all', authSignatureMiddleware, (req, res, next) => {
 });
 
 // Chat: 發送對話
-app.post('/api/chat', authSignatureMiddleware, llmLimiter, async (req, res, next) => {
+app.post('/chat', authSignatureMiddleware, llmLimiter, async (req, res, next) => {
   try {
     const { npcId, message } = req.body;
     const playerId = req.playerId;
@@ -660,7 +624,7 @@ app.post('/api/chat', authSignatureMiddleware, llmLimiter, async (req, res, next
 });
 
 // NPC: 獲取狀態
-app.get('/api/npc/:id', authSignatureMiddleware, (req, res, next) => {
+app.get('/npc/:id', authSignatureMiddleware, (req, res, next) => {
   try {
     const npc = saveService.getNpc(req.params.id, req.playerId);
     if (!npc) throw new NotFoundError('NPC', req.params.id);
@@ -673,7 +637,7 @@ app.get('/api/npc/:id', authSignatureMiddleware, (req, res, next) => {
 });
 
 // NPC: 設置結局
-app.post('/api/npc/:id/ending', authSignatureMiddleware, (req, res, next) => {
+app.post('/npc/:id/ending', authSignatureMiddleware, (req, res, next) => {
   try {
     const { ending } = req.body;
     if (!['success', 'failure', 'none'].includes(ending)) {
@@ -688,7 +652,7 @@ app.post('/api/npc/:id/ending', authSignatureMiddleware, (req, res, next) => {
 });
 
 // Save: 加載
-app.get('/api/save', authSignatureMiddleware, (req, res, next) => {
+app.get('/save', authSignatureMiddleware, (req, res, next) => {
   try {
     if (!req.playerId) throw new ValidationError('Missing X-Player-Id header');
     res.json(saveService.readSave(req.playerId));
@@ -696,7 +660,7 @@ app.get('/api/save', authSignatureMiddleware, (req, res, next) => {
 });
 
 // Save: 保存
-app.post('/api/save', authSignatureMiddleware, (req, res, next) => {
+app.post('/save', authSignatureMiddleware, (req, res, next) => {
   try {
     if (!req.playerId) throw new ValidationError('Missing X-Player-Id header');
     res.json({ success: true, save: saveService.writeSave(req.playerId, req.body) });
@@ -704,7 +668,7 @@ app.post('/api/save', authSignatureMiddleware, (req, res, next) => {
 });
 
 // Save: 查詢
-app.post('/api/save/lookup', authSignatureMiddleware, (req, res, next) => {
+app.post('/save/lookup', authSignatureMiddleware, (req, res, next) => {
   try {
     if (!req.playerId) throw new ValidationError('Missing X-Player-Id header');
     res.json({ exists: !!memoryStore.saves[req.playerId], playerId: req.playerId });
@@ -712,7 +676,7 @@ app.post('/api/save/lookup', authSignatureMiddleware, (req, res, next) => {
 });
 
 // Investigation: 收集線索
-app.post('/api/investigation/collect', authSignatureMiddleware, (req, res, next) => {
+app.post('/investigation/collect', authSignatureMiddleware, (req, res, next) => {
   try {
     const { clueId } = req.body;
     if (!req.playerId) throw new ValidationError('Missing X-Player-Id header');
@@ -731,7 +695,7 @@ app.post('/api/investigation/collect', authSignatureMiddleware, (req, res, next)
 });
 
 // Inner World: 獲取
-app.get('/api/inner-world/:npcId', authSignatureMiddleware, (req, res, next) => {
+app.get('/inner-world/:npcId', authSignatureMiddleware, (req, res, next) => {
   try {
     const world = memoryStore.innerWorlds[req.params.npcId];
     if (!world) throw new NotFoundError('Inner world', req.params.npcId);
@@ -740,17 +704,17 @@ app.get('/api/inner-world/:npcId', authSignatureMiddleware, (req, res, next) => 
 });
 
 // Dictionary: 獲取
-app.get('/api/dictionary', (req, res, next) => {
+app.get('/dictionary', (req, res, next) => {
   try { res.json(memoryStore.dictionary || []); } catch (error) { next(error); }
 });
 
 // Worldbook: 獲取全部
-app.get('/api/worldbook', authSignatureMiddleware, (req, res, next) => {
+app.get('/worldbook', authSignatureMiddleware, (req, res, next) => {
   try { res.json({ entries: worldbookService.getEntries() }); } catch (error) { next(error); }
 });
 
 // Worldbook: 觸發條目
-app.post('/api/worldbook/triggered', authSignatureMiddleware, (req, res, next) => {
+app.post('/worldbook/triggered', authSignatureMiddleware, (req, res, next) => {
   try {
     const { keywords } = req.body;
     res.json({ entries: worldbookService.getTriggeredEntries(keywords || [], req.playerId) });

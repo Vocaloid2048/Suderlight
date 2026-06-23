@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "postinstall": "cd cloud-functions/express && npm install"
+    "postinstall": "cd cloud-functions/api && npm install"
   },
   "dependencies": {
     "react": "^18.2.0",
