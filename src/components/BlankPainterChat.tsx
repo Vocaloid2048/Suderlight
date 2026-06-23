@@ -201,11 +201,12 @@ export default function BlankPainterChat({
 
       appendReplyAndSystemResult(reply);
     } catch (error) {
-      console.warn('LLM 連線失敗，切換至本地語意模擬:', error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.warn('LLM 連線失敗，切換至本地語意模擬:', errMsg);
       const simulatedReply = simulateBlankPainterReply(trimmed, inventory, nextMessages);
       setMessages(current => [
         ...current,
-        { role: 'system', content: '（連線錯誤：暫時由本地語意模擬回應。請確認 DeepSeek 代理是否正常運行。）' },
+        { role: 'system', content: `（連線錯誤：${errMsg}）` },
       ]);
       appendReplyAndSystemResult(simulatedReply);
     } finally {
