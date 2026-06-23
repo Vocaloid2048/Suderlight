@@ -460,7 +460,8 @@ ${sysPrompt}
 - 不要一次說太多，但要有足夠的情感厚度
 - 參考前情提要中的記憶摘要，保持情感連貫
 - 不要判定通關，不要宣告心理世界是否解鎖
-- 只輸出 NPC 的台詞與動作描寫`;
+- 只輸出 NPC 的台詞與動作描寫
+- 必須確保使用繁體中文（如果用戶以其他語言回覆，則使用對應語言回覆）`;
 
   return [
     { role: 'system', content: systemContent.trim() },
@@ -476,7 +477,7 @@ async function generateUpdatedSummary(oldSummary, dialogueSegment) {
   const formatted = dialogueSegment.map(m => `${m.role === 'user' ? '玩家(修復師)' : 'NPC'}: ${m.content}`).join('\n');
 
   const sys = `你是一位專業的心理對話分析師與文學顧問。
-你的任務是根據「先前的長期情感摘要」以及「新發生的對話片斷」，提煉出更新後、最精煉的【長期情感與修復狀態摘要】。
+你的任務是根據「先前的長期情感摘要」以及「新發生的對話片斷」，提煉出更新後、最精煉的【長期情感與修復狀態摘要】，使用繁體中文回覆。
 
 【摘要撰寫規則】
 1. 字數限制：請完全控制在 200 字內（繁體中文），不說廢話、直接切入重點。
@@ -491,11 +492,9 @@ async function generateUpdatedSummary(oldSummary, dialogueSegment) {
     { role: 'system', content: sys },
     { role: 'user', content: `【先前的長期情感摘要】：\n${oldSummary || '無'}\n\n【新發生的對話片斷】：\n${formatted}\n\n請嚴格依照指定格式，輸出更新後的繁體中文摘要：` },
   ];
-  try {
-    const reply = await deepseekChat(msgs);
-    const cleaned = String(reply || '').replace(/```json/gi, '').replace(/```/g, '').trim();
-    try { const p = JSON.parse(cleaned); return p.summary || p.text || cleaned; } catch { return cleaned; }
-  } catch { return oldSummary || ''; }
+  const reply = await deepseekChat(msgs);
+  const cleaned = String(reply || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+  try { const p = JSON.parse(cleaned); return p.summary || p.text || cleaned; } catch { return cleaned; }
 }
 
 // ============================================================
@@ -615,25 +614,35 @@ app.post('/chat', authSignatureMiddleware, llmLimiter, async (req, res, next) =>
         (typeof clientRoundCount === 'number' ? clientRoundCount : 0) + 1,
         historyRoundCount,
       );
-      const currentSummary = memoryService.getSummary(npcId, playerId);
+
+      let summaryResult = memoryService.getSummary(npcId, playerId);
+      let summaryError = null;
+
+      // 每10轮生成摘要（await，确保在 history 清零前完成）
+      if (currentRoundCount % 10 === 0) {
+        const oldSummary = summaryResult;
+        const segment = memoryService.getRecentDialogue(npcId, 20, playerId);
+        try {
+          const newSummary = await generateUpdatedSummary(oldSummary, segment);
+          if (newSummary && String(newSummary).trim() && String(newSummary).trim() !== '無') {
+            summaryResult = String(newSummary).trim();
+            memoryService.updateSummary(npcId, summaryResult, playerId);
+          }
+        } catch (err) {
+          summaryError = err instanceof Error ? err.message : String(err);
+          logger.error(`[summary] Failed for npc=${npcId}: ${summaryError}`);
+        }
+        memoryService.resetCurrentHistory(npcId, playerId);
+      }
 
       res.json({
         text: reply,
         psychology: { trustDelta: stateUpdate.trustDelta, stressDelta: stateUpdate.stressDelta, stateLabel: systemJudgement.stateLabel, inputType: stateUpdate.dialogueType },
         npcState: { trust: stateUpdate.npc.trust, stress: stateUpdate.npc.stress, knowledge: stateUpdate.npc.knowledge, innerWorldUnlocked: stateUpdate.npc.innerWorldUnlocked, ending: stateUpdate.npc.ending },
         roundCount: currentRoundCount,
-        summary: currentSummary,
+        summary: summaryResult,
+        ...(summaryError ? { summaryError } : {}),
       });
-
-      // 每10轮生成摘要
-      if (history.length % 20 === 0) {
-        const oldSummary = memoryService.getSummary(npcId, playerId);
-        const segment = memoryService.getRecentDialogue(npcId, 20, playerId);
-        memoryService.resetCurrentHistory(npcId, playerId);
-        void generateUpdatedSummary(oldSummary, segment).then(s => {
-          if (s && s.trim() && s !== '無') memoryService.updateSummary(npcId, s, playerId);
-        }).catch(() => {});
-      }
     });
   } catch (e) { next(e); }
 });

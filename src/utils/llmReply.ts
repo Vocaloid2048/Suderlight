@@ -20,6 +20,7 @@ export type BackendChatResponse = {
   npcState?: BackendNpcState;
   roundCount?: number;
   summary?: string;
+  summaryError?: string;
 };
 
 /**
@@ -112,6 +113,7 @@ export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge
       backendNpcState: data.npcState,
       backendRoundCount: data.roundCount,
       backendSummary: data.summary,
+      backendSummaryError: data.summaryError,
     });
   } catch (error) {
     console.error('Error in fetchLLMReply via Express backend:', error);
