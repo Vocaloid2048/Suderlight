@@ -4,6 +4,7 @@ import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainte
 import type { NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
+import { loadDialogueHistory, appendDialogueExchange, clearDialogueHistory } from '../lib/dialogueStore';
 
 type ChatMessage = {
   role: 'player' | 'npc' | 'system';
@@ -241,6 +242,32 @@ export default function OuterWorldConversation({
     async function loadHistory() {
       try {
         const playerId = getPlayerId();
+
+        // 1. 优先从本地 localStorage 加载（离线恢复）
+        const localHistory = loadDialogueHistory('bridge_artist', playerId);
+        if (localHistory && localHistory.fullHistory.length > 0) {
+          const rebuiltHistory: ChatMessage[] = [
+            { role: 'system', content: initialSystemMessage },
+            { role: 'npc', content: initialNpcMessage },
+          ];
+          localHistory.fullHistory.forEach((msg: any) => {
+            if (msg.role === 'user') {
+              rebuiltHistory.push({ role: 'player', content: msg.content });
+              return;
+            }
+            if (msg.role === 'assistant') {
+              rebuiltHistory.push({ role: 'npc', content: msg.content });
+              if (msg.systemJudgement) {
+                rebuiltHistory.push({ role: 'system', content: formatSystemJudgement(msg.systemJudgement) });
+              }
+            }
+          });
+          setMessages(rebuiltHistory);
+          setIsInitializing(false);
+          return;
+        }
+
+        // 2. 回退到后端 API
         const authHeaders = await getPlayerAuthHeaders(playerId);
         const response = await fetch(`/api/chat/history/bridge_artist`, {
           headers: authHeaders
@@ -365,6 +392,20 @@ const triggeredLore = useMemo(() => {
       }
 
       appendReplyAndSystemResult(reply, trimmed);
+
+      // 3. 存储对话到本地 localStorage
+      const playerId = getPlayerId();
+      appendDialogueExchange(
+        'bridge_artist',
+        playerId,
+        trimmed,
+        reply.dialogue,
+        reply.backendPsychology ? {
+          stateLabel: reply.backendPsychology.stateLabel,
+          trustDelta: reply.backendPsychology.trustDelta,
+          stressDelta: reply.backendPsychology.stressDelta,
+        } : undefined,
+      );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       console.warn('LLM 連線失敗，切換至本地語意模擬:', errMsg);

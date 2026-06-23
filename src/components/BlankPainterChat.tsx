@@ -1,7 +1,9 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState, useEffect } from 'react';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
 import type { NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
+import { getPlayerId } from '../lib/playerId';
+import { loadDialogueHistory, appendDialogueExchange } from '../lib/dialogueStore';
 
 type ChatMessage = {
   role: 'player' | 'npc' | 'system';
@@ -137,6 +139,32 @@ export default function BlankPainterChat({
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
 
+  // 从本地 localStorage 加载历史对话
+  useEffect(() => {
+    const playerId = getPlayerId();
+    const local = loadDialogueHistory('bridge_artist', playerId);
+    if (local && local.fullHistory.length > 0) {
+      const rebuilt: ChatMessage[] = [
+        { role: 'system', content: '雨水沿著天橋欄杆滴落。提燈的光很低，只照見空白畫布的一角。' },
+        { role: 'npc', content: blankPainterCard.firstMessage },
+      ];
+      local.fullHistory.forEach((msg: any) => {
+        if (msg.role === 'user') {
+          rebuilt.push({ role: 'player', content: msg.content });
+        } else if (msg.role === 'assistant') {
+          rebuilt.push({ role: 'npc', content: msg.content });
+          if (msg.systemJudgement) {
+            rebuilt.push({
+              role: 'system',
+              content: `系統判定：${msg.systemJudgement.stateLabel}（Trust ${msg.systemJudgement.trustDelta >= 0 ? '+' : ''}${msg.systemJudgement.trustDelta} / Stress ${msg.systemJudgement.stressDelta >= 0 ? '+' : ''}${msg.systemJudgement.stressDelta}）`,
+            });
+          }
+        }
+      });
+      setMessages(rebuilt);
+    }
+  }, []);
+
 
   const triggeredLore = useMemo(() => {
     const flags = new Set(inventory.map(item => `inventory.${item}`));
@@ -200,6 +228,19 @@ export default function BlankPainterChat({
       }
 
       appendReplyAndSystemResult(reply);
+
+      // 存储对话到本地 localStorage
+      appendDialogueExchange(
+        'bridge_artist',
+        getPlayerId(),
+        trimmed,
+        reply.dialogue,
+        reply.backendPsychology ? {
+          stateLabel: reply.backendPsychology.stateLabel,
+          trustDelta: reply.backendPsychology.trustDelta,
+          stressDelta: reply.backendPsychology.stressDelta,
+        } : undefined,
+      );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       console.warn('LLM 連線失敗，切換至本地語意模擬:', errMsg);

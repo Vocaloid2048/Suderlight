@@ -8,6 +8,7 @@ import {
 } from '../systems/npcStateEngine';
 import { clearSave, createInitialSave, loadSave, persistSave, type GameSave, type GhostRecord } from '../systems/saveSystem';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
+import { clearDialogueHistory } from '../lib/dialogueStore';
 import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
 
 export type CollectClueResult = {
@@ -203,6 +204,10 @@ export const useGameStore = create<GameStore>((set) => ({
     }
     
     clearSave();
+    // 同时清除本地对话纪录
+    if (playerId) {
+      clearDialogueHistory('bridge_artist', playerId);
+    }
     const fresh = createInitialSave();
     persistSave(fresh);
     set({ save: fresh });
