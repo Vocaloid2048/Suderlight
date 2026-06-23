@@ -4,6 +4,10 @@ import { bridgeArtistClues, clueOrder, locations, type ClueId, type LocationId }
 import { getPlayerAuthHeaders } from '../lib/playerId';
 import type { CollectClueResult } from '../store/gameStore';
 import type { GameSave } from '../systems/saveSystem';
+import brushImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_49_08.png';
+import newspaperImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_50_17.png';
+import sketchbookImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_51_17.png';
+
 
 type Point = { x: number; y: number };
 type EntityId = 'painter' | 'gallery_door' | ClueId;
@@ -42,9 +46,16 @@ const ORIGIN_X = MAP_WIDTH / 2;
 const ORIGIN_Y = 160;
 const PLAYER_SPEED = 0.055;
 
+const CLUE_IMAGE_MAP: Partial<Record<ClueId, string>> = {
+  brush: brushImage,
+  newspaper: newspaperImage,
+  sketchbook: sketchbookImage,
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
+
 
 function isoToScreen(pos: Point) {
   return {
@@ -102,6 +113,28 @@ function adjustColorBrightness(hex: string, percent: number) {
   return `#${rHex}${gHex}${bHex}`;
 }
 
+function getSurfacePoint(
+  side: 'left' | 'right',
+  rX: number,
+  rY: number,
+  s1: { left: number; top: number },
+  s2: { left: number; top: number },
+  s3: { left: number; top: number },
+  t1: { left: number; top: number },
+  t2: { left: number; top: number },
+  t3: { left: number; top: number }
+) {
+  if (side === 'left') {
+    const bPt = { left: lerp(s3.left, s2.left, rX), top: lerp(s3.top, s2.top, rX) };
+    const tPt = { left: lerp(t3.left, t2.left, rX), top: lerp(t3.top, t2.top, rX) };
+    return { left: lerp(bPt.left, tPt.left, rY), top: lerp(bPt.top, tPt.top, rY) };
+  }
+
+  const bPt = { left: lerp(s2.left, s1.left, rX), top: lerp(s2.top, s1.top, rX) };
+  const tPt = { left: lerp(t2.left, t1.left, rX), top: lerp(t2.top, t1.top, rX) };
+  return { left: lerp(bPt.left, tPt.left, rY), top: lerp(bPt.top, tPt.top, rY) };
+}
+
 function getWindowPoints(
   win: WindowDef,
   s1: { left: number; top: number },
@@ -111,27 +144,14 @@ function getWindowPoints(
   t2: { left: number; top: number },
   t3: { left: number; top: number }
 ) {
-  const getPt = (rX: number, rY: number) => {
-    if (win.side === 'left') {
-      // 左立面：s3 -> s2, t3 -> t2
-      const bPt = { left: lerp(s3.left, s2.left, rX), top: lerp(s3.top, s2.top, rX) };
-      const tPt = { left: lerp(t3.left, t2.left, rX), top: lerp(t3.top, t2.top, rX) };
-      return { left: lerp(bPt.left, tPt.left, rY), top: lerp(bPt.top, tPt.top, rY) };
-    } else {
-      // 右立面：s2 -> s1, t2 -> t1
-      const bPt = { left: lerp(s2.left, s1.left, rX), top: lerp(s2.top, s1.top, rX) };
-      const tPt = { left: lerp(t2.left, t1.left, rX), top: lerp(t2.top, t1.top, rX) };
-      return { left: lerp(bPt.left, tPt.left, rY), top: lerp(bPt.top, tPt.top, rY) };
-    }
-  };
-
-  const p00 = getPt(win.x, win.y);
-  const p10 = getPt(win.x + win.w, win.y);
-  const p11 = getPt(win.x + win.w, win.y + win.h);
-  const p01 = getPt(win.x, win.y + win.h);
+  const p00 = getSurfacePoint(win.side, win.x, win.y, s1, s2, s3, t1, t2, t3);
+  const p10 = getSurfacePoint(win.side, win.x + win.w, win.y, s1, s2, s3, t1, t2, t3);
+  const p11 = getSurfacePoint(win.side, win.x + win.w, win.y + win.h, s1, s2, s3, t1, t2, t3);
+  const p01 = getSurfacePoint(win.side, win.x, win.y + win.h, s1, s2, s3, t1, t2, t3);
 
   return `${p00.left},${p00.top} ${p10.left},${p10.top} ${p11.left},${p11.top} ${p01.left},${p01.top}`;
 }
+
 
 const buildings: Building[] = [
   // 1. 天橋場景：失色畫廊
@@ -231,7 +251,50 @@ function IsometricBuilding({ building, isRepaired }: { building: Building; isRep
   const lightColor = isRepaired ? adjustColorBrightness(color, 25) : '#5a5a5a';
   const darkColor = isRepaired ? adjustColorBrightness(color, -25) : '#222222';
 
+  const galleryDoorDef: WindowDef | null = building.id === 'gallery'
+    ? { side: 'left', x: 0.5, y: 0.05, w: 0.28, h: 0.44 }
+    : null;
+
+
+
+
+
+
+
+  const galleryDoorFrameDef: WindowDef | null = galleryDoorDef
+    ? {
+        side: galleryDoorDef.side,
+        x: galleryDoorDef.x - 0.03,
+        y: galleryDoorDef.y - 0.04,
+        w: galleryDoorDef.w + 0.06,
+        h: galleryDoorDef.h + 0.06,
+      }
+    : null;
+
+  const galleryDoorPoints = galleryDoorDef
+    ? getWindowPoints(galleryDoorDef, s1, s2, s3, t1, t2, t3)
+    : null;
+
+  const galleryDoorFramePoints = galleryDoorFrameDef
+    ? getWindowPoints(galleryDoorFrameDef, s1, s2, s3, t1, t2, t3)
+    : null;
+
+  const doorKnobPoint = galleryDoorDef
+    ? getSurfacePoint(
+        galleryDoorDef.side,
+        galleryDoorDef.x + galleryDoorDef.w * 0.78,
+        galleryDoorDef.y + galleryDoorDef.h * 0.58,
+        s1,
+        s2,
+        s3,
+        t1,
+        t2,
+        t3,
+      )
+    : null;
+
   return (
+
     <div style={{ position: 'absolute', left: 0, top: 0, width: MAP_WIDTH, height: MAP_HEIGHT, pointerEvents: 'none', zIndex: Math.round(s2.top) }}>
       <svg width={MAP_WIDTH} height={MAP_HEIGHT} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <polygon
@@ -279,7 +342,60 @@ function IsometricBuilding({ building, isRepaired }: { building: Building; isRep
             />
           );
         })}
+
+        {galleryDoorFramePoints && (
+          <polygon
+            points={galleryDoorFramePoints}
+            fill={isRepaired ? 'rgba(96, 42, 77, 0.94)' : 'rgba(30, 30, 34, 0.95)'}
+            stroke={isRepaired ? 'rgba(255, 214, 150, 0.45)' : 'rgba(255,255,255,0.12)'}
+            strokeWidth="1.2"
+            style={{
+              transition: 'fill 1.5s ease, stroke 1.5s ease',
+              filter: isRepaired ? 'drop-shadow(0 0 6px rgba(255, 180, 120, 0.18))' : 'none'
+            }}
+          />
+        )}
+
+        {galleryDoorPoints && (
+          <polygon
+            points={galleryDoorPoints}
+            fill={isRepaired ? 'rgba(62, 22, 48, 0.96)' : 'rgba(16, 16, 18, 0.96)'}
+            stroke={isRepaired ? 'rgba(255, 196, 132, 0.28)' : 'rgba(255,255,255,0.08)'}
+            strokeWidth="1"
+            style={{
+              transition: 'fill 1.5s ease, stroke 1.5s ease',
+            }}
+          />
+        )}
+
+        {galleryDoorDef && (
+          <line
+            x1={getSurfacePoint(galleryDoorDef.side, galleryDoorDef.x + galleryDoorDef.w * 0.52, galleryDoorDef.y, s1, s2, s3, t1, t2, t3).left}
+            y1={getSurfacePoint(galleryDoorDef.side, galleryDoorDef.x + galleryDoorDef.w * 0.52, galleryDoorDef.y, s1, s2, s3, t1, t2, t3).top}
+            x2={getSurfacePoint(galleryDoorDef.side, galleryDoorDef.x + galleryDoorDef.w * 0.52, galleryDoorDef.y + galleryDoorDef.h, s1, s2, s3, t1, t2, t3).left}
+            y2={getSurfacePoint(galleryDoorDef.side, galleryDoorDef.x + galleryDoorDef.w * 0.52, galleryDoorDef.y + galleryDoorDef.h, s1, s2, s3, t1, t2, t3).top}
+            stroke={isRepaired ? 'rgba(255, 230, 180, 0.32)' : 'rgba(255,255,255,0.08)'}
+            strokeWidth="0.9"
+            style={{ transition: 'stroke 1.5s ease' }}
+          />
+        )}
+
+        {doorKnobPoint && (
+          <circle
+            cx={doorKnobPoint.left}
+            cy={doorKnobPoint.top}
+            r={2.3}
+            fill={isRepaired ? '#ffdca8' : '#8a8a92'}
+            stroke={isRepaired ? 'rgba(120, 74, 22, 0.7)' : 'rgba(25,25,28,0.9)'}
+            strokeWidth="0.8"
+            style={{
+              transition: 'fill 1.5s ease, stroke 1.5s ease',
+              filter: isRepaired ? 'drop-shadow(0 0 5px rgba(255, 212, 140, 0.45))' : 'none'
+            }}
+          />
+        )}
       </svg>
+
       <div style={{
         position: 'absolute',
         left: s2.left,
@@ -1156,16 +1272,19 @@ export default function OuterWorldExplorer({
           );
         })}
 
-        {entities.map(entity => {
+        {entities.filter(entity => entity.id !== 'gallery_door').map(entity => {
+
           const screen = isoToScreen(entity.pos);
           const isNear = nearbyEntity?.id === entity.id;
           const isGalleryDoor = entity.id === 'gallery_door';
-          const isPill = isGalleryDoor || entity.id === 'brush' || entity.id === 'newspaper' || entity.id === 'sketchbook' || entity.id === 'accident_report';
+          const clueImage = entity.type === 'clue' ? CLUE_IMAGE_MAP[entity.id as ClueId] : undefined;
+          const isImageClue = entity.type === 'clue' && Boolean(clueImage);
+          const isPill = !isImageClue && (isGalleryDoor || entity.id === 'brush' || entity.id === 'newspaper' || entity.id === 'sketchbook' || entity.id === 'accident_report');
 
-          const btnWidth = isPill ? 94 : (entity.type === 'npc' ? 64 : 48);
-          const btnHeight = isPill ? 36 : (entity.type === 'npc' ? 84 : 48);
-          const btnRadius = isPill ? '999px' : (entity.type === 'npc' ? '36px 36px 18px 18px' : '50%');
-          const btnPadding = isPill ? '0 8px' : '0';
+          const btnWidth = isImageClue ? 88 : (isPill ? 94 : (entity.type === 'npc' ? 64 : 48));
+          const btnHeight = isImageClue ? 112 : (isPill ? 36 : (entity.type === 'npc' ? 84 : 48));
+          const btnRadius = isImageClue ? '14px' : (isPill ? '999px' : (entity.type === 'npc' ? '36px 36px 18px 18px' : '50%'));
+          const btnPadding = isImageClue ? '4px' : (isPill ? '0 8px' : '0');
 
           return (
             <button
@@ -1181,7 +1300,7 @@ export default function OuterWorldExplorer({
                 border: `2px solid ${entity.color}`,
                 borderRadius: btnRadius,
                 padding: btnPadding,
-                background: entity.type === 'npc' ? 'rgba(255,170,51,0.12)' : 'rgba(255,255,255,0.08)',
+                background: isImageClue ? 'rgba(14, 18, 25, 0.92)' : (entity.type === 'npc' ? 'rgba(255,170,51,0.12)' : 'rgba(255,255,255,0.08)'),
                 color: entity.color,
                 cursor: 'pointer',
                 zIndex: Math.round(screen.top) + (isGalleryDoor ? 500 : 0),
@@ -1196,7 +1315,25 @@ export default function OuterWorldExplorer({
               }}
               title={entity.label}
             >
-              {isPill ? (
+              {isImageClue && clueImage ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', width: '100%', height: '100%' }}>
+                  <img
+                    src={clueImage}
+                    alt={entity.label}
+                    style={{
+                      width: '100%',
+                      height: 72,
+                      objectFit: 'cover',
+                      borderRadius: 9,
+                      border: '1px solid rgba(255,255,255,0.18)',
+                      boxShadow: '0 3px 10px rgba(0,0,0,0.35)'
+                    }}
+                  />
+                  <span style={{ fontSize: 11, lineHeight: 1.2, letterSpacing: 0.2, color: '#f7f0dc', textShadow: '0 0 6px rgba(0,0,0,0.45)' }}>
+                    {entity.label}
+                  </span>
+                </div>
+              ) : isPill ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', height: '100%', whiteSpace: 'nowrap' }}>
                   <span style={{
                     fontSize: 13,
@@ -1228,6 +1365,7 @@ export default function OuterWorldExplorer({
             </button>
           );
         })}
+
 
         <div style={{ position: 'absolute', left: playerScreen.left, top: playerScreen.top, transform: 'translate(-50%, -100%)', width: 56, height: 86, zIndex: 9999, pointerEvents: 'none' }}>
           <div style={{ position: 'absolute', left: '50%', bottom: 4, transform: 'translateX(-50%)', width: 86, height: 34, background: 'radial-gradient(ellipse, rgba(0,0,0,0.5), transparent 68%)' }} />
