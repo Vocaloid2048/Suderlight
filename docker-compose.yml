@@ -12,7 +12,6 @@ services:
     environment:
       - PORT=4000
       - NODE_ENV=production
-      - CORS_ORIGIN=${CORS_ORIGIN:-*}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-YOUR_KEY}
       - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
     volumes:
