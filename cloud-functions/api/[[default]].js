@@ -563,7 +563,7 @@ app.post('/chat/reset-all', authSignatureMiddleware, (req, res, next) => {
 // Chat: 发送对话
 app.post('/chat', authSignatureMiddleware, llmLimiter, async (req, res, next) => {
   try {
-    const { npcId, message } = req.body;
+    const { npcId, message, roundCount: clientRoundCount } = req.body;
     const playerId = req.playerId;
     if (!npcId || !message) throw new ValidationError('npcId and message are required');
     if (!playerId) throw new ValidationError('Missing X-Player-Id header');
@@ -581,6 +581,8 @@ app.post('/chat', authSignatureMiddleware, llmLimiter, async (req, res, next) =>
             : '天橋上只剩潮濕的紙張。那個人影沒有再回頭。',
           psychology: { trustDelta: 0, stressDelta: 0, stateLabel: getStateLabel(npc) },
           npcState: { trust: npc.trust, stress: npc.stress, knowledge: npc.knowledge, innerWorldUnlocked: npc.innerWorldUnlocked, ending: npc.ending },
+          roundCount: memoryService.getRoundCount(npcId, playerId),
+          summary: memoryService.getSummary(npcId, playerId),
         });
       }
 
@@ -608,7 +610,11 @@ app.post('/chat', authSignatureMiddleware, llmLimiter, async (req, res, next) =>
 
       unlockNpcWorldbookEntries(npcId, stateUpdate.npc, playerId);
 
-      const currentRoundCount = memoryService.getRoundCount(npcId, playerId);
+      const historyRoundCount = memoryService.getRoundCount(npcId, playerId);
+      const currentRoundCount = Math.max(
+        (typeof clientRoundCount === 'number' ? clientRoundCount : 0) + 1,
+        historyRoundCount,
+      );
       const currentSummary = memoryService.getSummary(npcId, playerId);
 
       res.json({
@@ -620,7 +626,7 @@ app.post('/chat', authSignatureMiddleware, llmLimiter, async (req, res, next) =>
       });
 
       // 每10轮生成摘要
-      if (currentRoundCount % 10 === 0) {
+      if (history.length % 20 === 0) {
         const oldSummary = memoryService.getSummary(npcId, playerId);
         const segment = memoryService.getRecentDialogue(npcId, 20, playerId);
         memoryService.resetCurrentHistory(npcId, playerId);

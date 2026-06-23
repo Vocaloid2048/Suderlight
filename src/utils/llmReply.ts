@@ -1,4 +1,5 @@
-import { getPlayerAuthHeaders } from '../lib/playerId';
+import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
+import { getRoundCount } from '../lib/dialogueStore';
 
 export type BackendNpcState = {
   trust: number;
@@ -77,12 +78,16 @@ export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge
     }
 
     const authHeaders = await getPlayerAuthHeaders();
+    const playerId = getPlayerId();
+    const clientRoundCount = getRoundCount(finalNpcId, playerId);
+
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({
         npcId: finalNpcId,
         message: playerMessage,
+        roundCount: clientRoundCount,
       }),
     });
 
