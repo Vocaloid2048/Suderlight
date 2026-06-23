@@ -206,8 +206,15 @@ export const useGameStore = create<GameStore>((set) => ({
               method: 'POST',
               headers,
             })
+          ),
+          getPlayerAuthHeaders(playerId).then((headers) =>
+            fetch('/api/dictionary/reset', {
+              method: 'POST',
+              headers,
+            })
           )
         ]);
+
       } catch (err) {
         console.error('Remote reset failed:', err);
       }

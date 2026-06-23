@@ -66,5 +66,16 @@ router.get('/', (req, res, next) => {
   }
 });
 
+router.post('/reset', (req, res, next) => {
+  try {
+    unlockedSet.clear();
+    saveUnlockedSet(unlockedSet);
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 module.exports = router;
 module.exports.unlockByClue = unlockByClue;
