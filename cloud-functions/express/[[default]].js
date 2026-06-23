@@ -33,7 +33,7 @@ const config = {
       .filter(Boolean),
   },
   auth: {
-    signatureSecret: process.env.PLAYER_SIGNATURE_SECRET || 'dev-signature-secret-change-me',
+    signatureSecret: process.env.PLAYER_SIGNATURE_SECRET || 'i-dont-have-enough-credit-to-make-this-game',
     maxSkewMs: parseInt(process.env.PLAYER_SIGNATURE_MAX_SKEW_MS || '300000', 10),
   },
   deepseek: {
