@@ -246,7 +246,6 @@ const memoryService = {
     m.fullHistory.push(u, a);
     if (m.fullHistory.length > 2000) m.fullHistory = m.fullHistory.slice(-2000);
     m.history.push(u, a);
-    m.roundCount = (m.roundCount || 0) + 1;
   },
   getRecentDialogue(npcId, limit, playerId) {
     const h = Array.isArray(getNpcMemory(npcId, playerId).history) ? getNpcMemory(npcId, playerId).history : [];
@@ -261,10 +260,14 @@ const memoryService = {
   updateSummary(npcId, s, playerId) { getNpcMemory(npcId, playerId).summary = String(s || '').trim(); },
   resetCurrentHistory(npcId, playerId) { getNpcMemory(npcId, playerId).history = []; },
   resetHistory(npcId, playerId) {
-    const m = getNpcMemory(npcId, playerId); m.history = []; m.fullHistory = []; m.summary = ''; m.roundCount = 0;
+    const m = getNpcMemory(npcId, playerId); m.history = []; m.fullHistory = []; m.summary = '';
   },
   resetAll(playerId) { memoryStore.memories[playerId] = {}; },
-  getRoundCount(npcId, playerId) { return getNpcMemory(npcId, playerId).roundCount || 0; },
+  getRoundCount(npcId, playerId) {
+    const m = getNpcMemory(npcId, playerId);
+    const len = Array.isArray(m.fullHistory) ? m.fullHistory.length : 0;
+    return Math.floor(len / 2);
+  },
 };
 
 // ============================================================
