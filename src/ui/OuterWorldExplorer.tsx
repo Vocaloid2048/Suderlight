@@ -4,6 +4,12 @@ import { bridgeArtistClues, clueOrder, locations, type ClueId, type LocationId }
 import { getPlayerAuthHeaders } from '../lib/playerId';
 import type { CollectClueResult } from '../store/gameStore';
 import type { GameSave } from '../systems/saveSystem';
+import brushImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_49_08.png';
+import newspaperImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_50_17.png';
+import sketchbookImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_51_17.png';
+import painterImage from '../../images/character/IMG_3556.png';
+
+
 
 type Point = { x: number; y: number };
 type EntityId = 'painter' | 'gallery_door' | ClueId;
@@ -42,9 +48,21 @@ const ORIGIN_X = MAP_WIDTH / 2;
 const ORIGIN_Y = 160;
 const PLAYER_SPEED = 0.055;
 
+// 天橋高差設定（用於營造上橋抬高、下方貼地與樓梯坡度）
+const BRIDGE_DECK_ELEVATION = 76;
+const BRIDGE_RAIL_HEIGHT = 14;
+
+
+const CLUE_IMAGE_MAP: Partial<Record<ClueId, string>> = {
+  brush: brushImage,
+  newspaper: newspaperImage,
+  sketchbook: sketchbookImage,
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
+
 
 function isoToScreen(pos: Point) {
   return {
@@ -53,7 +71,32 @@ function isoToScreen(pos: Point) {
   };
 }
 
+function getSkybridgeElevation(pos: Point, locationId: LocationId) {
+  if (locationId !== 'skybridge') return 0;
+
+  const inUpperBridge = pos.x >= 4 && pos.x <= 19 && pos.y >= 8 && pos.y <= 10;
+  const inGalleryPassage = pos.x >= 17 && pos.x <= 19 && pos.y >= 4 && pos.y <= 8;
+  if (inUpperBridge || inGalleryPassage) return BRIDGE_DECK_ELEVATION;
+
+  const inStairs = pos.x >= 4 && pos.x <= 6 && pos.y >= 10 && pos.y <= 16;
+  if (inStairs) {
+    const t = clamp((pos.y - 10) / 6, 0, 1);
+    return lerp(BRIDGE_DECK_ELEVATION, 0, t);
+  }
+
+  return 0;
+}
+
+function worldToScreen(pos: Point, locationId: LocationId) {
+  const base = isoToScreen(pos);
+  return {
+    left: base.left,
+    top: base.top - getSkybridgeElevation(pos, locationId),
+  };
+}
+
 function distance(a: Point, b: Point) {
+
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
@@ -102,6 +145,28 @@ function adjustColorBrightness(hex: string, percent: number) {
   return `#${rHex}${gHex}${bHex}`;
 }
 
+function getSurfacePoint(
+  side: 'left' | 'right',
+  rX: number,
+  rY: number,
+  s1: { left: number; top: number },
+  s2: { left: number; top: number },
+  s3: { left: number; top: number },
+  t1: { left: number; top: number },
+  t2: { left: number; top: number },
+  t3: { left: number; top: number }
+) {
+  if (side === 'left') {
+    const bPt = { left: lerp(s3.left, s2.left, rX), top: lerp(s3.top, s2.top, rX) };
+    const tPt = { left: lerp(t3.left, t2.left, rX), top: lerp(t3.top, t2.top, rX) };
+    return { left: lerp(bPt.left, tPt.left, rY), top: lerp(bPt.top, tPt.top, rY) };
+  }
+
+  const bPt = { left: lerp(s2.left, s1.left, rX), top: lerp(s2.top, s1.top, rX) };
+  const tPt = { left: lerp(t2.left, t1.left, rX), top: lerp(t2.top, t1.top, rX) };
+  return { left: lerp(bPt.left, tPt.left, rY), top: lerp(bPt.top, tPt.top, rY) };
+}
+
 function getWindowPoints(
   win: WindowDef,
   s1: { left: number; top: number },
@@ -111,27 +176,14 @@ function getWindowPoints(
   t2: { left: number; top: number },
   t3: { left: number; top: number }
 ) {
-  const getPt = (rX: number, rY: number) => {
-    if (win.side === 'left') {
-      // 左立面：s3 -> s2, t3 -> t2
-      const bPt = { left: lerp(s3.left, s2.left, rX), top: lerp(s3.top, s2.top, rX) };
-      const tPt = { left: lerp(t3.left, t2.left, rX), top: lerp(t3.top, t2.top, rX) };
-      return { left: lerp(bPt.left, tPt.left, rY), top: lerp(bPt.top, tPt.top, rY) };
-    } else {
-      // 右立面：s2 -> s1, t2 -> t1
-      const bPt = { left: lerp(s2.left, s1.left, rX), top: lerp(s2.top, s1.top, rX) };
-      const tPt = { left: lerp(t2.left, t1.left, rX), top: lerp(t2.top, t1.top, rX) };
-      return { left: lerp(bPt.left, tPt.left, rY), top: lerp(bPt.top, tPt.top, rY) };
-    }
-  };
-
-  const p00 = getPt(win.x, win.y);
-  const p10 = getPt(win.x + win.w, win.y);
-  const p11 = getPt(win.x + win.w, win.y + win.h);
-  const p01 = getPt(win.x, win.y + win.h);
+  const p00 = getSurfacePoint(win.side, win.x, win.y, s1, s2, s3, t1, t2, t3);
+  const p10 = getSurfacePoint(win.side, win.x + win.w, win.y, s1, s2, s3, t1, t2, t3);
+  const p11 = getSurfacePoint(win.side, win.x + win.w, win.y + win.h, s1, s2, s3, t1, t2, t3);
+  const p01 = getSurfacePoint(win.side, win.x, win.y + win.h, s1, s2, s3, t1, t2, t3);
 
   return `${p00.left},${p00.top} ${p10.left},${p10.top} ${p11.left},${p11.top} ${p01.left},${p01.top}`;
 }
+
 
 const buildings: Building[] = [
   // 1. 天橋場景：失色畫廊
@@ -139,7 +191,7 @@ const buildings: Building[] = [
     id: 'gallery',
     name: '失色畫廊',
     locationId: 'skybridge',
-    pos: { x: 16., y: 1 },
+    pos: { x: 15., y: 2 },
     size: { x: 4, y: 3 },
     tall: 260,
     baseColor: '#ec407a', // 洋紅色
@@ -231,7 +283,50 @@ function IsometricBuilding({ building, isRepaired }: { building: Building; isRep
   const lightColor = isRepaired ? adjustColorBrightness(color, 25) : '#5a5a5a';
   const darkColor = isRepaired ? adjustColorBrightness(color, -25) : '#222222';
 
+  const galleryDoorDef: WindowDef | null = building.id === 'gallery'
+    ? { side: 'left', x: 0.5, y: 0.05, w: 0.28, h: 0.44 }
+    : null;
+
+
+
+
+
+
+
+  const galleryDoorFrameDef: WindowDef | null = galleryDoorDef
+    ? {
+        side: galleryDoorDef.side,
+        x: galleryDoorDef.x - 0.03,
+        y: galleryDoorDef.y - 0.04,
+        w: galleryDoorDef.w + 0.06,
+        h: galleryDoorDef.h + 0.06,
+      }
+    : null;
+
+  const galleryDoorPoints = galleryDoorDef
+    ? getWindowPoints(galleryDoorDef, s1, s2, s3, t1, t2, t3)
+    : null;
+
+  const galleryDoorFramePoints = galleryDoorFrameDef
+    ? getWindowPoints(galleryDoorFrameDef, s1, s2, s3, t1, t2, t3)
+    : null;
+
+  const doorKnobPoint = galleryDoorDef
+    ? getSurfacePoint(
+        galleryDoorDef.side,
+        galleryDoorDef.x + galleryDoorDef.w * 0.78,
+        galleryDoorDef.y + galleryDoorDef.h * 0.58,
+        s1,
+        s2,
+        s3,
+        t1,
+        t2,
+        t3,
+      )
+    : null;
+
   return (
+
     <div style={{ position: 'absolute', left: 0, top: 0, width: MAP_WIDTH, height: MAP_HEIGHT, pointerEvents: 'none', zIndex: Math.round(s2.top) }}>
       <svg width={MAP_WIDTH} height={MAP_HEIGHT} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <polygon
@@ -279,7 +374,60 @@ function IsometricBuilding({ building, isRepaired }: { building: Building; isRep
             />
           );
         })}
+
+        {galleryDoorFramePoints && (
+          <polygon
+            points={galleryDoorFramePoints}
+            fill={isRepaired ? 'rgba(96, 42, 77, 0.94)' : 'rgba(30, 30, 34, 0.95)'}
+            stroke={isRepaired ? 'rgba(255, 214, 150, 0.45)' : 'rgba(255,255,255,0.12)'}
+            strokeWidth="1.2"
+            style={{
+              transition: 'fill 1.5s ease, stroke 1.5s ease',
+              filter: isRepaired ? 'drop-shadow(0 0 6px rgba(255, 180, 120, 0.18))' : 'none'
+            }}
+          />
+        )}
+
+        {galleryDoorPoints && (
+          <polygon
+            points={galleryDoorPoints}
+            fill={isRepaired ? 'rgba(62, 22, 48, 0.96)' : 'rgba(16, 16, 18, 0.96)'}
+            stroke={isRepaired ? 'rgba(255, 196, 132, 0.28)' : 'rgba(255,255,255,0.08)'}
+            strokeWidth="1"
+            style={{
+              transition: 'fill 1.5s ease, stroke 1.5s ease',
+            }}
+          />
+        )}
+
+        {galleryDoorDef && (
+          <line
+            x1={getSurfacePoint(galleryDoorDef.side, galleryDoorDef.x + galleryDoorDef.w * 0.52, galleryDoorDef.y, s1, s2, s3, t1, t2, t3).left}
+            y1={getSurfacePoint(galleryDoorDef.side, galleryDoorDef.x + galleryDoorDef.w * 0.52, galleryDoorDef.y, s1, s2, s3, t1, t2, t3).top}
+            x2={getSurfacePoint(galleryDoorDef.side, galleryDoorDef.x + galleryDoorDef.w * 0.52, galleryDoorDef.y + galleryDoorDef.h, s1, s2, s3, t1, t2, t3).left}
+            y2={getSurfacePoint(galleryDoorDef.side, galleryDoorDef.x + galleryDoorDef.w * 0.52, galleryDoorDef.y + galleryDoorDef.h, s1, s2, s3, t1, t2, t3).top}
+            stroke={isRepaired ? 'rgba(255, 230, 180, 0.32)' : 'rgba(255,255,255,0.08)'}
+            strokeWidth="0.9"
+            style={{ transition: 'stroke 1.5s ease' }}
+          />
+        )}
+
+        {doorKnobPoint && (
+          <circle
+            cx={doorKnobPoint.left}
+            cy={doorKnobPoint.top}
+            r={2.3}
+            fill={isRepaired ? '#ffdca8' : '#8a8a92'}
+            stroke={isRepaired ? 'rgba(120, 74, 22, 0.7)' : 'rgba(25,25,28,0.9)'}
+            strokeWidth="0.8"
+            style={{
+              transition: 'fill 1.5s ease, stroke 1.5s ease',
+              filter: isRepaired ? 'drop-shadow(0 0 5px rgba(255, 212, 140, 0.45))' : 'none'
+            }}
+          />
+        )}
       </svg>
+
       <div style={{
         position: 'absolute',
         left: s2.left,
@@ -307,14 +455,14 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
   const roadDefs = useMemo<Point[][]>(() => {
     if (locationId === 'skybridge') {
       return [
-        // 區域 A：天橋橫向大路 (左端從 x = 3 開始，不超地圖邊界，右端延伸至 19 完美相交)
-        [{ x: 3, y: 8 }, { x: 19, y: 8 }, { x: 19, y: 10 }, { x: 3, y: 10 }],
+        // 區域 A：天橋橫向大路（左側收進大方塊邊界）
+        [{ x: 4, y: 8 }, { x: 19, y: 8 }, { x: 19, y: 10 }, { x: 4, y: 10 }],
         // 區域 B：通往畫廊的縱向通道 (L 型的縱向，與畫廊大樓底部完全貼齊對齊，x: 17.0~19.0, y: 4.0~8.0)
         [{ x: 17, y: 4 }, { x: 19, y: 4 }, { x: 19, y: 8 }, { x: 17, y: 8 }],
-        // 連接樓梯（Stairs）通道 (x: 3.0 ~ 5.0, y: 10.0 ~ 16.0) - 已向右平移 X+1
-        [{ x: 3, y: 10 }, { x: 5, y: 10 }, { x: 5, y: 16 }, { x: 3, y: 16 }],
-        // 地面直線連接大路 (x: 3.0 ~ 26.0, y: 14.0 ~ 19.0) - 貫穿報攤與公園
-        [{ x: 3, y: 16 }, { x: 26, y: 16 }, { x: 26, y: 19 }, { x: 3, y: 19 }],
+        // 連接樓梯（Stairs）通道（整體右移一格保持寬度）
+        [{ x: 4, y: 10 }, { x: 6, y: 10 }, { x: 6, y: 16 }, { x: 4, y: 16 }],
+        // 地面直線連接大路（左側收進大方塊邊界）
+        [{ x: 4, y: 16 }, { x: 26, y: 16 }, { x: 26, y: 19 }, { x: 4, y: 19 }],
       ];
     }
     return [];
@@ -328,75 +476,81 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
     ? 'rgba(255, 224, 130, 0.35)' 
     : 'rgba(255, 255, 255, 0.06)';
 
+  const toElevatedScreen = (pt: Point) => {
+    const base = isoToScreen(pt);
+    return { left: base.left, top: base.top - getSkybridgeElevation(pt, locationId) };
+  };
+
   // 天橋立體欄杆與橋墩渲染 (僅限天橋場景)
+
   const bridgeDetails = useMemo(() => {
     if (locationId !== 'skybridge') return null;
 
     // 橋墩坐標 (横段 y = 10 上的橋墩，避開樓梯口)
     const piers = [
-      isoToScreen({ x: 3.0, y: 10 }),
-      isoToScreen({ x: 7.5, y: 10 }),
-      isoToScreen({ x: 11.5, y: 10 }),
-      isoToScreen({ x: 15.5, y: 10 }),
-      isoToScreen({ x: 18.5, y: 10 }),
-      isoToScreen({ x: 17.0, y: 6.0 }), // 縱段左側懸空支撐
-      isoToScreen({ x: 19.0, y: 6.0 })  // 縱段右側懸空支撐
+      { deck: toElevatedScreen({ x: 4.0, y: 10 }), base: isoToScreen({ x: 4.0, y: 10 }) },
+      { deck: toElevatedScreen({ x: 7.5, y: 10 }), base: isoToScreen({ x: 7.5, y: 10 }) },
+      { deck: toElevatedScreen({ x: 11.5, y: 10 }), base: isoToScreen({ x: 11.5, y: 10 }) },
+      { deck: toElevatedScreen({ x: 15.5, y: 10 }), base: isoToScreen({ x: 15.5, y: 10 }) },
+      { deck: toElevatedScreen({ x: 18.5, y: 10 }), base: isoToScreen({ x: 18.5, y: 10 }) },
+      { deck: toElevatedScreen({ x: 17.0, y: 6.0 }), base: isoToScreen({ x: 17.0, y: 6.0 }) }, // 縱段左側懸空支撐
+      { deck: toElevatedScreen({ x: 19.0, y: 6.0 }), base: isoToScreen({ x: 19.0, y: 6.0 }) }  // 縱段右側懸空支撐
     ];
 
     // 四組欄杆立柱和扶手 (包覆天橋全線外圍懸空邊緣)
     const railings: Array<Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }>> = [];
 
-    // 1. 横段下边缘 y = 10 (从 x = 5.0 到 19.0，留出 x = 3.0 ~ 5.0 楼梯开口)
+    // 1. 横段下边缘 y = 10 (从 x = 6.0 到 19.0，留出 x = 4.0 ~ 6.0 楼梯开口)
     const railingA: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
-    for (let x = 5.0; x <= 19.01; x += 0.8) {
-      const p = isoToScreen({ x, y: 10 });
-      railingA.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
+    for (let x = 6.0; x <= 19.01; x += 0.8) {
+      const p = toElevatedScreen({ x, y: 10 });
+      railingA.push({ p1: p, p2: { left: p.left, top: p.top - BRIDGE_RAIL_HEIGHT } });
     }
     railings.push(railingA);
 
-    // 2. 横段上边缘 y = 8 (x 从 3.0 到 17.0)
+    // 2. 横段上边缘 y = 8 (x 从 4.0 到 17.0)
     const railingB: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
-    for (let x = 3.0; x <= 16.61; x += 0.8) {
-      const p = isoToScreen({ x, y: 8 });
-      railingB.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
+    for (let x = 4.0; x <= 16.61; x += 0.8) {
+      const p = toElevatedScreen({ x, y: 8 });
+      railingB.push({ p1: p, p2: { left: p.left, top: p.top - BRIDGE_RAIL_HEIGHT } });
     }
     // 補上內側轉角交點
-    const pBLast = isoToScreen({ x: 17.0, y: 8.0 });
-    railingB.push({ p1: pBLast, p2: { left: pBLast.left, top: pBLast.top - 12 } });
+    const pBLast = toElevatedScreen({ x: 17.0, y: 8.0 });
+    railingB.push({ p1: pBLast, p2: { left: pBLast.left, top: pBLast.top - BRIDGE_RAIL_HEIGHT } });
     railings.push(railingB);
 
     // 3. 纵段左侧 x = 17 (y 从 4.0 到 8.0)
     const railingC: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
     for (let y = 4.0; y <= 8.0; y += 0.8) {
-      const p = isoToScreen({ x: 17, y });
-      railingC.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
+      const p = toElevatedScreen({ x: 17, y });
+      railingC.push({ p1: p, p2: { left: p.left, top: p.top - BRIDGE_RAIL_HEIGHT } });
     }
     railings.push(railingC);
 
     // 4. 纵段右侧 x = 19 (y 从 4.0 到 10.0)
     const railingD: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
     for (let y = 4.0; y <= 9.61; y += 0.8) {
-      const p = isoToScreen({ x: 19, y });
-      railingD.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
+      const p = toElevatedScreen({ x: 19, y });
+      railingD.push({ p1: p, p2: { left: p.left, top: p.top - BRIDGE_RAIL_HEIGHT } });
     }
     // 補上外側轉角交點
-    const pDLast = isoToScreen({ x: 19, y: 10.0 });
-    railingD.push({ p1: pDLast, p2: { left: pDLast.left, top: pDLast.top - 12 } });
+    const pDLast = toElevatedScreen({ x: 19, y: 10.0 });
+    railingD.push({ p1: pDLast, p2: { left: pDLast.left, top: pDLast.top - BRIDGE_RAIL_HEIGHT } });
     railings.push(railingD);
 
     // 5. 樓梯左側 x = 3 (y 从 10.0 到 14.0)
     const railingStairsLeft: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
     for (let y = 10.0; y <= 16.01; y += 0.8) {
-      const p = isoToScreen({ x: 3, y });
-      railingStairsLeft.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
+      const p = toElevatedScreen({ x: 4, y });
+      railingStairsLeft.push({ p1: p, p2: { left: p.left, top: p.top - BRIDGE_RAIL_HEIGHT } });
     }
     railings.push(railingStairsLeft);
 
-    // 6. 樓梯右側 x = 5 (y 从 10.0 到 14.0)
+    // 6. 樓梯右側 x = 6 (y 从 10.0 到 16.0)
     const railingStairsRight: Array<{ p1: { left: number; top: number }; p2: { left: number; top: number } }> = [];
     for (let y = 10.0; y <= 16.01; y += 0.8) {
-      const p = isoToScreen({ x: 5, y });
-      railingStairsRight.push({ p1: p, p2: { left: p.left, top: p.top - 12 } });
+      const p = toElevatedScreen({ x: 6, y });
+      railingStairsRight.push({ p1: p, p2: { left: p.left, top: p.top - BRIDGE_RAIL_HEIGHT } });
     }
     railings.push(railingStairsRight);
 
@@ -409,38 +563,41 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
       {/* 1. 渲染支撐橋墩（Bridge Piers） */}
       {locationId === 'skybridge' && bridgeDetails && (
         <g>
-          {bridgeDetails.piers.map((pier, idx) => (
-            <g key={idx}>
-              {/* 橋墩柱體 */}
-              <rect
-                x={pier.left - 4}
-                y={pier.top}
-                width={8}
-                height={26}
-                rx={2}
-                fill={isRepaired ? '#2c3540' : '#1c1c1c'}
-                stroke={isRepaired ? 'rgba(255,224,130,0.1)' : '#111'}
-                strokeWidth="1"
-                style={{ transition: 'fill 1.5s ease' }}
-              />
-              {/* 橋墩底座 */}
-              <rect
-                x={pier.left - 8}
-                y={pier.top + 24}
-                width={16}
-                height={5}
-                rx={1}
-                fill={isRepaired ? '#1e2430' : '#121212'}
-                style={{ transition: 'fill 1.5s ease' }}
-              />
-            </g>
-          ))}
+          {bridgeDetails.piers.map((pier, idx) => {
+            const shaftHeight = Math.max(26, pier.base.top - pier.deck.top + 22);
+            return (
+              <g key={idx}>
+                {/* 橋墩柱體 */}
+                <rect
+                  x={pier.deck.left - 3}
+                  y={pier.deck.top}
+                  width={6}
+                  height={shaftHeight}
+                  rx={2}
+                  fill={isRepaired ? 'rgba(116, 143, 171, 0.22)' : 'rgba(120, 128, 140, 0.12)'}
+                  stroke={isRepaired ? 'rgba(255,224,130,0.10)' : 'rgba(255,255,255,0.05)'}
+                  strokeWidth="1"
+                  style={{ transition: 'fill 1.5s ease, stroke 1.5s ease' }}
+                />
+                {/* 橋墩底座 */}
+                <rect
+                  x={pier.base.left - 6}
+                  y={pier.base.top + 20}
+                  width={12}
+                  height={4}
+                  rx={1}
+                  fill={isRepaired ? 'rgba(72, 96, 124, 0.18)' : 'rgba(90, 96, 110, 0.10)'}
+                  style={{ transition: 'fill 1.5s ease' }}
+                />
+              </g>
+            );
+          })}
         </g>
       )}
 
       {/* 2. 渲染平面路面多邊形 */}
       {roadDefs.map((points, idx) => {
-        const screenPts = points.map(pt => isoToScreen(pt));
+        const screenPts = points.map(pt => toElevatedScreen(pt));
         const ptsStr = screenPts.map(p => `${p.left},${p.top}`).join(' ');
 
         // 特殊繪製樓梯階梯線 (在天橋大世界，第 2 個索引是樓梯)
@@ -464,22 +621,40 @@ function IsometricRoads({ locationId, isRepaired }: { locationId: LocationId; is
               strokeWidth="2.5"
               style={{ transition: 'fill 1.5s ease, stroke 1.5s ease' }}
             />
+            {locationId === 'skybridge' && idx <= 1 && (
+              <polygon
+                points={`${screenPts[2].left},${screenPts[2].top} ${screenPts[3].left},${screenPts[3].top} ${isoToScreen(points[3]).left},${isoToScreen(points[3]).top} ${isoToScreen(points[2]).left},${isoToScreen(points[2]).top}`}
+                fill="rgba(22, 30, 40, 0.24)"
+                stroke="rgba(255,255,255,0.035)"
+                strokeWidth="1"
+              />
+            )}
             {isStairsRoad && (
               <g>
-                {Array.from({ length: 14 }).map((_, stepIdx) => {
-                  const stepY = 10 + stepIdx * 0.43;
-                  const p1 = isoToScreen({ x: 3, y: stepY });
-                  const p2 = isoToScreen({ x: 5, y: stepY });
+                {Array.from({ length: 18 }).map((_, stepIdx) => {
+                  const t = stepIdx / 17;
+                  const stepY = lerp(10.08, 15.92, t);
+                  const p1 = toElevatedScreen({ x: 4, y: stepY });
+                  const p2 = toElevatedScreen({ x: 6, y: stepY });
                   return (
-                    <line
-                      key={stepIdx}
-                      x1={p1.left}
-                      y1={p1.top}
-                      x2={p2.left}
-                      y2={p2.top}
-                      stroke={isRepaired ? 'rgba(255, 224, 130, 0.35)' : 'rgba(255, 255, 255, 0.12)'}
-                      strokeWidth="1.5"
-                    />
+                    <g key={stepIdx}>
+                      <line
+                        x1={p1.left}
+                        y1={p1.top}
+                        x2={p2.left}
+                        y2={p2.top}
+                        stroke={isRepaired ? 'rgba(255, 224, 130, 0.52)' : 'rgba(255, 255, 255, 0.22)'}
+                        strokeWidth="1.6"
+                      />
+                      <line
+                        x1={p1.left}
+                        y1={p1.top + 3}
+                        x2={p2.left}
+                        y2={p2.top + 3}
+                        stroke="rgba(0, 0, 0, 0.28)"
+                        strokeWidth="1"
+                      />
+                    </g>
                   );
                 })}
               </g>
@@ -596,7 +771,7 @@ export default function OuterWorldExplorer({
         id: 'gallery_door',
         label: '畫廊大門',
         type: 'clue',
-        pos: { x: 18.0, y: 4.5 },
+        pos: { x: 17.0, y: 5.5 },
         color: '#ec407a',
         icon: '門',
       });
@@ -630,7 +805,8 @@ export default function OuterWorldExplorer({
   const nearbyEntity = entities.find(entity => distance(entity.pos, playerPos) <= 1.35);
 
   const focusCameraOnPlayer = (pos: Point) => {
-    const screen = isoToScreen(pos);
+    const base = isoToScreen(pos);
+    const screen = { left: base.left, top: base.top - getSkybridgeElevation(pos, save.currentLocation) };
     const targetX = window.innerWidth / 2 - screen.left;
     const targetY = window.innerHeight / 2 - screen.top + 80;
 
@@ -925,17 +1101,17 @@ export default function OuterWorldExplorer({
               if (save.currentLocation === 'skybridge') {
                 // 玩家只能在合並大地圖的 4 個連通可行走道路區域內移動，否則視為撞牆：
                 
-                // 區域 A：天橋橫向橋面 (x: 3.0 ~ 19.0, y: 8.0 ~ 10.0)
-                const inBridge = pt.x >= 3.5 && pt.x <= 19.0 && pt.y >= 8.5 && pt.y <= 10.0;
+                // 區域 A：天橋橫向橋面 (x: 4.0 ~ 19.0, y: 8.0 ~ 10.0)
+                const inBridge = pt.x >= 4.5 && pt.x <= 19.0 && pt.y >= 8.5 && pt.y <= 10.0;
                 
                 // 區域 B：通往右上角畫廊的縱向通道 (x: 17.0 ~ 19.0, y: 4.0 ~ 8.0)
                 const inPassage = pt.x >= 17.5 && pt.x <= 19.0 && pt.y >= 4.0 && pt.y <= 8.5;
 
-                // 區域 C：連接樓梯 (x: 3.0 ~ 5.0, y: 10.0 ~ 16.0) - 延長以連接下移後的道路
-                const inStairs = pt.x >= 3.5 && pt.x <= 5.0 && pt.y >= 10.0 && pt.y <= 17.0;
+                // 區域 C：連接樓梯 (x: 4.0 ~ 6.0, y: 10.0 ~ 16.0)
+                const inStairs = pt.x >= 4.5 && pt.x <= 6.0 && pt.y >= 10.0 && pt.y <= 17.0;
 
-                // 區域 D：地面直線連接大路 (x: 3.0 ~ 26.0, y: 16.0 ~ 18.0) - 平移 Y+2
-                const inGroundRoad = pt.x >= 3.5 && pt.x <= 26.0 && pt.y >= 16.5 && pt.y <= 19.0;
+                // 區域 D：地面直線連接大路 (x: 4.0 ~ 26.0, y: 16.0 ~ 19.0)
+                const inGroundRoad = pt.x >= 4.5 && pt.x <= 26.0 && pt.y >= 16.5 && pt.y <= 19.0;
 
                 if (!inBridge && !inPassage && !inStairs && !inGroundRoad) {
                   return true;
@@ -1012,7 +1188,11 @@ export default function OuterWorldExplorer({
     interact(entity.id);
   };
 
-  const playerScreen = isoToScreen(playerPos);
+  const playerBaseScreen = isoToScreen(playerPos);
+  const playerScreen = {
+    left: playerBaseScreen.left,
+    top: playerBaseScreen.top - getSkybridgeElevation(playerPos, save.currentLocation),
+  };
   const traumaFilter = save.ghosts.length > 0 ? 'grayscale(0.22) contrast(0.95)' : 'none';
 
   return (
@@ -1156,16 +1336,25 @@ export default function OuterWorldExplorer({
           );
         })}
 
-        {entities.map(entity => {
-          const screen = isoToScreen(entity.pos);
+        {entities.filter(entity => entity.id !== 'gallery_door').map(entity => {
+
+          const entityBaseScreen = isoToScreen(entity.pos);
+          const screen = {
+            left: entityBaseScreen.left,
+            top: entityBaseScreen.top - getSkybridgeElevation(entity.pos, save.currentLocation),
+          };
           const isNear = nearbyEntity?.id === entity.id;
           const isGalleryDoor = entity.id === 'gallery_door';
-          const isPill = isGalleryDoor || entity.id === 'brush' || entity.id === 'newspaper' || entity.id === 'sketchbook' || entity.id === 'accident_report';
+          const clueImage = entity.type === 'clue' ? CLUE_IMAGE_MAP[entity.id as ClueId] : undefined;
+          const isImageClue = entity.type === 'clue' && Boolean(clueImage);
+          const isPainterImage = entity.id === 'painter';
+          const isPill = !isImageClue && !isPainterImage && (isGalleryDoor || entity.id === 'brush' || entity.id === 'newspaper' || entity.id === 'sketchbook' || entity.id === 'accident_report');
 
-          const btnWidth = isPill ? 94 : (entity.type === 'npc' ? 64 : 48);
-          const btnHeight = isPill ? 36 : (entity.type === 'npc' ? 84 : 48);
-          const btnRadius = isPill ? '999px' : (entity.type === 'npc' ? '36px 36px 18px 18px' : '50%');
-          const btnPadding = isPill ? '0 8px' : '0';
+
+          const btnWidth = isImageClue ? 88 : (isPill ? 94 : (entity.type === 'npc' ? 64 : 48));
+          const btnHeight = isImageClue ? 112 : (isPill ? 36 : (entity.type === 'npc' ? 84 : 48));
+          const btnRadius = isImageClue ? '14px' : (isPill ? '999px' : (entity.type === 'npc' ? '36px 36px 18px 18px' : '50%'));
+          const btnPadding = isImageClue ? '4px' : (isPill ? '0 8px' : '0');
 
           return (
             <button
@@ -1178,14 +1367,20 @@ export default function OuterWorldExplorer({
                 transform: 'translate(-50%, -100%)',
                 width: btnWidth,
                 height: btnHeight,
-                border: `2px solid ${entity.color}`,
-                borderRadius: btnRadius,
-                padding: btnPadding,
-                background: entity.type === 'npc' ? 'rgba(255,170,51,0.12)' : 'rgba(255,255,255,0.08)',
+                border: isPainterImage ? 'none' : `2px solid ${entity.color}`,
+                borderRadius: isPainterImage ? '0' : btnRadius,
+                padding: isPainterImage ? '0' : btnPadding,
+                background: isPainterImage
+                  ? 'transparent'
+                  : isImageClue
+                    ? 'rgba(14, 18, 25, 0.92)'
+                    : (entity.type === 'npc' ? 'rgba(255,170,51,0.12)' : 'rgba(255,255,255,0.08)'),
                 color: entity.color,
                 cursor: 'pointer',
                 zIndex: Math.round(screen.top) + (isGalleryDoor ? 500 : 0),
-                boxShadow: isNear ? `0 0 36px ${entity.color}` : `0 0 18px ${entity.color}55`,
+                boxShadow: isPainterImage
+                  ? (isNear ? '0 0 26px rgba(255, 196, 132, 0.65)' : 'none')
+                  : (isNear ? `0 0 36px ${entity.color}` : `0 0 18px ${entity.color}55`),
                 fontWeight: 'bold',
                 userSelect: 'none',
                 transition: 'box-shadow 0.18s, transform 0.18s',
@@ -1196,7 +1391,40 @@ export default function OuterWorldExplorer({
               }}
               title={entity.label}
             >
-              {isPill ? (
+              {isPainterImage ? (
+                <img
+                  src={painterImage}
+                  alt={entity.label}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    objectPosition: 'center bottom',
+                    border: 'none',
+                    borderRadius: 0,
+                    filter: isNear ? 'drop-shadow(0 0 20px rgba(255, 196, 132, 0.45))' : 'none'
+                  }}
+                />
+              ) : isImageClue && clueImage ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', width: '100%', height: '100%' }}>
+                  <img
+                    src={clueImage}
+                    alt={entity.label}
+                    style={{
+                      width: '100%',
+                      height: 72,
+                      objectFit: 'cover',
+                      borderRadius: 9,
+                      border: '1px solid rgba(255,255,255,0.18)',
+                      boxShadow: '0 3px 10px rgba(0,0,0,0.35)'
+                    }}
+                  />
+                  <span style={{ fontSize: 11, lineHeight: 1.2, letterSpacing: 0.2, color: '#f7f0dc', textShadow: '0 0 6px rgba(0,0,0,0.45)' }}>
+                    {entity.label}
+                  </span>
+                </div>
+              ) : isPill ? (
+
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', height: '100%', whiteSpace: 'nowrap' }}>
                   <span style={{
                     fontSize: 13,
@@ -1228,6 +1456,7 @@ export default function OuterWorldExplorer({
             </button>
           );
         })}
+
 
         <div style={{ position: 'absolute', left: playerScreen.left, top: playerScreen.top, transform: 'translate(-50%, -100%)', width: 56, height: 86, zIndex: 9999, pointerEvents: 'none' }}>
           <div style={{ position: 'absolute', left: '50%', bottom: 4, transform: 'translateX(-50%)', width: 86, height: 34, background: 'radial-gradient(ellipse, rgba(0,0,0,0.5), transparent 68%)' }} />
