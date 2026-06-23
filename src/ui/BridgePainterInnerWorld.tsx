@@ -27,7 +27,28 @@ type Props = {
   onAdvanceLayer?: (layer: number) => void;
 };
 
+const STRESS_UNLOCK_BY_LAYER: Record<1 | 2 | 3 | 4, number> = {
+  1: 100,
+  2: 75,
+  3: 55,
+  4: 35,
+};
+
+function getLayerStressRequirement(layer: number): number {
+  return STRESS_UNLOCK_BY_LAYER[layer as 1 | 2 | 3 | 4] ?? 100;
+}
+
+function isLayerUnlockedByStress(layer: number, stress: number): boolean {
+  return stress <= getLayerStressRequirement(layer);
+}
+
+function getMaxUnlockedLayerByStress(stress: number): number {
+  const unlocked = [1, 2, 3, 4].filter(layer => isLayerUnlockedByStress(layer, stress));
+  return unlocked.length > 0 ? Math.max(...unlocked) : 1;
+}
+
 // ============================================================
+
 // 視圖狀態
 // ============================================================
 type LayerPhase =
@@ -701,10 +722,15 @@ function GlowingCanvasVisual({ children, layerNum }: { children: React.ReactNode
 export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLayer }: Props) {
   const [layerNum, setLayerNum] = useState<number>(1);
   const save = useGameStore(s => s.save);
-  const trust = save?.npcs?.bridge_artist?.trust ?? 20;
-  const resistance = 100 - trust;
-  const isAllLayersUnlocked = resistance <= 50; // trust >= 50 (心防解開臨界點)
+  const stress = save?.npcs?.bridge_artist?.stress ?? 100;
+  const safeStress = Math.max(0, Math.min(100, stress));
+  const maxUnlockedLayer = getMaxUnlockedLayerByStress(safeStress);
+  const isAllLayersUnlocked = maxUnlockedLayer >= 4;
+  const [layerLockMessage, setLayerLockMessage] = useState<string | null>(null);
+  const [fallbackExploringLayer, setFallbackExploringLayer] = useState<number | null>(null);
+
   const [understandingByLayer, setUnderstandingByLayer] = useState<Record<number, UnderstandingState>>(() => ({
+
     1: { insightIds: [] },
     2: { insightIds: [] },
     3: { insightIds: [] },
@@ -762,9 +788,18 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
   const handleLayerComplete = useCallback(() => {
     if (onAdvanceLayer) onAdvanceLayer(layerNum);
     if (isLast) { setPhase({ type: 'arc_complete' }); return; }
-    setLayerNum(layerNum + 1);
+
+    const nextLayer = layerNum + 1;
+    if (!isLayerUnlockedByStress(nextLayer, safeStress)) {
+      const required = getLayerStressRequirement(nextLayer);
+      setLayerLockMessage(`第${['一', '二', '三', '四'][nextLayer - 1]}层尚未解锁：需要 stress ≤ ${required}（当前 ${safeStress}）。`);
+      return;
+    }
+
+    setLayerNum(nextLayer);
     setPhase({ type: 'entering' });
-  }, [layerNum, isLast, onAdvanceLayer]);
+  }, [layerNum, isLast, onAdvanceLayer, safeStress]);
+
 
   const handleArcComplete = useCallback(() => {
     if (onAdvanceLayer) onAdvanceLayer(4);
@@ -803,8 +838,28 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           <GlassPanel title="理解達成" subtitle={layer.layerName} variant="paper" style={{ maxWidth:560,width:'100%',textAlign:'center' }}>
             <div style={{ color:'#3a2a14',fontSize:15,lineHeight:2,fontStyle:'italic',marginBottom:12 }}>「{layer.playerUnderstanding}」</div>
             <div style={{ color:'#6a5a3a',fontSize:13,lineHeight:1.8,marginBottom:24,padding:'10px 14px',borderRadius:8,background:'rgba(214,163,94,0.08)' }}>你已獲得 {insightCount} 個理解片段，理解了這一層的核心。</div>
-            <GlimmerButton tone="primary" onClick={handleLayerComplete} fullWidth>{isLast ? '走向終章' : '深入下一層'}</GlimmerButton>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <GlimmerButton tone="primary" onClick={handleLayerComplete} fullWidth>{isLast ? '走向終章' : '深入下一層'}</GlimmerButton>
+              <GlimmerButton
+                tone="quiet"
+                onClick={() => {
+                  setPhase({ type: 'exploring' });
+                  setLayerLockMessage(null);
+                  setFallbackExploringLayer(null);
+                }}
+                fullWidth
+              >
+                回到第{['一','二','三','四'][layerNum - 1]}层继续探索
+              </GlimmerButton>
+            </div>
+            {layerLockMessage && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#9a6a2b', lineHeight: 1.7 }}>
+                {layerLockMessage}
+              </div>
+            )}
+
           </GlassPanel>
+
         </div>
       </GuiFrame>
     );
@@ -866,26 +921,27 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           {/* 心防狀態面板 */}
           <GlassPanel title="心理狀態" subtitle="天橋畫家" variant={isAllLayersUnlocked ? 'paper' : 'dark'} contentStyle={{ display:'flex',flexDirection:'column',gap:8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: colors.sub }}>
-              <span>當前心防抗拒值</span>
+              <span>當前 stress</span>
               <span style={{ color: isAllLayersUnlocked ? '#81c784' : colors.accent, fontWeight: 'bold' }}>
-                {isAllLayersUnlocked ? '已瓦解 (≤50%)' : `${resistance}%`}
+                {safeStress}
               </span>
             </div>
             <div style={{ width: '100%', height: 6, borderRadius: 3, background: colors.cellEmpty, overflow: 'hidden' }}>
               <div style={{
-                width: `${resistance}%`,
+                width: `${safeStress}%`,
                 height: '100%',
                 borderRadius: 3,
-                background: isAllLayersUnlocked ? 'linear-gradient(90deg, #66bb6a, #43a047)' : `linear-gradient(90deg, ${colors.accent}, #e53935)`,
+                background: isAllLayersUnlocked ? 'linear-gradient(90deg, #66bb6a, #43a047)' : `linear-gradient(90deg, #ef5350, ${colors.accent})`,
                 transition: 'width 0.5s ease'
               }} />
             </div>
-            <div style={{ fontSize: 11, color: isAllLayersUnlocked ? '#4a4a4a' : '#7a7a7a', marginTop: 4, lineHeight: 1.4 }}>
-              {isAllLayersUnlocked 
-                ? '✨ 他的心防已經瓦解，你現在可以自由穿梭並探索全部四層心理世界。' 
-                : `🚪 當抗拒值降低到 50% 或以下時（目前：${resistance}%），將會解鎖全部的心理世界。`}
+            <div style={{ fontSize: 11, color: isAllLayersUnlocked ? '#4a4a4a' : '#7a7a7a', marginTop: 4, lineHeight: 1.5 }}>
+              {isAllLayersUnlocked
+                ? '✨ stress 已降到足够低，四层全部解锁。'
+                : `当前最高可进入第${['一', '二', '三', '四'][maxUnlockedLayer - 1]}层。门槛：第2层≤75，第3层≤55，第4层≤35。`}
             </div>
           </GlassPanel>
+
 
           {insightCount > 0 && (
             <GlassPanel title="理解碎片" subtitle={`${insightCount} 個片段`} variant="paper" contentStyle={{ display:'flex',flexDirection:'column',gap:10 }}>
@@ -899,8 +955,23 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
             {showLayerCompleteBtn && (
               <GlimmerButton tone="primary" onClick={() => setPhase({ type:'layer_complete' })} fullWidth>深入理解 →</GlimmerButton>
             )}
+            {layerLockMessage && fallbackExploringLayer && (
+              <GlimmerButton
+                tone="quiet"
+                onClick={() => {
+                  setLayerNum(fallbackExploringLayer);
+                  setPhase({ type: 'exploring' });
+                  setLayerLockMessage(null);
+                  setFallbackExploringLayer(null);
+                }}
+                fullWidth
+              >
+                回到第{CH[fallbackExploringLayer - 1]}层继续探索
+              </GlimmerButton>
+            )}
             <GlimmerButton tone="quiet" onClick={handleReturn} fullWidth>返回表世界</GlimmerButton>
           </div>
+
         </aside>
 
         {/* 右側主區域 */}
@@ -1032,23 +1103,66 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           {/* 快速層級切換 */}
           <div style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', zIndex: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', width: 'calc(100% - 28px)', maxWidth: 600, padding: '6px 12px', background: 'rgba(255,255,255,0.06)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(2px)' }}>
             <span style={{ fontSize: 13, color: '#f5c16c', fontWeight: 'bold', letterSpacing: 1 }}>
-              {isAllLayersUnlocked ? '心防徹底解鎖：自由切換層級' : '層級切換'}
+              {isAllLayersUnlocked ? 'stress 门槛已满足：自由切换层级' : '按 stress 门槛切换层级'}
             </span>
             <div style={{ display: 'flex', gap: 16, width: '100%', justifyContent: 'center' }}>
-              {[1, 2, 3, 4].map(num => (
-                <GlimmerButton
-                  key={num}
-                  tone={layerNum === num ? 'primary' : 'ghost'}
-                  onClick={() => {
-                    setLayerNum(num as number);
-                    setPhase({ type: 'exploring' });
-                  }}
-                  style={{ fontSize: 15, padding: '10px 32px', minHeight: 44, borderRadius: 10, flex: 1, maxWidth: 160 }}
-                >
-                  第{CH[num-1]}層
-                </GlimmerButton>
-              ))}
+              {[1, 2, 3, 4].map(num => {
+                const unlocked = isLayerUnlockedByStress(num, safeStress);
+                return (
+                  <GlimmerButton
+                    key={num}
+                    tone={layerNum === num ? 'primary' : 'ghost'}
+                    onClick={() => {
+                      if (!unlocked) {
+                        const required = getLayerStressRequirement(num);
+                        setFallbackExploringLayer(layerNum);
+                        setLayerLockMessage(`第${CH[num - 1]}层未解锁：需要 stress ≤ ${required}（当前 ${safeStress}）。`);
+                        return;
+                      }
+                      setLayerLockMessage(null);
+                      setFallbackExploringLayer(null);
+                      setLayerNum(num as number);
+                      setPhase({ type: 'exploring' });
+                    }}
+
+                    style={{
+                      fontSize: 15,
+                      padding: '10px 32px',
+                      minHeight: 44,
+                      borderRadius: 10,
+                      flex: 1,
+                      maxWidth: 160,
+                      opacity: unlocked ? 1 : 0.45,
+                    }}
+                  >
+                    第{CH[num-1]}層{unlocked ? '' : '🔒'}
+                  </GlimmerButton>
+                );
+              })}
             </div>
+            {layerLockMessage && (
+              <div style={{ marginTop: 2, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+                <div style={{ fontSize: 12, color: '#ffd7a1', textAlign: 'center' }}>
+                  {layerLockMessage}
+                </div>
+                {fallbackExploringLayer && (
+                  <GlimmerButton
+                    tone="quiet"
+                    onClick={() => {
+                      setLayerNum(fallbackExploringLayer);
+                      setPhase({ type: 'exploring' });
+                      setLayerLockMessage(null);
+                      setFallbackExploringLayer(null);
+                    }}
+                    style={{ minHeight: 34, padding: '6px 14px', fontSize: 12 }}
+                  >
+                    回到第{CH[fallbackExploringLayer - 1]}层继续探索
+                  </GlimmerButton>
+                )}
+              </div>
+            )}
+
+
           </div>
         </main>
 

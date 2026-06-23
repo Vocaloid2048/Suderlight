@@ -6,24 +6,24 @@
   "collectedClues": [
     "brush",
     "newspaper",
-    "sketchbook",
-    "accident_report"
+    "accident_report",
+    "sketchbook"
   ],
   "npcs": {
     "bridge_artist": {
       "id": "bridge_artist",
       "name": "天橋畫家",
-      "trust": 40,
-      "stress": 64,
+      "trust": 57,
+      "stress": 73,
       "knowledgeRequired": 70,
       "trustRequired": 50,
-      "innerWorldUnlocked": false,
+      "innerWorldUnlocked": true,
       "ending": "none",
       "flags": [
-        "player_offered_presence"
+        "inner_world_unlocked"
       ],
-      "innerWorldDepth": 0,
-      "innerWorldLayer": 0
+      "innerWorldDepth": 2,
+      "innerWorldLayer": 2
     },
     "victor": {
       "id": "victor",
@@ -46,6 +46,8 @@
     3,
     10,
     11,
-    12
+    12,
+    5,
+    7
   ]
 }
