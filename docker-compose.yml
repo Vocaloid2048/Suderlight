@@ -1,37 +1,24 @@
 version: '3.8'
 
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: suderlight_backend
-    restart: always
-    ports:
-      - "4000:4000"
-    environment:
-      - PORT=4000
-      - NODE_ENV=production
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-YOUR_KEY}
-      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
-    volumes:
-      - ./backend/data:/app/data
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  web:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: suderlight_web
+    container_name: suderlight
     restart: always
     ports:
-      - "80:80"
-    depends_on:
-      backend:
-        condition: service_healthy
+      - "${PORT:-80}:80"
+    environment:
+      - PORT=4000
+      - NODE_ENV=production
+      - STORAGE_MODE=fs
+      - API_PREFIX=/api
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-YOUR_KEY}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
+    # 持久化玩家数据 (saves + memories)，静态数据由镜像提供
+    volumes:
+      - suderlight_data:/app/server/data
 
+volumes:
+  suderlight_data:

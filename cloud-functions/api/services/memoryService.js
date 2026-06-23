@@ -1,16 +1,48 @@
 /**
- * Memory Service —— 对话记忆管理 (内存存储版本)
+ * Memory Service —— 对话记忆管理 (支持 memory / fs 双模式)
+ *
+ * STORAGE_MODE=memory (默认): EdgeOne 内存存储，完全兼容原行为
+ * STORAGE_MODE=fs: 文件系统存储，用于本地开发 / Docker 部署
  */
 import memoryStore from './store.js';
+import {
+  readPlayerMemories as readPersistedMemories,
+  writePlayerMemories as writePersistedMemories,
+} from './persistence.js';
 
 function getDefaultNpcMemory() {
   return { lastInputTypes: [], history: [], fullHistory: [], summary: '', roundCount: 0 };
 }
 
+/**
+ * 获取指定玩家/指定 NPC 的记忆对象。
+ * 读取时优先从持久化层获取，写入时自动同步回持久化层。
+ */
 function getNpcMemory(npcId, playerId) {
+  // 先检查内存缓存
+  if (memoryStore.memories[playerId]?.[npcId]) {
+    return memoryStore.memories[playerId][npcId];
+  }
+
+  // 从持久化层读取
+  const persisted = readPersistedMemories(playerId);
+  if (persisted && persisted[npcId]) {
+    if (!memoryStore.memories[playerId]) memoryStore.memories[playerId] = {};
+    memoryStore.memories[playerId][npcId] = persisted[npcId];
+    return memoryStore.memories[playerId][npcId];
+  }
+
+  // 创建新的
   if (!memoryStore.memories[playerId]) memoryStore.memories[playerId] = {};
-  if (!memoryStore.memories[playerId][npcId]) memoryStore.memories[playerId][npcId] = getDefaultNpcMemory();
+  memoryStore.memories[playerId][npcId] = getDefaultNpcMemory();
   return memoryStore.memories[playerId][npcId];
+}
+
+/** 将玩家的全部 NPC 记忆写回持久化层 */
+function persistMemories(playerId) {
+  if (memoryStore.memories[playerId]) {
+    writePersistedMemories(playerId, memoryStore.memories[playerId]);
+  }
 }
 
 const memoryService = {
@@ -22,6 +54,7 @@ const memoryService = {
   addInputType(npcId, inputType, playerId) {
     const m = getNpcMemory(npcId, playerId);
     m.lastInputTypes = [...(m.lastInputTypes || []), inputType].slice(-10);
+    persistMemories(playerId);
   },
 
   saveDialogue(npcId, userMsg, npcReply, playerId, ts, judgement) {
@@ -44,6 +77,7 @@ const memoryService = {
     m.fullHistory.push(u, a);
     if (m.fullHistory.length > 2000) m.fullHistory = m.fullHistory.slice(-2000);
     m.history.push(u, a);
+    persistMemories(playerId);
   },
 
   getRecentDialogue(npcId, limit, playerId) {
@@ -66,18 +100,24 @@ const memoryService = {
 
   updateSummary(npcId, s, playerId) {
     getNpcMemory(npcId, playerId).summary = String(s || '').trim();
+    persistMemories(playerId);
   },
 
   resetCurrentHistory(npcId, playerId) {
     getNpcMemory(npcId, playerId).history = [];
+    persistMemories(playerId);
   },
 
   resetHistory(npcId, playerId) {
     const m = getNpcMemory(npcId, playerId);
     m.history = []; m.fullHistory = []; m.summary = '';
+    persistMemories(playerId);
   },
 
-  resetAll(playerId) { memoryStore.memories[playerId] = {}; },
+  resetAll(playerId) {
+    memoryStore.memories[playerId] = {};
+    persistMemories(playerId);
+  },
 
   getRoundCount(npcId, playerId) {
     const m = getNpcMemory(npcId, playerId);

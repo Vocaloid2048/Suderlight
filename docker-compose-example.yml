@@ -1,40 +1,25 @@
 version: '3.8'
 
 services:
-  backend:
+  app:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: suderlight_backend
+    container_name: suderlight
     restart: always
     ports:
-      - "4000:4000"
+      - "80:80"
     environment:
       - PORT=4000
       - NODE_ENV=production
+      - STORAGE_MODE=fs
+      - API_PREFIX=/api
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-YOUR_KEY}
       - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
       - PLAYER_SIGNATURE_SECRET=${PLAYER_SIGNATURE_SECRET:-i-dont-have-enough-credit-to-make-this-game}
     volumes:
-      - ./backend/data:/app/data
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      - suderlight_data:/app/server/data
 
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - VITE_SIGNATURE_SECRET=${PLAYER_SIGNATURE_SECRET:-i-dont-have-enough-credit-to-make-this-game}
-    container_name: suderlight_web
-    restart: always
-    ports:
-      - "80:80"
-    depends_on:
-      backend:
-        condition: service_healthy
+volumes:
+  suderlight_data:

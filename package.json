@@ -1,27 +1,33 @@
 {
   "name": "glimmer-city",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:server": "node cloud-functions/api/index.js",
+    "start:server": "cross-env STORAGE_MODE=fs API_PREFIX=/api NODE_ENV=production node cloud-functions/api/index.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\""
   },
   "dependencies": {
+    "cors": "^2.8.5",
+    "cross-env": "^7.0.3",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "lucide-react": "^0.292.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "lucide-react": "^0.292.0",
-    "zustand": "^4.4.7",
-    "express": "^4.19.2",
-    "cors": "^2.8.5",
-    "helmet": "^7.1.0",
-    "express-rate-limit": "^7.4.0"
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^8.2.2",
     "typescript": "^5.2.2",
     "vite": "^5.0.0"
   }
