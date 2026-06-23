@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useGameStore } from './store/gameStore';
 import { useNarrativePlaytest } from './hooks/narrativePlaytest';
 import { useNarrativePlaytestStore } from './store/narrativePlaytestStore';
@@ -30,12 +30,6 @@ export default function App() {
   const setInnerWorldDepth = useGameStore(state => state.setInnerWorldDepth);
   const advancePsychLayer = useGameStore(state => state.advancePsychLayer);
   const forceUnlockInnerWorld = useGameStore(state => state.forceUnlockInnerWorld);
-  const initAndSync = useGameStore(state => state.initAndSync);
-
-  // 启动时同步存档到后端（支持异地登录恢复）
-  useEffect(() => {
-    initAndSync();
-  }, [initAndSync]);
 
   const [screen, setScreen] = useState<Screen>('title');
   const [returnScreen, setReturnScreen] = useState<Screen>('city');

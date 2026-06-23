@@ -6,7 +6,7 @@ import {
   markNpcSuccess,
   shouldUnlockInnerWorld,
 } from '../systems/npcStateEngine';
-import { clearSave, createInitialSave, loadSave, loadSaveFromBackend, persistSave, syncSaveToBackend, type GameSave, type GhostRecord } from '../systems/saveSystem';
+import { clearSave, createInitialSave, loadSave, persistSave, type GameSave, type GhostRecord } from '../systems/saveSystem';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
 import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
 
@@ -39,10 +39,6 @@ type GameStore = {
   setInnerWorldDepth: (depth: number) => void;
   /** 記錄心理世界層級進展 (1-4) */
   advancePsychLayer: (layer: number) => void;
-  /** 從後端加載存檔（異地登錄） */
-  loadRemoteSave: () => Promise<void>;
-  /** 從本地存檔初始化時同步到後端 */
-  initAndSync: () => Promise<void>;
   /** Playtest: 強制滿足內心世界解鎖條件 */
   forceUnlockInnerWorld: () => void;
 };
@@ -62,8 +58,6 @@ function cloneSave(save: GameSave): GameSave {
 
 function persistAndReturn(save: GameSave) {
   persistSave(save);
-  // 异步同步到后端（不阻塞 UI）
-  syncSaveToBackend(save).catch(() => {});
   return save;
 }
 
@@ -198,16 +192,11 @@ export const useGameStore = create<GameStore>((set) => ({
     const playerId = getPlayerId();
     if (playerId) {
       try {
-        // 並行但等待兩者完成
-        await Promise.all([
-          syncSaveToBackend(createInitialSave()),
-          getPlayerAuthHeaders(playerId).then((headers) =>
-            fetch('/api/chat/reset-all', {
-              method: 'POST',
-              headers,
-            })
-          )
-        ]);
+        const headers = await getPlayerAuthHeaders(playerId);
+        await fetch('/api/chat/reset-all', {
+          method: 'POST',
+          headers,
+        });
       } catch (err) {
         console.error('Remote reset failed:', err);
       }
@@ -241,27 +230,6 @@ export const useGameStore = create<GameStore>((set) => ({
       };
       return { save: persistAndReturn(next) };
     });
-  },
-
-  /** 從後端加載存檔 → 用於異地登錄場景 */
-  loadRemoteSave: async () => {
-    const playerId = getPlayerId();
-    if (!playerId) return;
-
-    const remoteSave = await loadSaveFromBackend(playerId);
-    if (!remoteSave) return;
-
-    // 將後端存檔合入本地（後端為權威來源）
-    persistSave(remoteSave);
-    set({ save: remoteSave });
-  },
-
-  /** 初始化後將本地存檔同步到後端 */
-  initAndSync: async () => {
-    const state = getCurrentSaveSnapshot();
-    if (state) {
-      await syncSaveToBackend(state);
-    }
   },
 
   /** Playtest: 強制滿足內心世界解鎖條件 (F7) */
