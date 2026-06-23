@@ -608,14 +608,19 @@ app.post('/chat', authSignatureMiddleware, llmLimiter, async (req, res, next) =>
 
       unlockNpcWorldbookEntries(npcId, stateUpdate.npc, playerId);
 
+      const currentRoundCount = memoryService.getRoundCount(npcId, playerId);
+      const currentSummary = memoryService.getSummary(npcId, playerId);
+
       res.json({
         text: reply,
         psychology: { trustDelta: stateUpdate.trustDelta, stressDelta: stateUpdate.stressDelta, stateLabel: systemJudgement.stateLabel, inputType: stateUpdate.dialogueType },
         npcState: { trust: stateUpdate.npc.trust, stress: stateUpdate.npc.stress, knowledge: stateUpdate.npc.knowledge, innerWorldUnlocked: stateUpdate.npc.innerWorldUnlocked, ending: stateUpdate.npc.ending },
+        roundCount: currentRoundCount,
+        summary: currentSummary,
       });
 
       // 每10轮生成摘要
-      if (memoryService.getRoundCount(npcId, playerId) % 10 === 0) {
+      if (currentRoundCount % 10 === 0) {
         const oldSummary = memoryService.getSummary(npcId, playerId);
         const segment = memoryService.getRecentDialogue(npcId, 20, playerId);
         memoryService.resetCurrentHistory(npcId, playerId);
