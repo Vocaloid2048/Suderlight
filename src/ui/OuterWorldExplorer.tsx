@@ -7,6 +7,8 @@ import type { GameSave } from '../systems/saveSystem';
 import brushImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_49_08.png';
 import newspaperImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_50_17.png';
 import sketchbookImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_51_17.png';
+import painterImage from '../../images/character/IMG_3556.png';
+
 
 
 type Point = { x: number; y: number };
@@ -1279,7 +1281,9 @@ export default function OuterWorldExplorer({
           const isGalleryDoor = entity.id === 'gallery_door';
           const clueImage = entity.type === 'clue' ? CLUE_IMAGE_MAP[entity.id as ClueId] : undefined;
           const isImageClue = entity.type === 'clue' && Boolean(clueImage);
-          const isPill = !isImageClue && (isGalleryDoor || entity.id === 'brush' || entity.id === 'newspaper' || entity.id === 'sketchbook' || entity.id === 'accident_report');
+          const isPainterImage = entity.id === 'painter';
+          const isPill = !isImageClue && !isPainterImage && (isGalleryDoor || entity.id === 'brush' || entity.id === 'newspaper' || entity.id === 'sketchbook' || entity.id === 'accident_report');
+
 
           const btnWidth = isImageClue ? 88 : (isPill ? 94 : (entity.type === 'npc' ? 64 : 48));
           const btnHeight = isImageClue ? 112 : (isPill ? 36 : (entity.type === 'npc' ? 84 : 48));
@@ -1297,14 +1301,20 @@ export default function OuterWorldExplorer({
                 transform: 'translate(-50%, -100%)',
                 width: btnWidth,
                 height: btnHeight,
-                border: `2px solid ${entity.color}`,
-                borderRadius: btnRadius,
-                padding: btnPadding,
-                background: isImageClue ? 'rgba(14, 18, 25, 0.92)' : (entity.type === 'npc' ? 'rgba(255,170,51,0.12)' : 'rgba(255,255,255,0.08)'),
+                border: isPainterImage ? 'none' : `2px solid ${entity.color}`,
+                borderRadius: isPainterImage ? '0' : btnRadius,
+                padding: isPainterImage ? '0' : btnPadding,
+                background: isPainterImage
+                  ? 'transparent'
+                  : isImageClue
+                    ? 'rgba(14, 18, 25, 0.92)'
+                    : (entity.type === 'npc' ? 'rgba(255,170,51,0.12)' : 'rgba(255,255,255,0.08)'),
                 color: entity.color,
                 cursor: 'pointer',
                 zIndex: Math.round(screen.top) + (isGalleryDoor ? 500 : 0),
-                boxShadow: isNear ? `0 0 36px ${entity.color}` : `0 0 18px ${entity.color}55`,
+                boxShadow: isPainterImage
+                  ? (isNear ? '0 0 26px rgba(255, 196, 132, 0.65)' : 'none')
+                  : (isNear ? `0 0 36px ${entity.color}` : `0 0 18px ${entity.color}55`),
                 fontWeight: 'bold',
                 userSelect: 'none',
                 transition: 'box-shadow 0.18s, transform 0.18s',
@@ -1315,7 +1325,21 @@ export default function OuterWorldExplorer({
               }}
               title={entity.label}
             >
-              {isImageClue && clueImage ? (
+              {isPainterImage ? (
+                <img
+                  src={painterImage}
+                  alt={entity.label}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    objectPosition: 'center bottom',
+                    border: 'none',
+                    borderRadius: 0,
+                    filter: isNear ? 'drop-shadow(0 0 20px rgba(255, 196, 132, 0.45))' : 'none'
+                  }}
+                />
+              ) : isImageClue && clueImage ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', width: '100%', height: '100%' }}>
                   <img
                     src={clueImage}
@@ -1334,6 +1358,7 @@ export default function OuterWorldExplorer({
                   </span>
                 </div>
               ) : isPill ? (
+
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', height: '100%', whiteSpace: 'nowrap' }}>
                   <span style={{
                     fontSize: 13,
