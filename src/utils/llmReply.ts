@@ -17,6 +17,8 @@ export type BackendChatResponse = {
     inputType?: string;
   };
   npcState?: BackendNpcState;
+  roundCount?: number;
+  summary?: string;
 };
 
 /**
@@ -103,6 +105,8 @@ export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge
       safetyLevel: 'safe' as const,
       backendPsychology: data.psychology,
       backendNpcState: data.npcState,
+      backendRoundCount: data.roundCount,
+      backendSummary: data.summary,
     });
   } catch (error) {
     console.error('Error in fetchLLMReply via Express backend:', error);

@@ -28,6 +28,8 @@ type AiReply = {
   safetyLevel?: 'safe' | 'safety_redirect';
   backendPsychology?: BackendPsychology;
   backendNpcState?: BackendNpcState;
+  backendRoundCount?: number;
+  backendSummary?: string;
 };
 
 type BlankPainterChatProps = {
@@ -240,6 +242,8 @@ export default function BlankPainterChat({
           trustDelta: reply.backendPsychology.trustDelta,
           stressDelta: reply.backendPsychology.stressDelta,
         } : undefined,
+        reply.backendSummary,
+        reply.backendRoundCount,
       );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);

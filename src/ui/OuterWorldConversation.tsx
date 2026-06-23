@@ -45,6 +45,8 @@ type AiReply = {
   safetyLevel?: 'safe' | 'safety_redirect';
   backendPsychology?: BackendPsychology;
   backendNpcState?: BackendNpcState;
+  backendRoundCount?: number;
+  backendSummary?: string;
 };
 
 function formatSystemJudgement(systemJudgement: SystemJudgement) {
@@ -405,6 +407,8 @@ const triggeredLore = useMemo(() => {
           trustDelta: reply.backendPsychology.trustDelta,
           stressDelta: reply.backendPsychology.stressDelta,
         } : undefined,
+        reply.backendSummary,
+        reply.backendRoundCount,
       );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
