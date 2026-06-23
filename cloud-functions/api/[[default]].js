@@ -13,7 +13,12 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import crypto from 'node:crypto';
-import { INLINE_NPC, INLINE_CLUES, INLINE_WORLDBOOK, INLINE_INNER_WORLDS, INLINE_DICTIONARY, INLINE_PROMPT } from './inline-data.js';
+import INLINE_NPC from './data/npcs.js';
+import INLINE_CLUES from './data/clues.js';
+import INLINE_WORLDBOOK from './data/worldbook.js';
+import INLINE_INNER_WORLDS from './data/innerWorlds.js';
+import INLINE_DICTIONARY from './data/dictionary.js';
+import { ARTIST_PROMPT } from './data/prompts.js';
 
 // ============================================================
 // 環境變數 & 配置
@@ -418,8 +423,8 @@ async function deepseekChat(messages) {
 
 // Prompt Builder
 function loadCharacterPrompt(npcId) {
-  // 使用内联 prompt，无需文件 I/O
-  return INLINE_PROMPT || '你是一位內心受創的藝術家。請用中文回應玩家的對話。';
+  // 使用独立 prompts 模块，方便新增角色
+  return ARTIST_PROMPT || '你是一位內心受創的藝術家。請用中文回應玩家的對話。';
 }
 
 const promptBuilder = {
