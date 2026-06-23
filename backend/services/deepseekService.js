@@ -70,10 +70,9 @@ function fallbackReply(message) {
  */
 async function generateNpcReply(npcId, message) {
   const { apiKey, model } = config.deepseek;
-  const { url: ollamaUrl, model: ollamaModel } = config.ollama;
   const systemPrompt = readPrompt(npcId);
 
-  // 1. 如果配置了有效的 DeepSeek API Key，則調用 DeepSeek
+  // 如果配置了有效的 DeepSeek API Key，則調用 DeepSeek
   if (apiKey && apiKey !== 'YOUR_KEY' && apiKey.trim() !== '') {
     try {
       const response = await fetch('https://api.deepseek.com/chat/completions', {
@@ -106,42 +105,7 @@ async function generateNpcReply(npcId, message) {
     }
   }
 
-  // 2. 如果沒有 DeepSeek 密鑰，但配置了 OLLAMA_URL，則調用 Ollama 容器
-  else if (ollamaUrl) {
-    try {
-      const requestUrl = `${ollamaUrl.replace(/\/$/, '')}/api/chat`;
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: ollamaModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: String(message || '') },
-          ],
-          stream: false,
-          options: {
-            temperature: 0.7
-          }
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const content = data.message?.content || '';
-        return parseDeepSeekJson(content);
-      } else {
-        const body = await response.text();
-        logger.error({ status: response.status, body }, 'Ollama API error');
-      }
-    } catch (err) {
-      logger.error({ err }, 'Ollama API request failed — falling back to fallbackReply');
-    }
-  }
-
-  // 3. 兜底回覆
+  // 兜底回覆
   return fallbackReply(message);
 }
 
@@ -150,9 +114,8 @@ async function generateNpcReply(npcId, message) {
  */
 async function chat(messages) {
   const { apiKey, model } = config.deepseek;
-  const { url: ollamaUrl, model: ollamaModel } = config.ollama;
 
-  // 1. 如果配置了有效的 DeepSeek API Key，則調用 DeepSeek
+  // 如果配置了有效的 DeepSeek API Key，則調用 DeepSeek
   if (apiKey && apiKey !== 'YOUR_KEY' && apiKey.trim() !== '') {
     try {
       const response = await fetch('https://api.deepseek.com/chat/completions', {
@@ -182,39 +145,7 @@ async function chat(messages) {
     }
   }
 
-  // 2. 如果沒有 DeepSeek 密鑰，但配置了 OLLAMA_URL，則調用 Ollama 容器
-  else if (ollamaUrl) {
-    try {
-      const requestUrl = `${ollamaUrl.replace(/\/$/, '')}/api/chat`;
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: ollamaModel,
-          messages: messages, // 直接傳入構建好的 messages 陣列
-          stream: false,
-          options: {
-            temperature: 0.7
-          }
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const content = data.message?.content || '';
-        return parseDeepSeekJsonText(content);
-      } else {
-        const body = await response.text();
-        logger.error({ status: response.status, body }, 'Ollama API error');
-      }
-    } catch (err) {
-      logger.error({ err }, 'Ollama API request failed — falling back');
-    }
-  }
-
-  // 3. Fallback: 從 messages 陣列中提取最後一條 user 訊息作為 Fallback 的輸入
+  // Fallback: 從 messages 陣列中提取最後一條 user 訊息作為 Fallback 的輸入
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
   const userContent = lastUserMsg ? lastUserMsg.content : '';
   const fallbackObj = fallbackReply(userContent);

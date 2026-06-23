@@ -205,7 +205,7 @@ export default function BlankPainterChat({
       const simulatedReply = simulateBlankPainterReply(trimmed, inventory, nextMessages);
       setMessages(current => [
         ...current,
-        { role: 'system', content: '（連線錯誤：暫時由本地語意模擬回應。請確認 DeepSeek/Ollama/Tencent 代理是否正常運行。）' },
+        { role: 'system', content: '（連線錯誤：暫時由本地語意模擬回應。請確認 DeepSeek 代理是否正常運行。）' },
       ]);
       appendReplyAndSystemResult(simulatedReply);
     } finally {

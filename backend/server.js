@@ -27,7 +27,14 @@ app.set('trust proxy', 1); // Docker 反向代理后面
 app.use(requestIdMiddleware);
 app.use(playerIdMiddleware); // 提取 X-Player-Id → req.playerId
 app.use(helmet());
-app.use(cors({ origin: config.cors.origin, methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'X-Player-Id', 'X-Request-Id', 'X-Timestamp', 'X-Player-Signature'] }));
+
+const corsOrigin = config.cors.origin;
+app.use(cors({
+  origin: corsOrigin.includes('*') ? '*' : corsOrigin,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'X-Player-Id', 'X-Request-Id', 'X-Timestamp', 'X-Player-Signature'],
+  credentials: false
+}));
 app.use(express.json({ limit: '50kb' })); // 限制请求体大小
 
 // ---- Rate Limiting ----

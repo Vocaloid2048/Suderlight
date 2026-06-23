@@ -27,15 +27,11 @@ const config = {
     apiKey: process.env.DEEPSEEK_API_KEY,
     model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
   },
-  ollama: {
-    url: process.env.OLLAMA_URL || 'http://host.docker.internal:11434',
-    model: process.env.OLLAMA_MODEL || 'gemma4:e2b',
-  },
 };
 
 // 生产环境强制校验 DeepSeek key
 if (config.nodeEnv === 'production' && (!config.deepseek.apiKey || config.deepseek.apiKey === 'YOUR_KEY')) {
-  console.warn('[Config] WARNING: DEEPSEEK_API_KEY not set — only Ollama or fallback replies will work.');
+  console.warn('[Config] WARNING: DEEPSEEK_API_KEY not set.');
 }
 
 module.exports = config;
