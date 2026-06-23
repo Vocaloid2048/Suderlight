@@ -13,8 +13,7 @@
   ],
   "cloudFunctions": {
     "nodejs": {
-      "maxDuration": 60,
-      "externalNodeModules": ["express", "cors", "helmet", "express-rate-limit"]
+      "maxDuration": 60
     }
   }
 }
