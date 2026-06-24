@@ -33,6 +33,6 @@ RUN cd /app && npm ci --omit=dev
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 80 443
+EXPOSE 443
 
 CMD ["/entrypoint.sh"]
