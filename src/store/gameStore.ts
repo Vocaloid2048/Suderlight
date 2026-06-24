@@ -163,7 +163,9 @@ export const useGameStore = create<GameStore>((set) => ({
         ...target,
         trust: backendState.trust,
         stress: backendState.stress,
-        knowledge: backendState.knowledge ?? target.knowledge,
+        knowledge: backendState.knowledge != null
+          ? Math.max(target.knowledge, backendState.knowledge)
+          : target.knowledge,
         innerWorldUnlocked: Boolean(backendState.innerWorldUnlocked),
         ending: backendState.ending === null ? 'none' : backendState.ending,
       };
