@@ -46,7 +46,33 @@ router.post('/reset/:npcId', (req, res, next) => {
 // POST /chat/reset-all
 router.post('/reset-all', (req, res, next) => {
   try {
-    if (req.playerId) memoryService.resetAll(req.playerId);
+    if (req.playerId) {
+      memoryService.resetAll(req.playerId);
+
+      // 完全重置玩家進度：NPC 狀態 + 線索 + 詞典解鎖
+      const save = saveService.readSave(req.playerId);
+      const npcTemplates = saveService.readNpcs();
+      if (save.npcs && typeof save.npcs === 'object') {
+        for (const npcId of Object.keys(save.npcs)) {
+          const tpl = npcTemplates[npcId];
+          const current = save.npcs[npcId];
+          if (tpl && current) {
+            // 將動態數值重置為模板初始值
+            current.trust = typeof tpl.trust === 'number' ? tpl.trust : 20;
+            current.stress = typeof tpl.stress === 'number' ? tpl.stress : 80;
+            current.knowledge = typeof tpl.knowledge === 'number' ? tpl.knowledge : 0;
+            current.innerWorldUnlocked = false;
+            current.ending = 'none';
+            logger.info(`[chat] Reset NPC "${npcId}" state for player "${req.playerId}"`);
+          }
+        }
+      }
+      // 重置已收集線索和已解鎖詞典條目（否則再次收集時會判定為 alreadyCollected / alreadyUnlocked）
+      save.collectedClues = [];
+      save.unlockedDictionaryEntries = [];
+      saveService.writeSave(req.playerId, save);
+      logger.info(`[chat] Full progress reset for player "${req.playerId}"`);
+    }
     res.json({ success: true });
   } catch (e) { next(e); }
 });
