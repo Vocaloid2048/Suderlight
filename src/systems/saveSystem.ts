@@ -1,5 +1,5 @@
 import type { ClueId, LocationId, NpcId } from '../data/verticalSlice';
-import { createBridgeArtistState, createVictorState, type NpcRuntimeState } from './npcStateEngine';
+import { createBridgeArtistState, createVictorState, createDefaultInnerWorldSave, type NpcRuntimeState } from './npcStateEngine';
 
 export type GhostRecord = {
   npc: NpcId;
@@ -59,12 +59,15 @@ export function loadSave(): GameSave | null {
       if (bridgeArtist.knowledge === undefined) bridgeArtist.knowledge = 0;
       if (bridgeArtist.innerWorldDepth === undefined) bridgeArtist.innerWorldDepth = 0;
       if (bridgeArtist.innerWorldLayer === undefined) bridgeArtist.innerWorldLayer = 0;
+      // 旧存档没有 innerWorld → 初始化
+      if (!bridgeArtist.innerWorld) bridgeArtist.innerWorld = createDefaultInnerWorldSave();
     }
     const victor = parsed.npcs.victor;
     if (victor) {
       if (victor.knowledge === undefined) victor.knowledge = 0;
       if (victor.innerWorldDepth === undefined) victor.innerWorldDepth = 0;
       if (victor.innerWorldLayer === undefined) victor.innerWorldLayer = 0;
+      if (!victor.innerWorld) victor.innerWorld = createDefaultInnerWorldSave();
     }
 
     // 移除旧的 player 字段（兼容旧存档格式）

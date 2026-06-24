@@ -16,6 +16,11 @@ import {
   hasInsight,
   type UnderstandingState,
 } from '../systems/understandingSystem';
+import {
+  type InnerWorldSave,
+  type InnerWorldLayerState,
+  type UnderstoodItem,
+} from '../systems/npcStateEngine';
 import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
 import accidentMemoryVideo from '../video/grok-video-5614ed35-6339-496a-bc6b-027280fb9c19.mp4';
 
@@ -522,7 +527,7 @@ function GloryMuseumVisual({
           <div key={`front-${i}`} style={{ position: 'absolute', bottom: 0, left: p.left, width: p.w, height: p.h, background: 'linear-gradient(to top, rgba(8,7,10,0.94), rgba(34,30,36,0.8))', borderRadius: '46% 46% 12px 12px', filter: 'blur(0.35px)' }} />
         ))}
 
-        {/* 后排 */}
+        {/* 後排 */}
         {[
           { left: '8%', h: '48%', w: '4.2%' },
           { left: '20%', h: '52%', w: '4.4%' },
@@ -722,6 +727,7 @@ function GlowingCanvasVisual({ children, layerNum }: { children: React.ReactNode
 export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLayer }: Props) {
   const [layerNum, setLayerNum] = useState<number>(1);
   const save = useGameStore(s => s.save);
+  const syncInnerWorldState = useGameStore(s => s.syncInnerWorldState);
   const stress = save?.npcs?.bridge_artist?.stress ?? 100;
   const safeStress = Math.max(0, Math.min(100, stress));
   const maxUnlockedLayer = getMaxUnlockedLayerByStress(safeStress);
@@ -729,20 +735,105 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
   const [layerLockMessage, setLayerLockMessage] = useState<string | null>(null);
   const [fallbackExploringLayer, setFallbackExploringLayer] = useState<number | null>(null);
 
-  const [understandingByLayer, setUnderstandingByLayer] = useState<Record<number, UnderstandingState>>(() => ({
+  // ---- 從存檔載入 innerWorld 狀態初始化 ----
+  const savedInnerWorld = save?.npcs?.bridge_artist?.innerWorld;
 
-    1: { insightIds: [] },
-    2: { insightIds: [] },
-    3: { insightIds: [] },
-    4: { insightIds: [] },
-  }));
+  function loadUnderstandingFromSave(): Record<number, UnderstandingState> {
+    const result: Record<number, UnderstandingState> = {
+      1: { insightIds: [] },
+      2: { insightIds: [] },
+      3: { insightIds: [] },
+      4: { insightIds: [] },
+    };
+    if (savedInnerWorld?.layers) {
+      for (const [layer, state] of Object.entries(savedInnerWorld.layers)) {
+        const layerNum = Number(layer);
+        if (layerNum >= 1 && layerNum <= 4) {
+          result[layerNum] = {
+            insightIds: state.understoodItems.map(item => item.id),
+          };
+        }
+      }
+    }
+    return result;
+  }
+
+  function loadDiscoveredFromSave(): Record<number, string[]> {
+    const result: Record<number, string[]> = {
+      1: [], 2: [], 3: [], 4: [],
+    };
+    if (savedInnerWorld?.layers) {
+      for (const [layer, state] of Object.entries(savedInnerWorld.layers)) {
+        const layerNum = Number(layer);
+        if (layerNum >= 1 && layerNum <= 4) {
+          result[layerNum] = [...state.discoveredItems];
+        }
+      }
+    }
+    return result;
+  }
+
+  function loadCompletedLayersFromSave(): Set<number> {
+    const result = new Set<number>();
+    if (savedInnerWorld?.layers) {
+      for (const [layer, state] of Object.entries(savedInnerWorld.layers)) {
+        if (state.completed) result.add(Number(layer));
+      }
+    }
+    return result;
+  }
+
+  const [understandingByLayer, setUnderstandingByLayer] = useState<Record<number, UnderstandingState>>(() =>
+    loadUnderstandingFromSave()
+  );
   const [phase, setPhase] = useState<LayerPhase>({ type: 'entering' });
-  const [discoveredByLayer, setDiscoveredByLayer] = useState<Record<number, string[]>>(() => ({
-    1: [],
-    2: [],
-    3: [],
-    4: [],
-  }));
+  const [discoveredByLayer, setDiscoveredByLayer] = useState<Record<number, string[]>>(() =>
+    loadDiscoveredFromSave()
+  );
+  const [completedLayers, setCompletedLayers] = useState<Set<number>>(() =>
+    loadCompletedLayersFromSave()
+  );
+
+  // ---- 建立 InnerWorldSave 並同步到存檔 ----
+  const buildInnerWorldSave = useCallback((): InnerWorldSave => {
+    const layers: Record<number, InnerWorldLayerState> = {};
+    for (let l = 1; l <= 4; l++) {
+      const layerData = ALL_PSYCH_LAYERS.find(ld => ld.layerNumber === l);
+      layers[l] = {
+        completed: completedLayers.has(l),
+        understandingScore: getCurrentLayerUnderstanding(understandingByLayer[l] ?? { insightIds: [] }, l),
+        understoodItems: (understandingByLayer[l]?.insightIds ?? []).map((id): UnderstoodItem => {
+          const obj = layerData?.interactables.find(o => o.id === id);
+          return {
+            id,
+            name: obj?.name ?? id,
+            understandingReward: obj?.understandingReward ?? 0,
+          };
+        }),
+        discoveredItems: discoveredByLayer[l] ?? [],
+      };
+    }
+    // unlockedLayers: 基於 stress 動態計算，已完成層的下一層也納入
+    const unlocked = [1, 2, 3, 4].filter(l => isLayerUnlockedByStress(l, safeStress));
+    for (let l = 1; l <= 4; l++) {
+      if (completedLayers.has(l) && l + 1 <= 4) {
+        if (!unlocked.includes(l + 1)) unlocked.push(l + 1);
+      }
+    }
+    return {
+      unlockedLayers: [...new Set(unlocked)].sort(),
+      layers,
+    };
+  }, [understandingByLayer, discoveredByLayer, completedLayers, safeStress]);
+
+  const syncToStore = useCallback(() => {
+    syncInnerWorldState(buildInnerWorldSave());
+  }, [buildInnerWorldSave, syncInnerWorldState]);
+
+  // 每當 understandingByLayer / discoveredByLayer / safeStress 變動時自動同步
+  useEffect(() => {
+    syncToStore();
+  }, [syncToStore, understandingByLayer, discoveredByLayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const understanding = understandingByLayer[layerNum] ?? { insightIds: [] };
   const discoveredIds = discoveredByLayer[layerNum] ?? [];
@@ -787,12 +878,14 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
 
   const handleLayerComplete = useCallback(() => {
     if (onAdvanceLayer) onAdvanceLayer(layerNum);
+    // 標記當前層為已完成
+    setCompletedLayers(prev => new Set([...prev, layerNum]));
     if (isLast) { setPhase({ type: 'arc_complete' }); return; }
 
     const nextLayer = layerNum + 1;
     if (!isLayerUnlockedByStress(nextLayer, safeStress)) {
       const required = getLayerStressRequirement(nextLayer);
-      setLayerLockMessage(`第${['一', '二', '三', '四'][nextLayer - 1]}层尚未解锁：需要 stress ≤ ${required}（当前 ${safeStress}）。`);
+      setLayerLockMessage(`第${['一', '二', '三', '四'][nextLayer - 1]}層尚未解鎖：需要恐懼值≤ ${required}（當前 ${safeStress}）。`);
       return;
     }
 
@@ -849,7 +942,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                 }}
                 fullWidth
               >
-                回到第{['一','二','三','四'][layerNum - 1]}层继续探索
+                回到第{['一','二','三','四'][layerNum - 1]}層繼續探索
               </GlimmerButton>
             </div>
             {layerLockMessage && (
@@ -921,7 +1014,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           {/* 心防狀態面板 */}
           <GlassPanel title="心理狀態" subtitle="天橋畫家" variant={isAllLayersUnlocked ? 'paper' : 'dark'} contentStyle={{ display:'flex',flexDirection:'column',gap:8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: colors.sub }}>
-              <span>當前 stress</span>
+              <span>當前恐懼值</span>
               <span style={{ color: isAllLayersUnlocked ? '#81c784' : colors.accent, fontWeight: 'bold' }}>
                 {safeStress}
               </span>
@@ -937,8 +1030,8 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
             </div>
             <div style={{ fontSize: 11, color: isAllLayersUnlocked ? '#4a4a4a' : '#7a7a7a', marginTop: 4, lineHeight: 1.5 }}>
               {isAllLayersUnlocked
-                ? '✨ stress 已降到足够低，四层全部解锁。'
-                : `当前最高可进入第${['一', '二', '三', '四'][maxUnlockedLayer - 1]}层。门槛：第2层≤75，第3层≤55，第4层≤35。`}
+                ? '✨恐懼值已降到足夠低，四層全部解鎖。'
+                : `當前最高可進入第${['一', '二', '三', '四'][maxUnlockedLayer - 1]}層。門檻：第2層≤75，第3層≤55，第4層≤35。`}
             </div>
           </GlassPanel>
 
@@ -966,7 +1059,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                 }}
                 fullWidth
               >
-                回到第{CH[fallbackExploringLayer - 1]}层继续探索
+                回到第{CH[fallbackExploringLayer - 1]}層繼續探索
               </GlimmerButton>
             )}
             <GlimmerButton tone="quiet" onClick={handleReturn} fullWidth>返回表世界</GlimmerButton>
@@ -1103,7 +1196,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           {/* 快速層級切換 */}
           <div style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', zIndex: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', width: 'calc(100% - 28px)', maxWidth: 600, padding: '6px 12px', background: 'rgba(255,255,255,0.06)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(2px)' }}>
             <span style={{ fontSize: 13, color: '#f5c16c', fontWeight: 'bold', letterSpacing: 1 }}>
-              {isAllLayersUnlocked ? 'stress 门槛已满足：自由切换层级' : '按 stress 门槛切换层级'}
+              {isAllLayersUnlocked ? '恐懼值門檻已滿足：自由切換層級' : '按照恐懼值門檻切換層級'}
             </span>
             <div style={{ display: 'flex', gap: 16, width: '100%', justifyContent: 'center' }}>
               {[1, 2, 3, 4].map(num => {
@@ -1116,7 +1209,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                       if (!unlocked) {
                         const required = getLayerStressRequirement(num);
                         setFallbackExploringLayer(layerNum);
-                        setLayerLockMessage(`第${CH[num - 1]}层未解锁：需要 stress ≤ ${required}（当前 ${safeStress}）。`);
+                        setLayerLockMessage(`第${CH[num - 1]}層未解鎖：需要恐懼值≤ ${required}（當前 ${safeStress}）。`);
                         return;
                       }
                       setLayerLockMessage(null);
@@ -1156,7 +1249,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                     }}
                     style={{ minHeight: 34, padding: '6px 14px', fontSize: 12 }}
                   >
-                    回到第{CH[fallbackExploringLayer - 1]}层继续探索
+                    回到第{CH[fallbackExploringLayer - 1]}層繼續探索
                   </GlimmerButton>
                 )}
               </div>

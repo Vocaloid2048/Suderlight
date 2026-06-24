@@ -1,6 +1,38 @@
 import type { ClueId, NpcId } from '../data/verticalSlice';
+import { ALL_PSYCH_LAYERS } from '../data/psychologicalWorlds/bridgePainterWorld';
 
 export type NpcEnding = 'none' | 'success' | 'failed';
+
+// ---- InnerWorld 存檔結構 ----
+
+/** 已理解的物品記錄 */
+export type UnderstoodItem = {
+  id: string;
+  name: string;
+  understandingReward: number;
+};
+
+/** 心理世界單層存檔狀態 */
+export type InnerWorldLayerState = {
+  /** 本層是否已完成（理解度達門檻並點擊"深入理解"） */
+  completed: boolean;
+  /** 當前累積理解度分數 */
+  understandingScore: number;
+  /** 已獲得 insight 的物品列表 */
+  understoodItems: UnderstoodItem[];
+  /** 僅發現（點擊過）但尚未獲得 insight 的物品 ID */
+  discoveredItems: string[];
+};
+
+/** 心理世界完整存檔 */
+export type InnerWorldSave = {
+  /** 目前已解鎖可進入的層級編號（基於 stress 條件，一旦解鎖即保留） */
+  unlockedLayers: number[];
+  /** 各層詳細狀態 */
+  layers: Record<number, InnerWorldLayerState>;
+};
+
+// ---- NPC 運行時狀態 ----
 
 export type NpcRuntimeState = {
   id: NpcId;
@@ -17,6 +49,8 @@ export type NpcRuntimeState = {
   innerWorldDepth: number;
   /** 最深達成的心理層級 (0=未進入, 1-4=Layer 1-4 完成) */
   innerWorldLayer: number;
+  /** 心理世界各層詳細進度存檔 */
+  innerWorld?: InnerWorldSave;
 };
 
 export type DialogueEvaluationContext = {
@@ -54,6 +88,22 @@ function mergeFlags(oldFlags: string[], newFlags: string[]) {
   return Array.from(new Set([...oldFlags, ...newFlags]));
 }
 
+export function createDefaultInnerWorldSave(): InnerWorldSave {
+  const layers: Record<number, InnerWorldLayerState> = {};
+  for (const layer of ALL_PSYCH_LAYERS) {
+    layers[layer.layerNumber] = {
+      completed: false,
+      understandingScore: 0,
+      understoodItems: [],
+      discoveredItems: [],
+    };
+  }
+  return {
+    unlockedLayers: [1], // Layer 1 預設解鎖
+    layers,
+  };
+}
+
 export function createBridgeArtistState(): NpcRuntimeState {
   return {
     id: 'bridge_artist',
@@ -68,6 +118,7 @@ export function createBridgeArtistState(): NpcRuntimeState {
     flags: [],
     innerWorldDepth: 0,
     innerWorldLayer: 0,
+    innerWorld: createDefaultInnerWorldSave(),
   };
 }
 
@@ -85,6 +136,7 @@ export function createVictorState(): NpcRuntimeState {
     flags: [],
     innerWorldDepth: 0,
     innerWorldLayer: 0,
+    innerWorld: createDefaultInnerWorldSave(),
   };
 }
 

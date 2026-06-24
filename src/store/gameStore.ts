@@ -5,6 +5,7 @@ import {
   markNpcFailed,
   markNpcSuccess,
   shouldUnlockInnerWorld,
+  type InnerWorldSave,
 } from '../systems/npcStateEngine';
 import { clearSave, createInitialSave, loadSave, persistSave, type GameSave, type GhostRecord } from '../systems/saveSystem';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
@@ -40,6 +41,8 @@ type GameStore = {
   setInnerWorldDepth: (depth: number) => void;
   /** 記錄心理世界層級進展 (1-4) */
   advancePsychLayer: (layer: number) => void;
+  /** 同步內心世界詳細進度到存檔 */
+  syncInnerWorldState: (innerWorld: InnerWorldSave) => void;
   /** Playtest: 強制滿足內心世界解鎖條件 */
   forceUnlockInnerWorld: () => void;
 };
@@ -49,8 +52,8 @@ function cloneSave(save: GameSave): GameSave {
     ...save,
     collectedClues: [...save.collectedClues],
     npcs: {
-      bridge_artist: { ...save.npcs.bridge_artist, flags: [...save.npcs.bridge_artist.flags], innerWorldLayer: save.npcs.bridge_artist.innerWorldLayer ?? 0 },
-      victor: { ...save.npcs.victor, flags: [...save.npcs.victor.flags], innerWorldLayer: save.npcs.victor.innerWorldLayer ?? 0 },
+      bridge_artist: { ...save.npcs.bridge_artist, flags: [...save.npcs.bridge_artist.flags], innerWorldLayer: save.npcs.bridge_artist.innerWorldLayer ?? 0, innerWorld: save.npcs.bridge_artist.innerWorld ? { ...save.npcs.bridge_artist.innerWorld, layers: { ...save.npcs.bridge_artist.innerWorld.layers } } : undefined },
+      victor: { ...save.npcs.victor, flags: [...save.npcs.victor.flags], innerWorldLayer: save.npcs.victor.innerWorldLayer ?? 0, innerWorld: save.npcs.victor.innerWorld ? { ...save.npcs.victor.innerWorld, layers: { ...save.npcs.victor.innerWorld.layers } } : undefined },
     },
     ghosts: [...save.ghosts],
   };
@@ -227,14 +230,40 @@ export const useGameStore = create<GameStore>((set) => ({
     });
   },
 
-  /** 記錄心理世界層級進展：將 innerWorldLayer 設為完成的最大層級 */
+  /** 記錄心理世界層級進展：將 innerWorldLayer 設為完成的最大層級，同時標記對應 innerWorld 層級完成 */
   advancePsychLayer: (layer) => {
     set(state => {
       const next = cloneSave(state.save);
       const currentLayer = next.npcs.bridge_artist.innerWorldLayer ?? 0;
+      // 同步更新 innerWorld
+      const iw = next.npcs.bridge_artist.innerWorld;
+      if (iw) {
+        const layerState = iw.layers[layer];
+        if (layerState) {
+          iw.layers[layer] = { ...layerState, completed: true };
+          // 下一層如未在 unlockedLayers 中則加入
+          const nextLayer = layer + 1;
+          if (nextLayer <= 4 && !iw.unlockedLayers.includes(nextLayer)) {
+            iw.unlockedLayers = [...iw.unlockedLayers, nextLayer];
+          }
+        }
+      }
       next.npcs.bridge_artist = {
         ...next.npcs.bridge_artist,
         innerWorldLayer: Math.max(currentLayer, layer),
+        innerWorld: iw,
+      };
+      return { save: persistAndReturn(next) };
+    });
+  },
+
+  /** 將 BridgePainterInnerWorld 運行時狀態同步到存檔 */
+  syncInnerWorldState: (innerWorld) => {
+    set(state => {
+      const next = cloneSave(state.save);
+      next.npcs.bridge_artist = {
+        ...next.npcs.bridge_artist,
+        innerWorld,
       };
       return { save: persistAndReturn(next) };
     });
