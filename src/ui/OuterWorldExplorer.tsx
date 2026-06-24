@@ -8,6 +8,8 @@ import brushImage from '../../images/item/ChatGPT Image 2026年5月29日 下午1
 import newspaperImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_50_17.png';
 import sketchbookImage from '../../images/item/ChatGPT Image 2026年5月29日 下午10_51_17.png';
 import painterImage from '../../images/character/IMG_3556.png';
+import painterUnlockedImage from '../../images/character/IMG_3562.png';
+
 
 
 
@@ -1393,7 +1395,8 @@ export default function OuterWorldExplorer({
             >
               {isPainterImage ? (
                 <img
-                  src={painterImage}
+                  src={bridgeArtist.ending === 'success' ? painterUnlockedImage : painterImage}
+
                   alt={entity.label}
                   style={{
                     width: '100%',
