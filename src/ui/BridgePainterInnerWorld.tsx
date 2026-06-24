@@ -72,10 +72,10 @@ type SchemeColors = ReturnType<typeof getSchemeColors>;
 
 function getSchemeColors(scheme: LayerColorScheme) {
   const map = {
-    gold:   { accent:'#d4a35e', text:'#d8c29b', sub:'#b0a58b', cellEmpty:'rgba(255,255,255,0.02)', cellNorm:'rgba(255,255,255,0.04)', cellDisc:'rgba(255,255,255,0.06)', cellInsight:'linear-gradient(135deg, rgba(214,163,94,0.16), rgba(138,91,45,0.1))', border:'rgba(214,163,94,0.12)', gridBg:'radial-gradient(ellipse at center, rgba(45,36,22,0.5), rgba(18,14,10,0.85))' },
-    cold:  { accent:'#6b9ec4', text:'#b0c8dd', sub:'#7a8fa0', cellEmpty:'rgba(160,180,200,0.03)', cellNorm:'rgba(160,180,200,0.05)', cellDisc:'rgba(160,180,200,0.08)', cellInsight:'linear-gradient(135deg, rgba(107,158,196,0.16), rgba(60,110,150,0.1))', border:'rgba(107,158,196,0.12)', gridBg:'radial-gradient(ellipse at center, rgba(12,22,35,0.5), rgba(4,8,14,0.88))' },
-    faded: { accent:'#a89880', text:'#c8bca0', sub:'#8a7e6c', cellEmpty:'rgba(180,160,140,0.02)', cellNorm:'rgba(180,160,140,0.04)', cellDisc:'rgba(180,160,140,0.07)', cellInsight:'linear-gradient(135deg, rgba(168,152,128,0.12), rgba(130,110,80,0.08))', border:'rgba(168,152,128,0.1)', gridBg:'radial-gradient(ellipse at center, rgba(38,34,28,0.5), rgba(16,14,12,0.88))' },
-    void:  { accent:'#b8a9c9', text:'#4a3f5c', sub:'#7a6e8a', cellEmpty:'rgba(200,180,220,0.04)', cellNorm:'rgba(200,180,220,0.06)', cellDisc:'rgba(200,180,220,0.1)', cellInsight:'linear-gradient(135deg, rgba(184,169,201,0.14), rgba(150,130,180,0.08))', border:'rgba(184,169,201,0.2)', gridBg:'rgba(245,243,248,0.5)' },
+    gold:   { accent:'#d4a35e', text:'#d8c29b', sub:'#b0a58b', cellEmpty:'rgba(255,255,255,0.12)', cellNorm:'rgba(255,255,255,0.08)', cellDisc:'rgba(255,255,255,0.10)', cellInsight:'linear-gradient(135deg, rgba(214,163,94,0.16), rgba(138,91,45,0.1))', border:'rgba(214,163,94,0.12)', gridBg:'radial-gradient(ellipse at center, rgba(45,36,22,0.5), rgba(18,14,10,0.85))' },
+    cold:  { accent:'#6b9ec4', text:'#b0c8dd', sub:'#7a8fa0', cellEmpty:'rgba(160,180,200,0.14)', cellNorm:'rgba(160,180,200,0.10)', cellDisc:'rgba(160,180,200,0.12)', cellInsight:'linear-gradient(135deg, rgba(107,158,196,0.16), rgba(60,110,150,0.1))', border:'rgba(107,158,196,0.12)', gridBg:'radial-gradient(ellipse at center, rgba(12,22,35,0.5), rgba(4,8,14,0.88))' },
+    faded: { accent:'#a89880', text:'#c8bca0', sub:'#8a7e6c', cellEmpty:'rgba(180,160,140,0.12)', cellNorm:'rgba(180,160,140,0.08)', cellDisc:'rgba(180,160,140,0.10)', cellInsight:'linear-gradient(135deg, rgba(168,152,128,0.12), rgba(130,110,80,0.08))', border:'rgba(168,152,128,0.1)', gridBg:'radial-gradient(ellipse at center, rgba(38,34,28,0.5), rgba(16,14,12,0.88))' },
+    void:  { accent:'#b8a9c9', text:'#4a3f5c', sub:'#7a6e8a', cellEmpty:'rgba(100,90,110,0.15)', cellNorm:'rgba(200,180,220,0.10)', cellDisc:'rgba(200,180,220,0.14)', cellInsight:'linear-gradient(135deg, rgba(184,169,201,0.14), rgba(150,130,180,0.08))', border:'rgba(184,169,201,0.2)', gridBg:'rgba(245,243,248,0.5)' },
   };
   return map[scheme];
 }
@@ -984,21 +984,21 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
     <GuiFrame tone="inner">
       <div style={{ position:'relative',zIndex:2,height:'100%',display:'grid',gridTemplateColumns:'270px 1fr',gap:20,padding:28 }}>
         {/* 左側欄 */}
-        <aside style={{ display:'flex',flexDirection:'column',gap:14,overflowY:'auto',maxHeight:'calc(100vh - 100px)' }}>
-          <GlassPanel title={`第${CH[layerNum-1]}層`} subtitle={layer.layerName} variant={layer.colorScheme==='void'?'paper':'warm'} contentStyle={{ display:'flex',flexDirection:'column',gap:12 }}>
-            <div style={{ color:colors.sub,fontSize:13,lineHeight:1.9,whiteSpace:'pre-line' }}>{layerAtmoText(layerNum)}</div>
+        <aside style={{ display:'flex',flexDirection:'column',gap:14,overflowY:'auto',maxHeight:'calc(100vh - 100px)',minHeight:0,paddingRight:4 }}>
+          <GlassPanel title={`第${CH[layerNum-1]}層`} subtitle={layer.layerName} variant={layer.colorScheme==='void'?'paper':'warm'} style={{ flexShrink:0 }} contentStyle={{ display:'flex',flexDirection:'column',gap:12 }}>
+            <div style={{ color:layer.colorScheme==='void'?'#3a2a14':colors.sub,fontSize:13,lineHeight:1.9,whiteSpace:'pre-line' }}>{layerAtmoText(layerNum)}</div>
             {layer.nextLayerThreshold > 0 && (
               <div style={{ marginTop:4 }}>
-                <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:colors.sub,marginBottom:4 }}><span>理解深度</span><span>{score}/{layer.nextLayerThreshold}</span></div>
-                <div style={{ width:'100%',height:4,borderRadius:2,background:colors.cellEmpty,overflow:'hidden' }}>
+                <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:layer.colorScheme==='void'?'#5a4328':colors.sub,marginBottom:4 }}><span>理解深度</span><span>{score}/{layer.nextLayerThreshold}</span></div>
+                <div style={{ width:'100%',height:4,borderRadius:2,background:layer.colorScheme==='void'?'rgba(80,60,40,0.18)':colors.cellEmpty,overflow:'hidden' }}>
                   <div style={{ width:`${Math.min(100,(score/layer.nextLayerThreshold)*100)}%`,height:'100%',borderRadius:2,background:`linear-gradient(90deg, ${colors.accent}, ${colors.accent}88)`,transition:'width 0.5s ease' }}/>
                 </div>
               </div>
             )}
             {isLast && (
               <div style={{ marginTop:4 }}>
-                <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:colors.sub,marginBottom:4 }}><span>理解深度</span><span>{insightCount}/{layer.interactables.length} 個片段</span></div>
-                <div style={{ width:'100%',height:4,borderRadius:2,background:colors.cellEmpty,overflow:'hidden' }}>
+                <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:layer.colorScheme==='void'?'#5a4328':colors.sub,marginBottom:4 }}><span>理解深度</span><span>{insightCount}/{layer.interactables.length} 個片段</span></div>
+                <div style={{ width:'100%',height:4,borderRadius:2,background:layer.colorScheme==='void'?'rgba(80,60,40,0.18)':colors.cellEmpty,overflow:'hidden' }}>
                   <div style={{ width:`${Math.min(100,(insightCount/layer.interactables.length)*100)}%`,height:'100%',borderRadius:2,background:`linear-gradient(90deg, ${colors.accent}, ${colors.accent}88)`,transition:'width 0.5s ease' }}/>
                 </div>
               </div>
@@ -1012,14 +1012,14 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           </GlassPanel>
 
           {/* 心防狀態面板 */}
-          <GlassPanel title="心理狀態" subtitle="天橋畫家" variant={isAllLayersUnlocked ? 'paper' : 'dark'} contentStyle={{ display:'flex',flexDirection:'column',gap:8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: colors.sub }}>
+          <GlassPanel title="心理狀態" subtitle="天橋畫家" variant={isAllLayersUnlocked ? 'paper' : 'dark'} style={{ flexShrink:0 }} contentStyle={{ display:'flex',flexDirection:'column',gap:8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: isAllLayersUnlocked ? '#3a2a14' : colors.sub }}>
               <span>當前恐懼值</span>
-              <span style={{ color: isAllLayersUnlocked ? '#81c784' : colors.accent, fontWeight: 'bold' }}>
+              <span style={{ color: isAllLayersUnlocked ? '#2e7d32' : colors.accent, fontWeight: 'bold' }}>
                 {safeStress}
               </span>
             </div>
-            <div style={{ width: '100%', height: 6, borderRadius: 3, background: colors.cellEmpty, overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: 6, borderRadius: 3, background: isAllLayersUnlocked ? 'rgba(80,60,40,0.18)' : colors.cellEmpty, overflow: 'hidden' }}>
               <div style={{
                 width: `${safeStress}%`,
                 height: '100%',
@@ -1028,7 +1028,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                 transition: 'width 0.5s ease'
               }} />
             </div>
-            <div style={{ fontSize: 11, color: isAllLayersUnlocked ? '#4a4a4a' : '#7a7a7a', marginTop: 4, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11, color: isAllLayersUnlocked ? '#3a2a14' : '#7a7a7a', marginTop: 4, lineHeight: 1.5 }}>
               {isAllLayersUnlocked
                 ? '✨恐懼值已降到足夠低，四層全部解鎖。'
                 : `當前最高可進入第${['一', '二', '三', '四'][maxUnlockedLayer - 1]}層。門檻：第2層≤75，第3層≤55，第4層≤35。`}
@@ -1037,14 +1037,14 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
 
 
           {insightCount > 0 && (
-            <GlassPanel title="理解碎片" subtitle={`${insightCount} 個片段`} variant="paper" contentStyle={{ display:'flex',flexDirection:'column',gap:10 }}>
+            <GlassPanel title="理解碎片" subtitle={`${insightCount} 個片段`} variant="paper" style={{ flexShrink:0 }} contentStyle={{ display:'flex',flexDirection:'column',gap:10 }}>
               {insightFragments.map((f,i) => (
                 <div key={i} style={{ padding:'10px 12px',borderRadius:8,background:'rgba(214,163,94,0.1)',border:'1px solid rgba(214,163,94,0.18)',color:'#4a3620',fontSize:13,lineHeight:1.7,fontStyle:'italic' }}>「{f}」</div>
               ))}
             </GlassPanel>
           )}
 
-          <div style={{ display:'flex',flexDirection:'column',gap:8,marginTop:'auto' }}>
+          <div style={{ display:'flex',flexDirection:'column',gap:8,marginTop:'auto',flexShrink:0 }}>
             {showLayerCompleteBtn && (
               <GlimmerButton tone="primary" onClick={() => setPhase({ type:'layer_complete' })} fullWidth>深入理解 →</GlimmerButton>
             )}
