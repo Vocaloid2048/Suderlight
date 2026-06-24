@@ -9,8 +9,8 @@ RUN npm run build
 # ---- Stage 2: Final Serve ----
 FROM nginx:1.27-bookworm
 
-# Install Node.js for backend server
-RUN apt-get update && apt-get install -y curl && \
+# Install Node.js + openssl (for self-signed cert)
+RUN apt-get update && apt-get install -y curl openssl && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -33,5 +33,6 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 80
+EXPOSE 443
 
 CMD ["/entrypoint.sh"]

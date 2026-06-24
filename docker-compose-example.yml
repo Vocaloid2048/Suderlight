@@ -9,6 +9,7 @@ services:
     restart: always
     ports:
       - "80:80"
+      - "443:443"
     environment:
       - PORT=4000
       - NODE_ENV=production
