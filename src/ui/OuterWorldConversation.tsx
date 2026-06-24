@@ -54,7 +54,7 @@ type AiReply = {
 function formatSystemJudgement(systemJudgement: SystemJudgement) {
   const parts = [
     `信任度 ${systemJudgement.trustDelta >= 0 ? '+' : ''}${systemJudgement.trustDelta}`,
-    `??? ${systemJudgement.stressDelta >= 0 ? '+' : ''}${systemJudgement.stressDelta}`,
+    `恐懼值 ${systemJudgement.stressDelta >= 0 ? '+' : ''}${systemJudgement.stressDelta}`,
   ];
 
   if (typeof systemJudgement.knowledgeDelta === 'number' && systemJudgement.knowledgeDelta !== 0) {
@@ -209,6 +209,7 @@ function simulateBlankPainterReply(
 
 export default function OuterWorldConversation({
   inventory,
+  knowledge,
   innerWorldDepth = 0,
   npcState,
   onClose,
@@ -494,7 +495,7 @@ const triggeredLore = useMemo(() => {
           {/* 進度數值指示器 */}
           <GlassPanel title="心防指示器" variant="dark" contentStyle={{ display: 'grid', gap: 12 }}>
             <MeterBar label="對TA的認識" value={knowledge} max={100} tone="blue" />
-            <MeterBar label="???" value={npcState.stress} max={100} tone="red" />
+            <MeterBar label="恐懼值" value={npcState.stress} max={100} tone="red" />
             <MeterBar label="信任度" value={npcState.trust} max={100} tone="gold" />
             <div style={{
               color: '#9ba2ad', fontSize: 12, lineHeight: 1.6,
