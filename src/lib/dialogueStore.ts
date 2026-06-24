@@ -18,6 +18,7 @@ export type DialogueMessage = {
     stateLabel: string;
     trustDelta: number;
     stressDelta: number;
+    knowledgeDelta?: number;
     trust?: number;
     stress?: number;
     knowledge?: number;

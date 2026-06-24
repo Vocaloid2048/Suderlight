@@ -60,14 +60,14 @@ type AiReply = {
 };
 
 function formatSystemJudgement(systemJudgement: SystemJudgement) {
-  const parts = [
-    `信任度 ${systemJudgement.trustDelta >= 0 ? '+' : ''}${systemJudgement.trustDelta}`,
-    `恐懼值 ${systemJudgement.stressDelta >= 0 ? '+' : ''}${systemJudgement.stressDelta}`,
-  ];
+  const fmtNum = (n: number | undefined, fallback = '?') =>
+    n != null ? String(n) : fallback;
 
-  if (typeof systemJudgement.knowledgeDelta === 'number' && systemJudgement.knowledgeDelta !== 0) {
-    parts.push(`對TA的認識 ${systemJudgement.knowledgeDelta >= 0 ? '+' : ''}${systemJudgement.knowledgeDelta}`);
-  }
+  const parts = [
+    `對TA的認識 ${(systemJudgement.knowledgeDelta || 0) >= 0 ? '+' : ''}${systemJudgement.knowledgeDelta || '0'}`,
+    `恐懼值 ${(systemJudgement.stressDelta || 0) >= 0 ? '+' : ''}${systemJudgement.stressDelta || '0'}`,
+    `信任度 ${(systemJudgement.trustDelta || 0) >= 0 ? '+' : ''}${systemJudgement.trustDelta || '0'}`,
+  ];
 
   return `系統判定：${systemJudgement.stateLabel || '未知'}（${parts.join(' / ')}）`;
 }
@@ -404,6 +404,9 @@ const triggeredLore = useMemo(() => {
             trustDelta: reply.backendPsychology.trustDelta,
             stressDelta: reply.backendPsychology.stressDelta,
             knowledgeDelta: reply.backendPsychology.knowledgeDelta,
+            knowledge: reply.backendNpcState?.knowledge,
+            trust: reply.backendNpcState?.trust,
+            stress: reply.backendNpcState?.stress,
           }),
         });
       }
@@ -473,6 +476,7 @@ const triggeredLore = useMemo(() => {
           stateLabel: reply.backendPsychology.stateLabel,
           trustDelta: reply.backendPsychology.trustDelta,
           stressDelta: reply.backendPsychology.stressDelta,
+          knowledgeDelta: reply.backendPsychology.knowledgeDelta,
           knowledge: reply.backendNpcState?.knowledge,
           trust: reply.backendNpcState?.trust,
           stress: reply.backendNpcState?.stress,
