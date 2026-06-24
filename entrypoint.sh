@@ -1,23 +1,11 @@
 #!/bin/sh
 
-# ---- 生成 self-signed 证书 (Cloudflare Full SSL 模式用) ----
-CERT_DIR="/etc/nginx/certs"
-if [ ! -f "$CERT_DIR/server.crt" ]; then
-    echo "[entrypoint] Generating self-signed certificate..."
-    mkdir -p "$CERT_DIR"
-    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-        -keyout "$CERT_DIR/server.key" \
-        -out "$CERT_DIR/server.crt" \
-        -subj "/CN=suderlight" 2>/dev/null
-    echo "[entrypoint] Certificate generated."
-fi
-
-# ---- 启动后端 (Express) ----
+# 启动后端 (Express，统一代码库)
 echo "[entrypoint] Starting backend server..."
 cd /app/server && STORAGE_MODE=fs API_PREFIX=/api PORT=4000 node index.js &
 SERVER_PID=$!
 
-# ---- 等待后端就绪 ----
+# 等待后端就绪 (最多 30 秒)
 echo "[entrypoint] Waiting for backend to be ready..."
 READY=0
 for i in $(seq 1 30); do
@@ -26,6 +14,7 @@ for i in $(seq 1 30); do
         READY=1
         break
     fi
+    # 检查进程是否还活着
     if ! kill -0 $SERVER_PID 2>/dev/null; then
         echo "[entrypoint] ERROR: Backend process died unexpectedly!"
         exit 1
@@ -38,6 +27,6 @@ if [ "$READY" = "0" ]; then
     exit 1
 fi
 
-# ---- 启动 Nginx (HTTP + HTTPS) ----
-echo "[entrypoint] Starting nginx (port 80 + 443)..."
+# 启动前端 (Nginx)
+echo "[entrypoint] Starting nginx..."
 exec nginx -g "daemon off;"
