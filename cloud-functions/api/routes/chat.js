@@ -80,7 +80,7 @@ router.post('/', async (req, res, next) => {
         });
       }
 
-      // ---- AI 意圖分類：獲取 NPC 角色設定 + 對話上下文 ----
+      // ---- 並行請求：AI 意圖分類 + NPC 對話回覆（兩者互不依賴）----
       const npcCard = CHARACTER_CARDS[npcId] || {};
       const npcSettings = {
         name: npcCard.name || '',
@@ -90,11 +90,14 @@ router.post('/', async (req, res, next) => {
       };
       const recentMessages = memoryService.getRecentDialogue(npcId, 10, playerId);
       const recentInputTypes = memoryService.getRecentTypes(npcId, playerId);
-      const dialogueType = await npcStateEngine.classifyDialogue(message, npcSettings, recentMessages);
-
       const messages = buildPrompt(npcId, message, recentInputTypes, playerId);
 
-      let reply = await deepseekChat(messages);
+      const [dialogueType, replyRaw] = await Promise.all([
+        npcStateEngine.classifyDialogue(message, npcSettings, recentMessages),
+        deepseekChat(messages),
+      ]);
+
+      let reply = replyRaw;
       if (!reply || reply.trim() === '') reply = '他只是沈默地看著畫布，雨聲填滿了對話的空白。';
 
       const stateUpdate = npcStateEngine.updateAfterDialogue(npc, message, dialogueType, recentInputTypes);
