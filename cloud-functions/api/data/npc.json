@@ -8,7 +8,7 @@
     "trust": 20,
     "stress": 80,
     "knowledge": 0,
-    "knowledgeRequired": 70,
+    "knowledgeRequired": 80,
     "innerWorldUnlocked": false,
     "ending": "none",
     "worldbookUnlockIds": [5, 7]

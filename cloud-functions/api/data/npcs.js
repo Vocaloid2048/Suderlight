@@ -8,7 +8,7 @@ export default {
     "trust": 20,
     "stress": 80,
     "knowledge": 0,
-    "knowledgeRequired": 70,
+    "knowledgeRequired": 80,
     "innerWorldUnlocked": false,
     "ending": "none",
     "worldbookUnlockIds": [

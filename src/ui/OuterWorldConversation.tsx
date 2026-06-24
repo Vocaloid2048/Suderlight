@@ -2,10 +2,17 @@ import { FormEvent, useMemo, useState, useEffect } from 'react';
 import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import MeterBar from '../components/MeterBar';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
+import { bridgeArtistClues } from '../data/verticalSlice';
 import type { NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
 import { loadDialogueHistory, appendDialogueExchange, clearDialogueHistory } from '../lib/dialogueStore';
+
+// 线索 ID → 中文描述映射
+const CLUE_LABELS: Record<string, string> = {};
+for (const c of Object.values(bridgeArtistClues)) {
+  CLUE_LABELS[c.id] = c.shortLabel;
+}
 
 type ChatMessage = {
   role: 'player' | 'npc' | 'system';
@@ -214,7 +221,7 @@ function getRepairTip(npc: NpcRuntimeState): string {
   const { trust, stress, knowledge, innerWorldUnlocked, innerWorldDepth: depth } = npc;
 
   // 最高优先：已解锁心理世界且信任+认知双达标
-  if (innerWorldUnlocked && trust >= 70 && knowledge >= 70) {
+  if (innerWorldUnlocked && trust >= 50 && knowledge >= 80) {
     return '門已敞開。你的理解與接納讓他願意讓你走入內心。此刻進入，你能看見他最深的空白。';
   }
 
@@ -533,14 +540,14 @@ const triggeredLore = useMemo(() => {
               <input
                 value={input}
                 onChange={event => setInput(event.target.value)}
-                placeholder={isEnded ? '這段對話已結束' : '試著輸入：我可以陪你坐一會 / 不畫畫也沒關係 / 你還能聽見雨聲'}
+                placeholder={isEnded ? '這段對話已結束' : '試著輸入：你的畫筆還在嗎 / 創作對你來說是什麼 / 我可以陪你坐一會 / 不畫畫也沒關係'}
                 disabled={isEnded}
                 style={{ flex: 1, background: '#101218', color: '#f5f0e8', border: '1px solid #444', borderRadius: 10, padding: '12px 14px', outline: 'none', fontSize: 14, opacity: isEnded ? 0.55 : 1 }}
               />
               <GlimmerButton type="submit" tone="primary" disabled={isThinking || isEnded}>送出</GlimmerButton>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, color: '#777', fontSize: 12 }}>
-              <span>目前線索：{inventory.length > 0 ? inventory.join(' / ') : '沒有線索'}</span>
+              <span>目前線索：{inventory.length > 0 ? inventory.map(id => CLUE_LABELS[id] || id).join(' / ') : '沒有線索'}</span>
               {triggeredLore.length > 0 && <span style={{ color: '#f5c16c' }}>記憶被線索牽動</span>}
             </div>
           </form>
