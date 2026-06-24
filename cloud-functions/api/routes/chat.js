@@ -102,7 +102,7 @@ router.post('/', async (req, res, next) => {
         stateLabel: npcStateEngine.getStateLabel(stateUpdate.npc),
         trustDelta: stateUpdate.trustDelta,
         stressDelta: stateUpdate.stressDelta,
-        knowledgeDelta: stateUpdate.npc.knowledge - (npc.knowledge || 0),
+        knowledgeDelta: stateUpdate.knowledgeDelta ?? (stateUpdate.npc.knowledge - (npc.knowledge || 0)),
         trust: stateUpdate.npc.trust,
         stress: stateUpdate.npc.stress,
         knowledge: stateUpdate.npc.knowledge,
@@ -145,6 +145,7 @@ router.post('/', async (req, res, next) => {
         psychology: {
           trustDelta: stateUpdate.trustDelta,
           stressDelta: stateUpdate.stressDelta,
+          knowledgeDelta: systemJudgement.knowledgeDelta,
           stateLabel: systemJudgement.stateLabel,
           inputType: stateUpdate.dialogueType,
         },

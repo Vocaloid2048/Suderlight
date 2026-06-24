@@ -14,6 +14,7 @@ export type BackendChatResponse = {
   psychology?: {
     trustDelta: number;
     stressDelta: number;
+    knowledgeDelta?: number;
     stateLabel: string;
     inputType?: string;
   };

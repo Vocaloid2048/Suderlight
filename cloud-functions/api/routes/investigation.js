@@ -24,9 +24,9 @@ router.post('/collect', (req, res, next) => {
 
     if (!alreadyCollected) {
       save.collectedClues.push(clueId);
-      save.player.knowledge = Math.min(100, save.player.knowledge + (clue.knowledge || 20));
+      save.player.knowledge = Math.min(100, save.player.knowledge + (clue.knowledge || 15));
       if (npc) {
-        npc.knowledge = Math.min(100, npc.knowledge + (clue.knowledge || 20));
+        npc.knowledge = Math.min(100, npc.knowledge + (clue.knowledge || 15));
         npcStateEngine.checkUnlock(npc);
         saveService.saveNpc(npc, req.playerId);
       }

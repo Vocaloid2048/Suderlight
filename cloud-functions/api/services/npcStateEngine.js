@@ -251,14 +251,14 @@ function getDialogueDelta(message, knownType, recentInputTypes = []) {
   // 使用同步版分類作為 fallback；在正常流程中 knownType 始終由 AI 分類提供
   const dialogueType = knownType || classifyDialogueSync(message);
 
-  if (dialogueType === 'hostile')     return { dialogueType, trustDelta: -8, stressDelta: 12 };
-  if (dialogueType === 'comfort')     return { dialogueType, trustDelta: -3, stressDelta: 5 };
-  if (dialogueType === 'empathy')     return { dialogueType, trustDelta: 10, stressDelta: -6 };
-  if (dialogueType === 'contradict')  return { dialogueType, trustDelta: 0, stressDelta: 5 };
-  if (dialogueType === 'dismiss')     return { dialogueType, trustDelta: -3, stressDelta: 3 };
-  if (dialogueType === 'neutral')     return { dialogueType, trustDelta: 0, stressDelta: 0 };
-  if (dialogueType === 'role_related') return { dialogueType, trustDelta: 2, stressDelta: -1 };
-  return { dialogueType, trustDelta: 0, stressDelta: 0 };
+  if (dialogueType === 'hostile')     return { dialogueType, trustDelta: -8, stressDelta: 12, knowledgeDelta: -5 };
+  if (dialogueType === 'comfort')     return { dialogueType, trustDelta: -3, stressDelta: 5,  knowledgeDelta: 0 };
+  if (dialogueType === 'empathy')     return { dialogueType, trustDelta: 10, stressDelta: -6, knowledgeDelta: 3 };
+  if (dialogueType === 'contradict')  return { dialogueType, trustDelta: 0,  stressDelta: 5,  knowledgeDelta: -2 };
+  if (dialogueType === 'dismiss')     return { dialogueType, trustDelta: -3, stressDelta: 3,  knowledgeDelta: -2 };
+  if (dialogueType === 'neutral')     return { dialogueType, trustDelta: 0,  stressDelta: 0,  knowledgeDelta: 0 };
+  if (dialogueType === 'role_related') return { dialogueType, trustDelta: 2, stressDelta: -1, knowledgeDelta: 5 };
+  return { dialogueType, trustDelta: 0, stressDelta: 0, knowledgeDelta: 1 };
 }
 
 // ---- 解鎖檢查 ----
@@ -271,17 +271,13 @@ function checkUnlock(npc) {
 
 // ---- 更新 NPC 狀態 ----
 function updateAfterDialogue(npc, message, knownType, recentInputTypes = []) {
-  const { dialogueType, trustDelta, stressDelta } = getDialogueDelta(message, knownType, recentInputTypes);
+  const { dialogueType, trustDelta, stressDelta, knowledgeDelta } = getDialogueDelta(message, knownType, recentInputTypes);
   npc.trust = clamp((npc.trust || 20) + trustDelta);
   npc.stress = clamp((npc.stress || 80) + stressDelta);
-
-  // role_related: +3 knowledge，其餘不自動加
-  if (dialogueType === 'role_related') {
-    npc.knowledge = clamp((npc.knowledge || 0) + 3);
-  }
+  npc.knowledge = clamp((npc.knowledge || 0) + (knowledgeDelta || 0));
 
   checkUnlock(npc);
-  return { npc, dialogueType, trustDelta, stressDelta };
+  return { npc, dialogueType, trustDelta, stressDelta, knowledgeDelta };
 }
 
 // ---- 狀態標籤 ----
