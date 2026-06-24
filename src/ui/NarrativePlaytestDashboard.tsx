@@ -3,7 +3,7 @@
 // 顯示所有內部數值、AI 解讀與敘事事件 — 評審用
 // ============================================================
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import {
   useNarrativePlaytestStore,
@@ -69,6 +69,23 @@ const ROW: React.CSSProperties = {
 
 const LBL: React.CSSProperties = { color: '#8899aa', flexShrink: 0 };
 const VAL: React.CSSProperties = { color: '#dde4ef', fontWeight: 500, textAlign: 'right' };
+
+const btnStyle: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  borderRadius: 4,
+  border: '1px solid rgba(255,255,255,0.15)',
+  background: 'rgba(255,255,255,0.06)',
+  color: '#c8d6e5',
+  cursor: 'pointer',
+  fontSize: 13,
+  lineHeight: '20px',
+  textAlign: 'center',
+  padding: 0,
+  fontFamily: 'inherit',
+  flexShrink: 0,
+  userSelect: 'none',
+};
 
 // ---- Helpers ----
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
@@ -174,6 +191,7 @@ type Props = { currentScreen: string };
 
 export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
   const save = useGameStore((s) => s.save);
+  const setNpcStat = useGameStore((s) => s.setNpcStat);
   const lastEval = useNarrativePlaytestStore((s) => s.lastEvaluation);
   const innerWorldEvents = useNarrativePlaytestStore((s) => s.innerWorldEvents);
   const eventLog = useNarrativePlaytestStore((s) => s.eventLog);
@@ -184,6 +202,36 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
   const allClueIds: ClueId[] = ['brush', 'newspaper', 'sketchbook', 'accident_report'];
   const branches = useMemo(() => computeBranches(save.collectedClues), [save.collectedClues]);
   const completedCount = innerWorldEvents.filter((e) => e.completed).length;
+
+  // ---- Free Stat Control ----
+  const [localTrust, setLocalTrust] = useState(npc.trust);
+  const [localStress, setLocalStress] = useState(npc.stress);
+  const [localKnowledge, setLocalKnowledge] = useState(npc.knowledge);
+  const [autoSave, setAutoSave] = useState(true);
+
+  // 外部數值變化時同步本地狀態
+  useEffect(() => { setLocalTrust(npc.trust); }, [npc.trust]);
+  useEffect(() => { setLocalStress(npc.stress); }, [npc.stress]);
+  useEffect(() => { setLocalKnowledge(npc.knowledge); }, [npc.knowledge]);
+
+  const applyStat = useCallback((stat: 'trust' | 'stress' | 'knowledge', value: number) => {
+    setNpcStat('bridge_artist', stat, value);
+  }, [setNpcStat]);
+
+  const adjustStat = useCallback((stat: 'trust' | 'stress' | 'knowledge', delta: number) => {
+    const current = stat === 'trust' ? localTrust : stat === 'stress' ? localStress : localKnowledge;
+    const next = Math.max(0, Math.min(100, Math.round(current + delta)));
+    if (stat === 'trust') setLocalTrust(next);
+    if (stat === 'stress') setLocalStress(next);
+    if (stat === 'knowledge') setLocalKnowledge(next);
+    if (autoSave) applyStat(stat, next);
+  }, [localTrust, localStress, localKnowledge, autoSave, applyStat]);
+
+  const handleManualApply = useCallback(() => {
+    applyStat('trust', localTrust);
+    applyStat('stress', localStress);
+    applyStat('knowledge', localKnowledge);
+  }, [localTrust, localStress, localKnowledge, applyStat]);
 
   // ---- Chapter progress ----
   const chapterProgress = CHAPTERS.map((ch) => ({
@@ -270,6 +318,83 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ============================================================ */}
+      {/* Free Stat Control (Playtest)                                  */}
+      {/* ============================================================ */}
+      <div style={{ ...SECTION, borderColor: 'rgba(255,180,60,0.25)' }}>
+        <div style={{ ...SEC_TITLE, color: '#ffb74d' }}>1.5 Free Stat Control</div>
+
+        {/* ---- Trust ---- */}
+        <div style={{ ...ROW, marginBottom: 4 }}>
+          <span style={{ ...LBL, minWidth: 52 }}>Trust</span>
+          <button onClick={() => adjustStat('trust', -5)} style={btnStyle}>−</button>
+          <div style={{ flex: 1, margin: '0 6px' }}>
+            <div style={{ width: '100%', height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div style={{ width: `${localTrust}%`, height: '100%', borderRadius: 4, background: localTrust >= 50 ? '#4caf50' : localTrust >= 30 ? '#ff9800' : '#f44336', transition: 'width 0.15s ease' }} />
+            </div>
+          </div>
+          <span style={{ ...VAL, minWidth: 26, textAlign: 'center' }}>{localTrust}</span>
+          <button onClick={() => adjustStat('trust', 5)} style={btnStyle}>+</button>
+        </div>
+
+        {/* ---- Stress ---- */}
+        <div style={{ ...ROW, marginBottom: 4 }}>
+          <span style={{ ...LBL, minWidth: 52 }}>Stress</span>
+          <button onClick={() => adjustStat('stress', -5)} style={btnStyle}>−</button>
+          <div style={{ flex: 1, margin: '0 6px' }}>
+            <div style={{ width: '100%', height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div style={{ width: `${localStress}%`, height: '100%', borderRadius: 4, background: localStress <= 30 ? '#4caf50' : localStress <= 60 ? '#ff9800' : '#f44336', transition: 'width 0.15s ease' }} />
+            </div>
+          </div>
+          <span style={{ ...VAL, minWidth: 26, textAlign: 'center' }}>{localStress}</span>
+          <button onClick={() => adjustStat('stress', 5)} style={btnStyle}>+</button>
+        </div>
+
+        {/* ---- Knowledge ---- */}
+        <div style={{ ...ROW, marginBottom: 6 }}>
+          <span style={{ ...LBL, minWidth: 52 }}>Knowl.</span>
+          <button onClick={() => adjustStat('knowledge', -5)} style={btnStyle}>−</button>
+          <div style={{ flex: 1, margin: '0 6px' }}>
+            <div style={{ width: '100%', height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div style={{ width: `${localKnowledge}%`, height: '100%', borderRadius: 4, background: '#2196f3', transition: 'width 0.15s ease' }} />
+            </div>
+          </div>
+          <span style={{ ...VAL, minWidth: 26, textAlign: 'center' }}>{localKnowledge}</span>
+          <button onClick={() => adjustStat('knowledge', 5)} style={btnStyle}>+</button>
+        </div>
+
+        {/* ---- Bottom row: auto-save checkbox + manual apply button ---- */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 10, color: '#889' }}>
+            <input
+              type="checkbox"
+              checked={autoSave}
+              onChange={(e) => setAutoSave(e.target.checked)}
+              style={{ cursor: 'pointer', accentColor: '#7ec8ff' }}
+            />
+            自動儲存
+          </label>
+          {!autoSave && (
+            <button
+              onClick={handleManualApply}
+              style={{
+                background: 'rgba(126,200,255,0.15)',
+                border: '1px solid rgba(126,200,255,0.3)',
+                color: '#7ec8ff',
+                borderRadius: 4,
+                cursor: 'pointer',
+                padding: '3px 12px',
+                fontSize: 10,
+                fontFamily: 'inherit',
+                fontWeight: 600,
+              }}
+            >
+              套用
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ============================================================ */}

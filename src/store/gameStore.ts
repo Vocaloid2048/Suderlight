@@ -43,6 +43,8 @@ type GameStore = {
   advancePsychLayer: (layer: number) => void;
   /** 同步內心世界詳細進度到存檔 */
   syncInnerWorldState: (innerWorld: InnerWorldSave) => void;
+  /** Playtest: 直接設定 NPC 數值 (trust/stress/knowledge) */
+  setNpcStat: (npcId: NpcId, stat: 'trust' | 'stress' | 'knowledge', value: number) => void;
   /** Playtest: 強制滿足內心世界解鎖條件 */
   forceUnlockInnerWorld: () => void;
 };
@@ -265,6 +267,26 @@ export const useGameStore = create<GameStore>((set) => ({
         ...next.npcs.bridge_artist,
         innerWorld,
       };
+      return { save: persistAndReturn(next) };
+    });
+  },
+
+  /** Playtest: 直接設定 NPC 數值 (會自動重檢 innerWorldUnlocked) */
+  setNpcStat: (npcId, stat, value) => {
+    set(state => {
+      const next = cloneSave(state.save);
+      const target = next.npcs[npcId];
+      if (!target) return { save: state.save };
+
+      const clamped = Math.max(0, Math.min(100, Math.round(value)));
+      const updated = { ...target, [stat]: clamped };
+
+      // 重新檢查 innerWorldUnlocked 條件
+      if (stat === 'trust' || stat === 'knowledge') {
+        updated.innerWorldUnlocked = shouldUnlockInnerWorld(updated, updated.knowledge);
+      }
+
+      next.npcs[npcId] = updated;
       return { save: persistAndReturn(next) };
     });
   },
