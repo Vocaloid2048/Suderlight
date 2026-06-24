@@ -296,7 +296,7 @@ export default function BlankPainterChat({
             <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12 }}>
               <span style={{ color: '#d7b77a' }}>對TA的認識 {knowledge}/100</span>
               <span style={{ color: '#9bd6ff' }}>信任度 {npcState.trust}/100</span>
-              <span style={{ color: '#ffaaa0' }}>恐懼值 {npcState.stress}/100</span>
+              <span style={{ color: '#ffaaa0' }}>??? {npcState.stress}/100</span>
               <span style={{ color: npcState.innerWorldUnlocked ? '#9cffc7' : '#888' }}>
                 心理世界 {npcState.innerWorldUnlocked ? '已解鎖' : '未解鎖'}
               </span>
@@ -387,7 +387,7 @@ export default function BlankPainterChat({
               畫家的記憶被某個線索輕輕牽動了。
             </div>
           )}
-        </form>
+        </form>a
       </section>
 
 

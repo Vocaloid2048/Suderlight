@@ -193,16 +193,23 @@ const buildings: Building[] = [
     id: 'gallery',
     name: '失色畫廊',
     locationId: 'skybridge',
-    pos: { x: 15., y: 2 },
+    pos: { x: 14.5, y: 2 },
     size: { x: 4, y: 3 },
     tall: 260,
     baseColor: '#ec407a', // 洋紅色
     windows: [
-      { side: 'left', x: 0.2, y: 0.3, w: 0.2, h: 0.2 },
-      { side: 'left', x: 0.6, y: 0.3, w: 0.2, h: 0.2 },
-      { side: 'left', x: 0.2, y: 0.6, w: 0.2, h: 0.2 },
-      { side: 'left', x: 0.6, y: 0.6, w: 0.2, h: 0.2 },
-      { side: 'right', x: 0.3, y: 0.3, w: 0.4, h: 0.4 },
+      { side: 'left', x: 0.1, y: 0.3, w: 0.2, h: 0.2 },
+      { side: 'left', x: 0.7, y: 0.3, w: 0.2, h: 0.2 },
+      { side: 'left', x: 0.1, y: 0.6, w: 0.2, h: 0.2 },
+      { side: 'left', x: 0.4, y: 0.6, w: 0.2, h: 0.2 },
+      { side: 'left', x: 0.7, y: 0.6, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.1, y: 0.3, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.4, y: 0.3, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.7, y: 0.3, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.1, y: 0.6, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.4, y: 0.6, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.7, y: 0.6, w: 0.2, h: 0.2 },
+
     ],
   },
   // 2. 報攤場景：木質報攤
@@ -210,7 +217,7 @@ const buildings: Building[] = [
     id: 'news_cabin',
     name: '拾光報攤',
     locationId: 'newsstand',
-    pos: { x: 4, y: 11.5 },
+    pos: { x: 5, y: 11.5 },
     size: { x: 3.5, y: 3.5 },
     tall: 130,
     baseColor: '#d84315', // 溫暖木黃橙
@@ -286,14 +293,8 @@ function IsometricBuilding({ building, isRepaired }: { building: Building; isRep
   const darkColor = isRepaired ? adjustColorBrightness(color, -25) : '#222222';
 
   const galleryDoorDef: WindowDef | null = building.id === 'gallery'
-    ? { side: 'left', x: 0.5, y: 0.05, w: 0.28, h: 0.44 }
+    ? { side: 'left', x: 0.36, y: 0.05, w: 0.28, h: 0.44 }
     : null;
-
-
-
-
-
-
 
   const galleryDoorFrameDef: WindowDef | null = galleryDoorDef
     ? {
@@ -1106,8 +1107,8 @@ export default function OuterWorldExplorer({
                 // 區域 A：天橋橫向橋面 (x: 4.0 ~ 19.0, y: 8.0 ~ 10.0)
                 const inBridge = pt.x >= 4.5 && pt.x <= 19.0 && pt.y >= 8.5 && pt.y <= 10.0;
                 
-                // 區域 B：通往右上角畫廊的縱向通道 (x: 17.0 ~ 19.0, y: 4.0 ~ 8.0)
-                const inPassage = pt.x >= 17.5 && pt.x <= 19.0 && pt.y >= 4.0 && pt.y <= 8.5;
+                // 區域 B：通往右上角畫廊的縱向通道 (x: 17.0 ~ 19.0, y: 7.0 ~ 8.0)
+                const inPassage = pt.x >= 17.5 && pt.x <= 19.0 && pt.y >= 7.0 && pt.y <= 8.5;
 
                 // 區域 C：連接樓梯 (x: 4.0 ~ 6.0, y: 10.0 ~ 16.0)
                 const inStairs = pt.x >= 4.5 && pt.x <= 6.0 && pt.y >= 10.0 && pt.y <= 17.0;

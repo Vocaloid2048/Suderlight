@@ -98,7 +98,7 @@ export const bridgeArtistClues: Record<ClueId, ClueData> = {
     locationId: 'skybridge',
     pos: { x: 23, y: 19 },
     color: '#fff6d8',
-    icon: '檔',
+    icon: '報',
     content: '這不是普通新聞，而是一份被折起來的完整報導。事故後的採訪標題寫著：「大家都在等他復出。」紙邊被指甲掐出深深痕跡。',
     dictionaryHint: '有些期待看似溫柔，實際上會把人再次釘回創傷現場。',
   },
