@@ -47,7 +47,6 @@ type GameStore = {
 function cloneSave(save: GameSave): GameSave {
   return {
     ...save,
-    player: { ...save.player },
     collectedClues: [...save.collectedClues],
     npcs: {
       bridge_artist: { ...save.npcs.bridge_artist, flags: [...save.npcs.bridge_artist.flags], innerWorldLayer: save.npcs.bridge_artist.innerWorldLayer ?? 0 },
