@@ -32,7 +32,7 @@ router.post('/:id/ending', async (req, res, next) => {
 
       npcStateEngine.setEnding(npc, ending);
       if (ending === 'failure') ghostEngine.addFailedNPC(req.params.id, req.playerId);
-      saveService.saveNpc(npc, req.playerId);
+      saveService.saveNpc(npc, req.params.id, req.playerId);
 
       res.json({ success: true, npc: { ...npc, stateLabel: npcStateEngine.getStateLabel(npc) } });
     });
