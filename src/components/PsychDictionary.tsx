@@ -5,6 +5,7 @@ type DictEntry = {
   name: string;
   description: string;
   relatedClues: string[];
+  unlockCondition: string;
   unlocked: boolean;
 };
 
@@ -21,7 +22,22 @@ export default function PsychDictionary({ onClose }: PsychDictionaryProps) {
     fetch('/api/dictionary')
       .then(res => res.json())
       .then(data => {
-        setEntries(data.entries);
+        let collectedClues: string[] = [];
+        try {
+          const raw = localStorage.getItem('glimmer_city_vertical_slice_save_v1');
+          if (raw) {
+            const save = JSON.parse(raw);
+            collectedClues = Array.isArray(save.collectedClues) ? save.collectedClues : [];
+          }
+        } catch {}
+        const entriesWithUnlock = (Array.isArray(data.entries) ? data.entries : []).map((entry: any) => ({
+          ...entry,
+          unlocked: collectedClues.some((c: string) =>
+            (Array.isArray(entry.relatedClues) ? entry.relatedClues : []).includes(c) ||
+            c === entry.unlockCondition
+          ),
+        }));
+        setEntries(entriesWithUnlock);
         setLoading(false);
       })
       .catch(() => setLoading(false));

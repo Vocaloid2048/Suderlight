@@ -44,6 +44,7 @@ function defaultSave() {
     npcs: {},
     ghosts: [],
     unlockedWorldbookIds: [1, 2, 3, 10, 11, 12],
+    unlockedDictionaryEntries: [],
   };
 }
 

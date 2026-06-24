@@ -247,18 +247,26 @@ function classifyDialogueSync(message) {
 }
 
 // ---- Delta 計算 ----
-function getDialogueDelta(message, knownType, recentInputTypes = []) {
+// collectedClueCount: 玩家已收集的线索数量，用于计算 bonus
+function getDialogueDelta(message, knownType, recentInputTypes = [], collectedClueCount = 0) {
   // 使用同步版分類作為 fallback；在正常流程中 knownType 始終由 AI 分類提供
   const dialogueType = knownType || classifyDialogueSync(message);
 
-  if (dialogueType === 'hostile')     return { dialogueType, trustDelta: -8, stressDelta: 12, knowledgeDelta: -5 };
+  // Knowledge 懲罰上限 -1（避免過份扣減）
+  if (dialogueType === 'hostile')     return { dialogueType, trustDelta: -8, stressDelta: 12, knowledgeDelta: -1 };
   if (dialogueType === 'comfort')     return { dialogueType, trustDelta: -3, stressDelta: 5,  knowledgeDelta: 0 };
   if (dialogueType === 'empathy')     return { dialogueType, trustDelta: 10, stressDelta: -6, knowledgeDelta: 3 };
-  if (dialogueType === 'contradict')  return { dialogueType, trustDelta: 0,  stressDelta: 5,  knowledgeDelta: -2 };
-  if (dialogueType === 'dismiss')     return { dialogueType, trustDelta: -3, stressDelta: 3,  knowledgeDelta: -2 };
+  if (dialogueType === 'contradict')  return { dialogueType, trustDelta: 0,  stressDelta: 5,  knowledgeDelta: 0 };
+  if (dialogueType === 'dismiss')     return { dialogueType, trustDelta: -3, stressDelta: 3,  knowledgeDelta: 0 };
   if (dialogueType === 'neutral')     return { dialogueType, trustDelta: 0,  stressDelta: 0,  knowledgeDelta: 0 };
   if (dialogueType === 'role_related') return { dialogueType, trustDelta: 2, stressDelta: -1, knowledgeDelta: 5 };
-  return { dialogueType, trustDelta: 0, stressDelta: 0, knowledgeDelta: 1 };
+
+  // ordinary / 默认：根据已收集线索数量计算一次性加成
+  // 0线索=+1, 1线索=+2, 2线索=+3, 3线索=+5, 4+线索=+7
+  const clueBonusTable = [1, 2, 3, 5, 7];
+  const idx = Math.min(collectedClueCount, clueBonusTable.length - 1);
+  const knowledgeDelta = clueBonusTable[idx];
+  return { dialogueType, trustDelta: 0, stressDelta: 0, knowledgeDelta };
 }
 
 // ---- 解鎖檢查 ----
@@ -270,8 +278,8 @@ function checkUnlock(npc) {
 }
 
 // ---- 更新 NPC 狀態 ----
-function updateAfterDialogue(npc, message, knownType, recentInputTypes = []) {
-  const { dialogueType, trustDelta, stressDelta, knowledgeDelta } = getDialogueDelta(message, knownType, recentInputTypes);
+function updateAfterDialogue(npc, message, knownType, recentInputTypes = [], collectedClueCount = 0) {
+  const { dialogueType, trustDelta, stressDelta, knowledgeDelta } = getDialogueDelta(message, knownType, recentInputTypes, collectedClueCount);
   npc.trust = clamp((npc.trust || 20) + trustDelta);
   npc.stress = clamp((npc.stress || 80) + stressDelta);
   npc.knowledge = clamp((npc.knowledge || 0) + (knowledgeDelta || 0));

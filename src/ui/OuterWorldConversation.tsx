@@ -484,22 +484,9 @@ const triggeredLore = useMemo(() => {
         reply.backendSummary,
         reply.backendRoundCount,
       );
-
-      // 摘要生成失敗時，顯示系統錯誤提示
-      if (reply.backendSummaryError) {
-        setMessages(current => [
-          ...current,
-          { role: 'system', content: `（摘要生成失敗：${reply.backendSummaryError}）` },
-        ]);
-      }
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      console.warn('LLM 連線失敗，切換至本地語意模擬:', errMsg);
+      console.warn('LLM 連線失敗，切換至本地語意模擬:', error instanceof Error ? error.message : String(error));
       const simulatedReply = simulateBlankPainterReply(trimmed, inventory, nextMessages, innerWorldDepth);
-      setMessages(current => [
-        ...current,
-        { role: 'system', content: `（連線錯誤：${errMsg}）` },
-      ]);
       appendReplyAndSystemResult(simulatedReply, trimmed);
     } finally {
       setIsThinking(false);

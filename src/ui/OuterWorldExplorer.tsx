@@ -774,7 +774,7 @@ export default function OuterWorldExplorer({
         id: 'gallery_door',
         label: '畫廊大門',
         type: 'clue',
-        pos: { x: 17.0, y: 5.5 },
+        pos: { x: 18.0, y: 7.0 },
         color: '#ec407a',
         icon: '門',
       });
@@ -1339,7 +1339,7 @@ export default function OuterWorldExplorer({
           );
         })}
 
-        {entities.filter(entity => entity.id !== 'gallery_door').map(entity => {
+        {entities.map(entity => {
 
           const entityBaseScreen = isoToScreen(entity.pos);
           const screen = {

@@ -6,12 +6,28 @@ type DictEntry = {
   name: string;
   description: string;
   relatedClues: string[];
+  unlockCondition: string;
   unlocked: boolean;
 };
 
-type EmotionDictionaryPageProps = {
-  onBack: () => void;
-};
+const SAVE_KEY = 'glimmer_city_vertical_slice_save_v1';
+
+function getCollectedClues(): string[] {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return [];
+    const save = JSON.parse(raw);
+    return Array.isArray(save.collectedClues) ? save.collectedClues : [];
+  } catch {
+    return [];
+  }
+}
+
+function isEntryUnlocked(entry: { relatedClues?: string[]; unlockCondition?: string }, collectedClues: string[]) {
+  const related = Array.isArray(entry.relatedClues) ? entry.relatedClues : [];
+  const condition = entry.unlockCondition;
+  return collectedClues.some(c => related.includes(c) || c === condition);
+}
 
 export default function EmotionDictionaryPage({ onBack }: EmotionDictionaryPageProps) {
   const [entries, setEntries] = useState<DictEntry[]>([]);
@@ -22,7 +38,12 @@ export default function EmotionDictionaryPage({ onBack }: EmotionDictionaryPageP
     fetch('/api/dictionary')
       .then(res => res.json())
       .then(data => {
-        setEntries(data.entries);
+        const collectedClues = getCollectedClues();
+        const entriesWithUnlock = (Array.isArray(data.entries) ? data.entries : []).map((entry: any) => ({
+          ...entry,
+          unlocked: isEntryUnlocked(entry, collectedClues),
+        }));
+        setEntries(entriesWithUnlock);
         setLoading(false);
       })
       .catch(() => setLoading(false));

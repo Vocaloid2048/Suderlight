@@ -53,12 +53,12 @@ router.post('/reset-all', (req, res, next) => {
 
 // POST /chat
 router.post('/', async (req, res, next) => {
-  try {
-    const { npcId, message, roundCount: clientRoundCount } = req.body;
-    const playerId = req.playerId;
-    if (!npcId || !message) throw new ValidationError('npcId and message are required');
-    if (!playerId) throw new ValidationError('Missing X-Player-Id header');
+  const { npcId, message, roundCount: clientRoundCount } = req.body;
+  const playerId = req.playerId;
+  if (!npcId || !message) return next(new ValidationError('npcId and message are required'));
+  if (!playerId) return next(new ValidationError('Missing X-Player-Id header'));
 
+  try {
     await withPlayerLock(playerId, async () => {
       const ts = Date.now();
       const npc = saveService.getNpc(npcId, playerId);
@@ -92,6 +92,10 @@ router.post('/', async (req, res, next) => {
       const recentInputTypes = memoryService.getRecentTypes(npcId, playerId);
       const messages = buildPrompt(npcId, message, recentInputTypes, playerId);
 
+      // 获取玩家已收集的线索数量，用于计算 knowledge 加成
+      const playerSave = saveService.readSave(playerId);
+      const collectedClueCount = Array.isArray(playerSave.collectedClues) ? playerSave.collectedClues.length : 0;
+
       const [dialogueType, replyRaw] = await Promise.all([
         npcStateEngine.classifyDialogue(message, npcSettings, recentMessages),
         deepseekChat(messages),
@@ -100,7 +104,7 @@ router.post('/', async (req, res, next) => {
       let reply = replyRaw;
       if (!reply || reply.trim() === '') reply = '他只是沈默地看著畫布，雨聲填滿了對話的空白。';
 
-      const stateUpdate = npcStateEngine.updateAfterDialogue(npc, message, dialogueType, recentInputTypes);
+      const stateUpdate = npcStateEngine.updateAfterDialogue(npc, message, dialogueType, recentInputTypes, collectedClueCount);
       const systemJudgement = {
         stateLabel: npcStateEngine.getStateLabel(stateUpdate.npc),
         trustDelta: stateUpdate.trustDelta,
@@ -164,7 +168,30 @@ router.post('/', async (req, res, next) => {
         ...(summaryError ? { summaryError } : {}),
       });
     });
-  } catch (e) { next(e); }
+  } catch (e) {
+    // 优雅降级：AI 服务不可用时返回默认回复，不暴露系统错误给用户
+    logger.error(`[chat] Graceful fallback for npc=${npcId}: ${e.message}`);
+    const npc = saveService.getNpc(npcId, playerId) || { trust: 20, stress: 80, knowledge: 0, innerWorldUnlocked: false, ending: 'none' };
+    res.json({
+      text: '他沒有立刻回答。畫筆停在半空，像一個還沒決定要不要落下的句號。',
+      psychology: {
+        trustDelta: 0,
+        stressDelta: 0,
+        knowledgeDelta: 1,
+        stateLabel: npcStateEngine.getStateLabel(npc),
+        inputType: 'ordinary',
+      },
+      npcState: {
+        trust: npc.trust || 20,
+        stress: npc.stress || 80,
+        knowledge: npc.knowledge || 0,
+        innerWorldUnlocked: npc.innerWorldUnlocked || false,
+        ending: npc.ending || 'none',
+      },
+      roundCount: clientRoundCount || 0,
+      summary: null,
+    });
+  }
 });
 
 export default router;

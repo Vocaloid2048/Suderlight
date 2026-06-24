@@ -4,15 +4,24 @@
 import config from '../config.js';
 import logger from '../middleware/logger.js';
 
+const CHAT_TIMEOUT_MS = 30000; // 30 秒超时
+
 async function deepseekChat(messages) {
   const { apiKey, model } = config.deepseek;
   if (apiKey && apiKey !== 'YOUR_KEY' && apiKey.trim() !== '') {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
+
       const resp = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({ model, messages, temperature: 0.8, stream: false }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
+
       if (resp.ok) {
         const data = await resp.json();
         const content = data.choices?.[0]?.message?.content || '';
@@ -20,7 +29,13 @@ async function deepseekChat(messages) {
         try { const p = JSON.parse(cleaned); return p.text || p.dialogue || cleaned; }
         catch { return cleaned; }
       }
-    } catch (err) { logger.error('DeepSeek API error:', err.message); }
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        logger.warn('[deepseekService] Chat request timed out (30s), falling back to keywords');
+      } else {
+        logger.error('DeepSeek API error:', err.message);
+      }
+    }
   }
   // Fallback
   const last = [...messages].reverse().find(m => m.role === 'user');

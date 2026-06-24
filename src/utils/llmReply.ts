@@ -94,8 +94,7 @@ export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(`Backend chat API error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`);
+      throw new Error('API 暫時無法回應，請稍後再試');
     }
 
     const data: BackendChatResponse = await response.json();
