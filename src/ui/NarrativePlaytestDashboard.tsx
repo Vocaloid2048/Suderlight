@@ -324,7 +324,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* Free Stat Control (Playtest)                                  */}
       {/* ============================================================ */}
       <div style={{ ...SECTION, borderColor: 'rgba(255,180,60,0.25)' }}>
-        <div style={{ ...SEC_TITLE, color: '#ffb74d' }}>1.5 Free Stat Control</div>
+        <div style={{ ...SEC_TITLE, color: '#ffb74d' }}>2. 5 Free Stat Control - {npc.name}</div>
 
         {/* ---- Trust ---- */}
         <div style={{ ...ROW, marginBottom: 4 }}>

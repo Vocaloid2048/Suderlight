@@ -90,6 +90,14 @@ router.post('/', async (req, res, next) => {
       const npc = saveService.getNpc(npcId, playerId);
       if (!npc) throw new NotFoundError('NPC', npcId);
 
+      // 若前端傳來了客戶端 NPC 狀態（如 playtest dashboard 修改），覆蓋後端舊值
+      const clientNpcState = req.body.clientNpcState;
+      if (clientNpcState) {
+        if (typeof clientNpcState.trust === 'number') npc.trust = Math.max(0, Math.min(100, Math.round(clientNpcState.trust)));
+        if (typeof clientNpcState.stress === 'number') npc.stress = Math.max(0, Math.min(100, Math.round(clientNpcState.stress)));
+        if (typeof clientNpcState.knowledge === 'number') npc.knowledge = Math.max(0, Math.min(100, Math.round(clientNpcState.knowledge)));
+      }
+
       // 已结局 NPC
       if (npc.ending && npc.ending !== 'none') {
         return res.json({

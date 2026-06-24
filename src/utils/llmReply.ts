@@ -68,7 +68,13 @@ export async function sendMessage(text: string): Promise<{ reply: string; emotio
  * @param npcIdOrName 當前對談的角色名稱或角色 ID (預設為 'bridge_artist')
  * @returns 格式化後的 JSON 字串
  */
-export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge_artist', collectedClueCount?: number): Promise<string> {
+export type ClientNpcState = {
+  trust: number;
+  stress: number;
+  knowledge: number;
+};
+
+export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge_artist', collectedClueCount?: number, clientNpcState?: ClientNpcState): Promise<string> {
   try {
     // 智慧轉換角色名稱：若傳入的是大字串或中文名，自動對應回後端識別的 'bridge_artist'
     let finalNpcId = 'bridge_artist';
@@ -91,6 +97,7 @@ export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge
         message: playerMessage,
         roundCount: clientRoundCount,
         collectedClueCount,
+        clientNpcState,
       }),
     });
 
