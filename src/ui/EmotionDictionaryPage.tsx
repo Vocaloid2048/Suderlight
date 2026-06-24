@@ -10,6 +10,10 @@ type DictEntry = {
   unlocked: boolean;
 };
 
+type EmotionDictionaryPageProps = {
+  onBack: () => void;
+};
+
 const SAVE_KEY = 'glimmer_city_vertical_slice_save_v1';
 
 function getCollectedClues(): string[] {
