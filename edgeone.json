@@ -3,6 +3,7 @@
   "installCommand": "npm install",
   "outputDirectory": "./dist",
   "nodeVersion": "22.11.0",
+  "nodeFunctionsDir": "cloud-functions",
   "headers": [
     {
       "source": "/assets/*",
