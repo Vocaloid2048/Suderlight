@@ -39,7 +39,6 @@ function loadStaticDataOnce() {
 
 function defaultSave() {
   return {
-    player: { knowledge: 0 },
     currentLocation: 'skybridge',
     collectedClues: [],
     npcs: {},

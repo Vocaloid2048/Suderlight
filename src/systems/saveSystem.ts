@@ -9,9 +9,6 @@ export type GhostRecord = {
 };
 
 export type GameSave = {
-  player: {
-    knowledge: number;
-  };
   currentLocation: LocationId;
   collectedClues: ClueId[];
   npcs: Record<NpcId, NpcRuntimeState>;
@@ -22,9 +19,6 @@ const SAVE_KEY = 'glimmer_city_vertical_slice_save_v1';
 
 export function createInitialSave(): GameSave {
   return {
-    player: {
-      knowledge: 0,
-    },
     currentLocation: 'skybridge',
     collectedClues: [],
     npcs: {
@@ -41,23 +35,41 @@ export function loadSave(): GameSave | null {
   try {
     const raw = window.localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as GameSave;
+    const parsed = JSON.parse(raw) as any;
 
-    if (!parsed.player || !parsed.npcs?.bridge_artist || !Array.isArray(parsed.collectedClues)) {
+    // 验证关键字段
+    if (!parsed.npcs?.bridge_artist || !Array.isArray(parsed.collectedClues)) {
       return null;
     }
 
-    // Backward compat: ensure new fields exist on older saves
-    if (parsed.npcs.bridge_artist) {
-      if (parsed.npcs.bridge_artist.innerWorldDepth === undefined) parsed.npcs.bridge_artist.innerWorldDepth = 0;
-      if (parsed.npcs.bridge_artist.innerWorldLayer === undefined) parsed.npcs.bridge_artist.innerWorldLayer = 0;
-    }
-    if (parsed.npcs.victor) {
-      if (parsed.npcs.victor.innerWorldDepth === undefined) parsed.npcs.victor.innerWorldDepth = 0;
-      if (parsed.npcs.victor.innerWorldLayer === undefined) parsed.npcs.victor.innerWorldLayer = 0;
+    // Backward compat: 旧存档以 player.knowledge 形式存储 → 迁移到 npcs.npcId.knowledge
+    if (typeof parsed.player?.knowledge === 'number') {
+      if (parsed.npcs.bridge_artist && parsed.npcs.bridge_artist.knowledge === undefined) {
+        parsed.npcs.bridge_artist.knowledge = parsed.player.knowledge;
+      }
+      if (parsed.npcs.victor && parsed.npcs.victor.knowledge === undefined) {
+        parsed.npcs.victor.knowledge = 0;
+      }
+      delete parsed.player;
     }
 
-    return parsed;
+    // 向下兼容旧字段
+    const bridgeArtist = parsed.npcs.bridge_artist;
+    if (bridgeArtist) {
+      if (bridgeArtist.knowledge === undefined) bridgeArtist.knowledge = 0;
+      if (bridgeArtist.innerWorldDepth === undefined) bridgeArtist.innerWorldDepth = 0;
+      if (bridgeArtist.innerWorldLayer === undefined) bridgeArtist.innerWorldLayer = 0;
+    }
+    const victor = parsed.npcs.victor;
+    if (victor) {
+      if (victor.knowledge === undefined) victor.knowledge = 0;
+      if (victor.innerWorldDepth === undefined) victor.innerWorldDepth = 0;
+      if (victor.innerWorldLayer === undefined) victor.innerWorldLayer = 0;
+    }
+
+    // 移除旧的 player 字段（兼容旧存档格式）
+    const result = parsed as GameSave;
+    return result;
   } catch (error) {
     console.warn('讀取存檔失敗，將使用新存檔。', error);
     return null;

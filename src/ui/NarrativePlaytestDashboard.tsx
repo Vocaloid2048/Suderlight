@@ -188,7 +188,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
   // ---- Chapter progress ----
   const chapterProgress = CHAPTERS.map((ch) => ({
     ...ch,
-    unlocked: npc.trust >= ch.requiredTrust && save.player.knowledge >= ch.requiredKnowledge,
+    unlocked: npc.trust >= ch.requiredTrust && npc.knowledge >= ch.requiredKnowledge,
   }));
 
   return (
@@ -261,7 +261,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
         <div style={ROW}><span style={LBL}>Openness</span><span style={VAL}>{opennessLabel(npc)}</span></div>
         <div style={ROW}><span style={LBL}>Ending</span><span style={{ ...VAL, color: npc.ending === 'success' ? '#4caf50' : npc.ending === 'failed' ? '#f44336' : '#889' }}>{npc.ending === 'none' ? 'ongoing' : npc.ending}</span></div>
         <div style={ROW}><span style={LBL}>Depth</span><span style={VAL}>{npc.innerWorldDepth} / 3</span></div>
-        <div style={ROW}><span style={LBL}>Knowledge Req</span><span style={VAL}>{save.player.knowledge}/{npc.knowledgeRequired}</span></div>
+        <div style={ROW}><span style={LBL}>Knowledge Req</span><span style={VAL}>{npc.knowledge}/{npc.knowledgeRequired}</span></div>
         {npc.flags.length > 0 && (
           <div style={{ marginTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 6 }}>
             <div style={{ ...LBL, marginBottom: 4 }}>Flags</div>
@@ -442,7 +442,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* ============================================================ */}
       <div style={SECTION}>
         <div style={SEC_TITLE}>6. Player Knowledge</div>
-        <div style={ROW}><span style={LBL}>Knowledge</span><Bar value={save.player.knowledge} max={100} color="#2196f3" /></div>
+        <div style={ROW}><span style={LBL}>Knowledge</span><Bar value={npc.knowledge} max={100} color="#2196f3" /></div>
         <div style={ROW}><span style={LBL}>Location</span><span style={VAL}>{save.currentLocation}</span></div>
         <div style={{ marginTop: 6 }}>
           <div style={{ color: '#4caf50', fontSize: 9.5, marginBottom: 3, letterSpacing: 0.5 }}>▸ 已收集 ({save.collectedClues.length})</div>

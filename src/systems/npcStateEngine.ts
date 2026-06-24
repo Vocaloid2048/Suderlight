@@ -7,6 +7,7 @@ export type NpcRuntimeState = {
   name: string;
   trust: number;
   stress: number;
+  knowledge: number;
   knowledgeRequired: number;
   trustRequired: number;
   innerWorldUnlocked: boolean;
@@ -59,6 +60,7 @@ export function createBridgeArtistState(): NpcRuntimeState {
     name: '天橋畫家',
     trust: 20,
     stress: 80,
+    knowledge: 0,
     knowledgeRequired: 70,
     trustRequired: 50,
     innerWorldUnlocked: false,
@@ -75,6 +77,7 @@ export function createVictorState(): NpcRuntimeState {
     name: '調香師 維克多',
     trust: 10,
     stress: 90,
+    knowledge: 0,
     knowledgeRequired: 70,
     trustRequired: 50,
     innerWorldUnlocked: false,

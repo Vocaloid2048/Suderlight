@@ -80,7 +80,7 @@ function addGhostIfNeeded(save: GameSave, npcId: NpcId): GameSave {
 
 function syncBridgeArtistUnlock(save: GameSave) {
   const bridgeArtist = save.npcs.bridge_artist;
-  if (!bridgeArtist.innerWorldUnlocked && shouldUnlockInnerWorld(bridgeArtist, save.player.knowledge)) {
+  if (!bridgeArtist.innerWorldUnlocked && shouldUnlockInnerWorld(bridgeArtist, bridgeArtist.knowledge)) {
     save.npcs.bridge_artist = {
       ...bridgeArtist,
       innerWorldUnlocked: true,
@@ -121,7 +121,10 @@ export const useGameStore = create<GameStore>((set) => ({
 
       const knowledgeAdded = getClueKnowledge(clueId);
       next.collectedClues.push(clueId);
-      next.player.knowledge = Math.min(100, next.player.knowledge + knowledgeAdded);
+      next.npcs.bridge_artist = {
+        ...next.npcs.bridge_artist,
+        knowledge: Math.min(100, next.npcs.bridge_artist.knowledge + knowledgeAdded),
+      };
       syncBridgeArtistUnlock(next);
 
       result = {
@@ -161,6 +164,7 @@ export const useGameStore = create<GameStore>((set) => ({
         ...target,
         trust: backendState.trust,
         stress: backendState.stress,
+        knowledge: backendState.knowledge ?? target.knowledge,
         innerWorldUnlocked: Boolean(backendState.innerWorldUnlocked),
         ending: backendState.ending === null ? 'none' : backendState.ending,
       };
@@ -241,9 +245,9 @@ export const useGameStore = create<GameStore>((set) => ({
   forceUnlockInnerWorld: () => {
     set(state => {
       const next = cloneSave(state.save);
-      next.player.knowledge = Math.max(next.player.knowledge, next.npcs.bridge_artist.knowledgeRequired);
       next.npcs.bridge_artist = {
         ...next.npcs.bridge_artist,
+        knowledge: Math.max(next.npcs.bridge_artist.knowledge, next.npcs.bridge_artist.knowledgeRequired),
         trust: Math.max(next.npcs.bridge_artist.trust, next.npcs.bridge_artist.trustRequired),
         innerWorldUnlocked: true,
         flags: Array.from(new Set([...next.npcs.bridge_artist.flags, 'inner_world_unlocked'])),

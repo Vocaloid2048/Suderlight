@@ -67,7 +67,6 @@ function formatSystemJudgement(systemJudgement: SystemJudgement) {
 
 type OuterWorldConversationProps = {
   inventory: string[];
-  knowledge: number;
   /** 橋上畫家心理世界探索深度：0=未進入, 1=理解不足, 2=理解中等, 3=理解很深 */
   innerWorldDepth?: number;
   npcState: NpcRuntimeState;
@@ -211,23 +210,21 @@ function simulateBlankPainterReply(
 /**
  * 根据实际 NPC 状态生成修复指引文字（hardcoded 阈值）
  */
-function getRepairTip(
-  npc: NpcRuntimeState,
-  knowledge: number,
-  depth: number,
-): string {
+function getRepairTip(npc: NpcRuntimeState): string {
+  const { trust, stress, knowledge, innerWorldUnlocked, innerWorldDepth: depth } = npc;
+
   // 最高优先：已解锁心理世界且信任+认知双达标
-  if (npc.innerWorldUnlocked && npc.trust >= 70 && knowledge >= 70) {
+  if (innerWorldUnlocked && trust >= 70 && knowledge >= 70) {
     return '門已敞開。你的理解與接納讓他願意讓你走入內心。此刻進入，你能看見他最深的空白。';
   }
 
   // 极度紧绷
-  if (npc.stress >= 90) {
+  if (stress >= 90) {
     return '他正處於崩潰邊緣。避免任何鼓勵、否定或催促——此刻沉默比語言更有力量。';
   }
 
   // 高度紧绷
-  if (npc.stress >= 85) {
+  if (stress >= 85) {
     return '壓力值極高。避免「加油」類的安慰或否定他當下的感受。給他空間，讓雨聲替他說話。';
   }
 
@@ -243,18 +240,18 @@ function getRepairTip(
   }
 
   // 解锁但未进入
-  if (npc.innerWorldUnlocked) {
+  if (innerWorldUnlocked) {
     return '鎖鏈已出現裂縫。請謹慎進入他的失色畫廊。';
   }
 
   // 信任度分级
-  if (npc.trust >= 50 && knowledge >= 50) {
+  if (trust >= 50 && knowledge >= 50) {
     return '他開始相信你，你對他的認識也逐漸清晰。再多一些線索，通往內心的門即將打開。';
   }
-  if (npc.trust >= 50) {
+  if (trust >= 50) {
     return '他開始相信你不是另一個來消費他傷口的人。繼續傾聽，不要急著修復。';
   }
-  if (npc.trust >= 30) {
+  if (trust >= 30) {
     return '他稍微放下了戒心，但仍在觀察你的意圖。保持溫和，不要催促。';
   }
 
@@ -269,7 +266,6 @@ function getRepairTip(
 
 export default function OuterWorldConversation({
   inventory,
-  knowledge,
   innerWorldDepth = 0,
   npcState,
   onClose,
@@ -558,14 +554,14 @@ const triggeredLore = useMemo(() => {
 
           {/* 修復指引 */}
           <GlassPanel title="修復指引" variant="dark" contentStyle={{ display: 'grid', gap: 12 }}>
-            <MeterBar label="對TA的認識" value={knowledge} max={100} tone="blue" />
-            <MeterBar label="???" value={npcState.stress} max={100} tone="red" />
+            <MeterBar label="對TA的認識" value={npcState.knowledge} max={100} tone="blue" />
+            <MeterBar label="恐懼值" value={npcState.stress} max={100} tone="red" />
             <MeterBar label="信任度" value={npcState.trust} max={100} tone="gold" />
             <div style={{
               color: '#9ba2ad', fontSize: 12, lineHeight: 1.6,
               padding: '8px 0', borderTop: '1px solid rgba(255,255,255,0.06)',
             }}>
-              {getRepairTip(npcState, knowledge, innerWorldDepth)}
+              {getRepairTip(npcState)}
             </div>
           </GlassPanel>
         </div>

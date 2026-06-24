@@ -102,7 +102,6 @@ export default function App() {
       return (
         <OuterWorldConversation
           inventory={save.collectedClues}
-          knowledge={save.player.knowledge}
           innerWorldDepth={bridgeArtist.innerWorldDepth}
           npcState={bridgeArtist}
           onClose={() => setScreen('city')}
