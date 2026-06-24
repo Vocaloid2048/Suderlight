@@ -70,7 +70,7 @@ router.post('/', async (req, res, next) => {
           text: npc.ending === 'success'
             ? '雨聲還在。他沒有痊癒，但沒有再把自己藏進空白裡。'
             : '天橋上只剩潮濕的紙張。那個人影沒有再回頭。',
-          psychology: { trustDelta: 0, stressDelta: 0, stateLabel: npcStateEngine.getStateLabel(npc) },
+          psychology: { trustDelta: 0, stressDelta: 0, stateLabel: '普通對話' },
           npcState: {
             trust: npc.trust, stress: npc.stress, knowledge: npc.knowledge,
             innerWorldUnlocked: npc.innerWorldUnlocked, ending: npc.ending,
@@ -107,12 +107,15 @@ router.post('/', async (req, res, next) => {
       let reply = replyRaw;
       if (!reply || reply.trim() === '') reply = '他只是沈默地看著畫布，雨聲填滿了對話的空白。';
 
+      // 記錄更新前的 knowledge 值，用於計算 knowledgeDelta 的 fallback
+      // 注意：updateAfterDialogue 會原地修改 npc，因此必須先保存舊值
+      const oldKnowledge = npc.knowledge ?? 0;
       const stateUpdate = npcStateEngine.updateAfterDialogue(npc, message, dialogueType, recentInputTypes, collectedClueCount);
       const systemJudgement = {
-        stateLabel: npcStateEngine.getStateLabel(stateUpdate.npc),
+        stateLabel: npcStateEngine.getDialogueTypeLabel(stateUpdate.dialogueType),
         trustDelta: stateUpdate.trustDelta,
         stressDelta: stateUpdate.stressDelta,
-        knowledgeDelta: stateUpdate.knowledgeDelta ?? (stateUpdate.npc.knowledge - (npc.knowledge || 0)),
+        knowledgeDelta: stateUpdate.knowledgeDelta ?? (stateUpdate.npc.knowledge - oldKnowledge),
         trust: stateUpdate.npc.trust,
         stress: stateUpdate.npc.stress,
         knowledge: stateUpdate.npc.knowledge,
@@ -120,7 +123,7 @@ router.post('/', async (req, res, next) => {
 
       memoryService.addInputType(npcId, stateUpdate.dialogueType, playerId);
       memoryService.saveDialogue(npcId, message, reply, playerId, ts, systemJudgement);
-      saveService.saveNpc(stateUpdate.npc, playerId);
+      saveService.saveNpc(stateUpdate.npc, npcId, playerId);
 
       unlockNpcWorldbookEntries(npcId, stateUpdate.npc, playerId);
 
@@ -173,23 +176,26 @@ router.post('/', async (req, res, next) => {
     });
   } catch (e) {
     // 优雅降级：AI 服务不可用时返回默认回复，不暴露系统错误给用户
+    // 注意：此降级不会实际修改 NPC 状态（存档未变更），因此 knowledgeDelta 必须为 0
     logger.error(`[chat] Graceful fallback for npc=${npcId}: ${e.message}`);
-    const npc = saveService.getNpc(npcId, playerId) || { trust: 20, stress: 80, knowledge: 0, innerWorldUnlocked: false, ending: 'none' };
+    const npc = saveService.getNpc(npcId, playerId);
+    // 安全回退：getNpc 可能因存档等异常也抛出错误，此时使用硬编码默认值
+    const fallbackNpc = (npc && typeof npc === 'object') ? npc : { trust: 20, stress: 80, knowledge: 0, innerWorldUnlocked: false, ending: 'none' };
     res.json({
       text: '他沒有立刻回答。畫筆停在半空，像一個還沒決定要不要落下的句號。',
       psychology: {
         trustDelta: 0,
         stressDelta: 0,
-        knowledgeDelta: 1,
-        stateLabel: npcStateEngine.getStateLabel(npc),
+        knowledgeDelta: 0,
+        stateLabel: '普通對話',
         inputType: 'ordinary',
       },
       npcState: {
-        trust: npc.trust || 20,
-        stress: npc.stress || 80,
-        knowledge: npc.knowledge || 0,
-        innerWorldUnlocked: npc.innerWorldUnlocked || false,
-        ending: npc.ending || 'none',
+        trust: fallbackNpc.trust ?? 20,
+        stress: fallbackNpc.stress ?? 80,
+        knowledge: fallbackNpc.knowledge ?? 0,
+        innerWorldUnlocked: fallbackNpc.innerWorldUnlocked || false,
+        ending: fallbackNpc.ending || 'none',
       },
       roundCount: clientRoundCount || 0,
       summary: null,

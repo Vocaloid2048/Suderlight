@@ -57,19 +57,40 @@ const saveService = {
 
   getNpc(npcId, playerId) {
     if (playerId) {
-      // player-specific NPC 覆盖
+      // 1. 優先從持久化層讀取玩家專屬 NPC 狀態
       const saved = readPersistedSave(playerId);
       if (saved?.npcs?.[npcId]) return saved.npcs[npcId];
+
+      // 2. 從內存緩存讀取
       if (memoryStore.saves[playerId]?.npcs?.[npcId]) return memoryStore.saves[playerId].npcs[npcId];
+
+      // 3. 玩家首次存取此 NPC：從模板深拷貝並初始化玩家專屬 NPC 狀態
+      const tpl = memoryStore.npcs[npcId];
+      if (tpl) {
+        // 從模板深拷貝（避免模板被 mutation 污染，也避免跨玩家互相汙染）
+        const npcCopy = JSON.parse(JSON.stringify(tpl));
+        // 確保玩家存檔結構存在並寫入
+        if (!memoryStore.saves[playerId]) memoryStore.saves[playerId] = defaultSave();
+        if (!memoryStore.saves[playerId].npcs) memoryStore.saves[playerId].npcs = {};
+        memoryStore.saves[playerId].npcs[npcId] = npcCopy;
+        // 同步寫入持久化層，確保後續 readPersistedSave 能讀到
+        writePersistedSave(playerId, memoryStore.saves[playerId]);
+        logger.info(`[saveService] Initialized player-specific NPC "${npcId}" for player "${playerId}"`);
+        return npcCopy;
+      }
+      return null;
     }
-    return memoryStore.npcs[npcId] || null;
+    // 無玩家 ID 時：從模板深拷貝（唯讀場景，仍避免污染）
+    const tpl = memoryStore.npcs[npcId];
+    return tpl ? JSON.parse(JSON.stringify(tpl)) : null;
   },
 
-  saveNpc(npc, playerId) {
-    if (!playerId) { memoryStore.npcs[npc.id] = npc; return npc; }
+  saveNpc(npc, npcId, playerId) {
+    if (!playerId) { memoryStore.npcs[npcId || npc.id] = npc; return npc; }
     if (!memoryStore.saves[playerId]) memoryStore.saves[playerId] = defaultSave();
     if (!memoryStore.saves[playerId].npcs) memoryStore.saves[playerId].npcs = {};
-    memoryStore.saves[playerId].npcs[npc.id] = npc;
+    const key = npcId || npc.id;
+    if (key) memoryStore.saves[playerId].npcs[key] = npc;
     // 同步到持久化层
     writePersistedSave(playerId, memoryStore.saves[playerId]);
     return npc;
