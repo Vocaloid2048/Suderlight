@@ -294,11 +294,11 @@ export default function BlankPainterChat({
             <h2 style={{ margin: '6px 0 0', fontSize: 22 }}>{blankPainterCard.displayName}</h2>
             <p style={{ margin: '8px 0 0', color: '#aaa', fontSize: 13 }}>{blankPainterCard.coreEmotion}</p>
             <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12 }}>
-              <span style={{ color: '#d7b77a' }}>Knowledge {knowledge}/100</span>
-              <span style={{ color: '#9bd6ff' }}>Trust {npcState.trust}/100</span>
-              <span style={{ color: '#ffaaa0' }}>Stress {npcState.stress}/100</span>
+              <span style={{ color: '#d7b77a' }}>對TA的認識 {knowledge}/100</span>
+              <span style={{ color: '#9bd6ff' }}>信任度 {npcState.trust}/100</span>
+              <span style={{ color: '#ffaaa0' }}>??? {npcState.stress}/100</span>
               <span style={{ color: npcState.innerWorldUnlocked ? '#9cffc7' : '#888' }}>
-                InnerWorld {npcState.innerWorldUnlocked ? 'Unlocked' : 'Locked'}
+                心理世界 {npcState.innerWorldUnlocked ? '已解鎖' : '未解鎖'}
               </span>
             </div>
           </div>

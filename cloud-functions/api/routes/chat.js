@@ -10,6 +10,7 @@ import memoryService from '../services/memoryService.js';
 import worldbookService from '../services/worldbookService.js';
 import { generateUpdatedSummary } from '../services/summaryService.js';
 import { withPlayerLock } from '../services/playerLockService.js';
+import CHARACTER_CARDS from '../data/character-cards.js';
 import logger from '../middleware/logger.js';
 import { ValidationError, NotFoundError } from '../middleware/errors.js';
 
@@ -79,8 +80,18 @@ router.post('/', async (req, res, next) => {
         });
       }
 
+      // ---- AI 意圖分類：獲取 NPC 角色設定 + 對話上下文 ----
+      const npcCard = CHARACTER_CARDS[npcId] || {};
+      const npcSettings = {
+        name: npcCard.name || '',
+        personality: npcCard.personality || '',
+        description: npcCard.description || '',
+        system_prompt: npcCard.system_prompt || '',
+      };
+      const recentMessages = memoryService.getRecentDialogue(npcId, 10, playerId);
       const recentInputTypes = memoryService.getRecentTypes(npcId, playerId);
-      const dialogueType = npcStateEngine.classifyDialogue(message, recentInputTypes);
+      const dialogueType = await npcStateEngine.classifyDialogue(message, npcSettings, recentMessages);
+
       const messages = buildPrompt(npcId, message, recentInputTypes, playerId);
 
       let reply = await deepseekChat(messages);

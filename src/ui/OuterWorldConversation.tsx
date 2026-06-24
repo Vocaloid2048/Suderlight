@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState, useEffect } from 'react';
 import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
+import MeterBar from '../components/MeterBar';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
 import type { NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
@@ -52,12 +53,12 @@ type AiReply = {
 
 function formatSystemJudgement(systemJudgement: SystemJudgement) {
   const parts = [
-    `Trust ${systemJudgement.trustDelta >= 0 ? '+' : ''}${systemJudgement.trustDelta}`,
-    `Stress ${systemJudgement.stressDelta >= 0 ? '+' : ''}${systemJudgement.stressDelta}`,
+    `信任度 ${systemJudgement.trustDelta >= 0 ? '+' : ''}${systemJudgement.trustDelta}`,
+    `??? ${systemJudgement.stressDelta >= 0 ? '+' : ''}${systemJudgement.stressDelta}`,
   ];
 
   if (typeof systemJudgement.knowledgeDelta === 'number' && systemJudgement.knowledgeDelta !== 0) {
-    parts.push(`Knowledge ${systemJudgement.knowledgeDelta >= 0 ? '+' : ''}${systemJudgement.knowledgeDelta}`);
+    parts.push(`對TA的認識 ${systemJudgement.knowledgeDelta >= 0 ? '+' : ''}${systemJudgement.knowledgeDelta}`);
   }
 
   return `系統判定：${systemJudgement.stateLabel || '未知'}（${parts.join(' / ')}）`;
@@ -438,9 +439,9 @@ const triggeredLore = useMemo(() => {
   return (
     <GuiFrame tone="inner">
       <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', gridTemplateColumns: 'minmax(420px, 760px) 260px', justifyContent: 'center', gap: 16, padding: 24 }}>
-        <GlassPanel title={blankPainterCard.displayName} subtitle="Outer World Conversation" variant="dark" style={{ alignSelf: 'center', maxHeight: '88vh', minHeight: 560, display: 'flex', flexDirection: 'column' }} contentStyle={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
-          <div style={{ padding: '0 20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p style={{ margin: 0, color: '#aaa', fontSize: 13 }}>{blankPainterCard.coreEmotion}</p>
+        <GlassPanel title={blankPainterCard.displayName} variant="dark" style={{ alignSelf: 'center', maxHeight: '88vh', minHeight: 560, display: 'flex', flexDirection: 'column' }} contentStyle={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+          <div style={{ padding: '6px 20px 14px', color: '#9ba2ad', fontSize: 13, lineHeight: 1.6, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            {blankPainterCard.coreEmotion}
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: 20, backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)', backgroundSize: '100% 42px' }}>
@@ -489,16 +490,26 @@ const triggeredLore = useMemo(() => {
             <GlimmerButton tone="primary" onClick={onEnterInnerWorld}>進入心理世界</GlimmerButton>
           )}
           <GlimmerButton onClick={onClose}>離開對話</GlimmerButton>
-          <GlassPanel title="心防指示器" variant="dark" contentStyle={{ color: '#9ba2ad', fontSize: 13, lineHeight: 1.7 }}>
-            {innerWorldDepth >= 3
-              ? '他已經不需要防備你了。那幅沒畫完的畫，他主動提起。不是因為信任，是因為他知道你本來就懂。'
-              : innerWorldDepth === 2
-                ? '你在他的美術館裡看見了簽名在逃跑。他感覺到了。不是每個進去過的人，都能看到簽名。'
-                : innerWorldDepth === 1
-                  ? '你去過他的榮耀美術館，但你只看見獎盃。他把你歸類為「和其他人一樣」。這比沒去過更糟。'
-                  : npcState.innerWorldUnlocked
-                    ? '鎖鏈已出現裂縫。請謹慎進入他的失色畫廊。'
-                    : '心鎖仍然閉合。更多線索與更溫柔的語氣，會讓門縫變亮。'}
+
+          {/* 進度數值指示器 */}
+          <GlassPanel title="心防指示器" variant="dark" contentStyle={{ display: 'grid', gap: 12 }}>
+            <MeterBar label="對TA的認識" value={knowledge} max={100} tone="blue" />
+            <MeterBar label="???" value={npcState.stress} max={100} tone="red" />
+            <MeterBar label="信任度" value={npcState.trust} max={100} tone="gold" />
+            <div style={{
+              color: '#9ba2ad', fontSize: 12, lineHeight: 1.6,
+              padding: '8px 0', borderTop: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              {innerWorldDepth >= 3
+                ? '他已經不需要防備你了。那幅沒畫完的畫，他主動提起。不是因為信任，是因為他知道你本來就懂。'
+                : innerWorldDepth === 2
+                  ? '你在他的美術館裡看見了簽名在逃跑。他感覺到了。不是每個進去過的人，都能看到簽名。'
+                  : innerWorldDepth === 1
+                    ? '你去過他的榮耀美術館，但你只看見獎盃。他把你歸類為「和其他人一樣」。這比沒去過更糟。'
+                    : npcState.innerWorldUnlocked
+                      ? '鎖鏈已出現裂縫。請謹慎進入他的失色畫廊。'
+                      : '心鎖仍然閉合。更多線索與更溫柔的語氣，會讓門縫變亮。'}
+            </div>
           </GlassPanel>
         </div>
       </div>
