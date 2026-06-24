@@ -274,7 +274,7 @@ function classifyDialogueSync(message) {
 }
 
 // ---- 連擊設定：連續相同類型時的額外加成倍率 ----
-// streakCount >= 2 時：extraDelta = n * (streakCount-1)（第二次 x1, 第三次 x2, ...）
+// streakCount >= 2 時：extraDelta = n × (streakCount - 1)（第二次 x1, 第三次 x2, ...）
 const STREAK_N = {
   hostile:      { trust: -2, stress:  2 },
   dismiss:      { trust: -1, stress:  0 },
@@ -317,14 +317,14 @@ function getDialogueDelta(message, knownType, recentInputTypes = [], collectedCl
   // --- hostile ---
   if (dialogueType === 'hostile') {
     const baseTrust = -8, baseStress = 10;
-    const extra = (streak >= 2 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
+    const extra = (streak >= 1 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
     return { dialogueType, trustDelta: baseTrust + extra.trust, stressDelta: baseStress + extra.stress, knowledgeDelta: 0 };
   }
 
   // --- dismiss ---
   if (dialogueType === 'dismiss') {
     const baseTrust = -3, baseStress = 3;
-    const extra = (streak >= 2 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
+    const extra = (streak >= 1 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
     return { dialogueType, trustDelta: baseTrust + extra.trust, stressDelta: baseStress + extra.stress, knowledgeDelta: 0 };
   }
 
@@ -333,14 +333,14 @@ function getDialogueDelta(message, knownType, recentInputTypes = [], collectedCl
     // 表面安慰：首次給機會（trust=0），之後每次 -1；不影響 stress 和 knowledge
     const isFirstComfort = !Array.isArray(recentInputTypes) || !recentInputTypes.includes('comfort');
     const baseTrust = isFirstComfort ? 0 : -1;
-    const extra = (streak >= 2 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
+    const extra = (streak >= 1 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
     return { dialogueType, trustDelta: baseTrust + extra.trust, stressDelta: extra.stress, knowledgeDelta: 0 };
   }
 
   // --- contradict ---
   if (dialogueType === 'contradict') {
     const baseTrust = 0, baseStress = 5;
-    const extra = (streak >= 2 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
+    const extra = (streak >= 1 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
     return { dialogueType, trustDelta: baseTrust + extra.trust, stressDelta: baseStress + extra.stress, knowledgeDelta: 0 };
   }
 
@@ -352,20 +352,20 @@ function getDialogueDelta(message, knownType, recentInputTypes = [], collectedCl
   // --- role_related ---
   if (dialogueType === 'role_related') {
     const baseTrust = 2, baseStress = 0;
-    const extra = (streak >= 2 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
+    const extra = (streak >= 1 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
     return { dialogueType, trustDelta: baseTrust + extra.trust, stressDelta: baseStress + extra.stress, knowledgeDelta: clueBonus };
   }
 
   // --- empathy ---
   if (dialogueType === 'empathy') {
     const baseTrust = 5, baseStress = -3;
-    const extra = (streak >= 2 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
+    const extra = (streak >= 1 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
     return { dialogueType, trustDelta: baseTrust + extra.trust, stressDelta: baseStress + extra.stress, knowledgeDelta: 0 };
   }
 
   // --- ordinary / 默认 ---
   const baseTrust = 1, baseStress = -1;
-  const extra = (streak >= 2 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
+  const extra = (streak >= 1 && streakN) ? { trust: streakN.trust * streak, stress: streakN.stress * streak } : { trust: 0, stress: 0 };
   return { dialogueType, trustDelta: baseTrust + extra.trust, stressDelta: baseStress + extra.stress, knowledgeDelta: clueBonus };
 }
 
