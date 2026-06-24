@@ -57,7 +57,6 @@ export default function EmotionDictionaryPage({ onBack }: EmotionDictionaryPageP
     <GuiFrame tone="paper">
       <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', gridTemplateColumns: '320px minmax(520px, 820px)', gap: 24, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <GlassPanel title="情緒詞典" subtitle="Emotion Dictionary" variant="paper" contentStyle={{ display: 'grid', gap: 10 }}>
-          <GlimmerButton tone="ghost" onClick={onBack}>返回</GlimmerButton>
           {loading && <div style={{ color: '#6b5137', padding: 16 }}>載入中...</div>}
           {!loading && unlockedEntries.length === 0 && <div style={{ color: '#6b5137', padding: 16 }}>尚未解鎖任何理解。</div>}
           {!loading && unlockedEntries.map(entry => (
@@ -80,6 +79,7 @@ export default function EmotionDictionaryPage({ onBack }: EmotionDictionaryPageP
             </button>
           ))}
           {lockedCount > 0 && <div style={{ color: '#775f45', fontSize: 13, textAlign: 'center', paddingTop: 8 }}>尚有未解鎖的理解等待發現</div>}
+          <GlimmerButton tone="ghost" onClick={onBack}>返回</GlimmerButton>
         </GlassPanel>
 
         <GlassPanel title={selected?.name ?? '未選擇詞條'} subtitle="Welfare Card" variant="paper" style={{ minHeight: 560 }} contentStyle={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'stretch' }}>

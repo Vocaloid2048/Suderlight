@@ -442,7 +442,7 @@ const triggeredLore = useMemo(() => {
     setIsThinking(true);
 
     try {
-      const replyStr = await fetchLLMReply(trimmed, 'bridge_artist');
+      const replyStr = await fetchLLMReply(trimmed, 'bridge_artist', inventory.length);
       let reply: AiReply;
 
       try {

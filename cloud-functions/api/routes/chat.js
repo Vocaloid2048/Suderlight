@@ -92,9 +92,12 @@ router.post('/', async (req, res, next) => {
       const recentInputTypes = memoryService.getRecentTypes(npcId, playerId);
       const messages = buildPrompt(npcId, message, recentInputTypes, playerId);
 
-      // 获取玩家已收集的线索数量，用于计算 knowledge 加成
+      // 获取玩家已收集的线索数量：优先使用前端传来的（反映真实客户端状态），后端存档作为 fallback
       const playerSave = saveService.readSave(playerId);
-      const collectedClueCount = Array.isArray(playerSave.collectedClues) ? playerSave.collectedClues.length : 0;
+      const clientClueCount = typeof req.body.collectedClueCount === 'number' ? req.body.collectedClueCount : undefined;
+      const collectedClueCount = clientClueCount !== undefined
+        ? clientClueCount
+        : (Array.isArray(playerSave.collectedClues) ? playerSave.collectedClues.length : 0);
 
       const [dialogueType, replyRaw] = await Promise.all([
         npcStateEngine.classifyDialogue(message, npcSettings, recentMessages),
