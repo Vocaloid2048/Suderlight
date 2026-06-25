@@ -182,6 +182,24 @@ export function clearDialogueHistory(npcId: string, playerId: string) {
   savePlayerStore(playerId, store);
 }
 
+/** 保存對話初始訊息（系統場景描述 + NPC 開場白）到 fullHistory，作為第 0 輪 */
+export function saveInitialExchange(
+  npcId: string,
+  playerId: string,
+  systemMessage: string,
+  npcOpening: string,
+) {
+  const store = loadPlayerStore(playerId);
+  const data = store[npcId] || getDefaultNpcData();
+  // 只在尚未有任何紀錄時才寫入
+  if (data.fullHistory.length === 0) {
+    data.fullHistory.push({ role: 'system', content: systemMessage, timestamp: Date.now() });
+    data.fullHistory.push({ role: 'assistant', content: npcOpening, timestamp: Date.now() });
+    store[npcId] = data;
+    savePlayerStore(playerId, store);
+  }
+}
+
 export function clearAllDialogueHistory(playerId: string) {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(storageKey(playerId));

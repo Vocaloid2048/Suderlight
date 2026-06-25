@@ -6,7 +6,7 @@ import { bridgeArtistClues } from '../data/verticalSlice';
 import type { NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
-import { loadDialogueHistory, appendDialogueExchange, clearDialogueHistory } from '../lib/dialogueStore';
+import { loadDialogueHistory, appendDialogueExchange, clearDialogueHistory, saveInitialExchange } from '../lib/dialogueStore';
 
 // 线索 ID → 中文描述映射
 const CLUE_LABELS: Record<string, string> = {};
@@ -346,14 +346,44 @@ export default function OuterWorldConversation({
       try {
         const playerId = getPlayerId();
 
-        // 1. 优先从本地 localStorage 加载（离线恢复）
+        // 1. 优先从本地 localStorage 加载（含初始开场白）
         const localHistory = loadDialogueHistory('bridge_artist', playerId);
         if (localHistory && localHistory.fullHistory.length > 0) {
-          const rebuiltHistory: ChatMessage[] = [
-            { role: 'system', content: initialSystemMessage },
-            { role: 'npc', content: initialNpcMessage },
-          ];
+          // 复原完整对话历史（含初始系统场景 + NPC 开场白），不再重复产生新开场白
+          const rebuiltHistory: ChatMessage[] = [];
           localHistory.fullHistory.forEach((msg: any) => {
+            if (msg.role === 'system') {
+              rebuiltHistory.push({ role: 'system', content: msg.content });
+              return;
+            }
+            if (msg.role === 'assistant') {
+              rebuiltHistory.push({ role: 'npc', content: msg.content });
+              if (msg.systemJudgement) {
+                rebuiltHistory.push({ role: 'system', content: formatSystemJudgement(msg.systemJudgement) });
+              }
+              return;
+            }
+            if (msg.role === 'user') {
+              rebuiltHistory.push({ role: 'player', content: msg.content });
+              return;
+            }
+          });
+          setMessages(rebuiltHistory);
+          setIsInitializing(false);
+          return;
+        }
+
+        // 2. 回退到后端 API
+        const authHeaders = await getPlayerAuthHeaders(playerId);
+        const response = await fetch(`/api/chat/history/bridge_artist`, {
+          headers: authHeaders
+        });
+        if (!response.ok) throw new Error('Failed to load history');
+        const data = await response.json();
+
+        if (Array.isArray(data.history) && data.history.length > 0) {
+          const rebuiltHistory: ChatMessage[] = [];
+          data.history.forEach((msg: HistoryEntry) => {
             if (msg.role === 'user') {
               rebuiltHistory.push({ role: 'player', content: msg.content });
               return;
@@ -370,36 +400,13 @@ export default function OuterWorldConversation({
           return;
         }
 
-        // 2. 回退到后端 API
-        const authHeaders = await getPlayerAuthHeaders(playerId);
-        const response = await fetch(`/api/chat/history/bridge_artist`, {
-          headers: authHeaders
-        });
-        if (!response.ok) throw new Error('Failed to load history');
-        const data = await response.json();
-
-        const rebuiltHistory: ChatMessage[] = [
+        // 3. 全新对话：展示当前深度的场景 + 开场白，并保存到 fullHistory
+        const initMessages: ChatMessage[] = [
           { role: 'system', content: initialSystemMessage },
           { role: 'npc', content: initialNpcMessage },
         ];
-
-        if (Array.isArray(data.history) && data.history.length > 0) {
-          data.history.forEach((msg: HistoryEntry) => {
-            if (msg.role === 'user') {
-              rebuiltHistory.push({ role: 'player', content: msg.content });
-              return;
-            }
-
-            if (msg.role === 'assistant') {
-              rebuiltHistory.push({ role: 'npc', content: msg.content });
-              if (msg.systemJudgement) {
-                rebuiltHistory.push({ role: 'system', content: formatSystemJudgement(msg.systemJudgement) });
-              }
-            }
-          });
-        }
-
-        setMessages(rebuiltHistory);
+        setMessages(initMessages);
+        saveInitialExchange('bridge_artist', playerId, initialSystemMessage, initialNpcMessage);
       } catch (error) {
         console.error('Failed to load chat history:', error);
         setMessages([
@@ -412,7 +419,8 @@ export default function OuterWorldConversation({
     }
 
     loadHistory();
-  }, [innerWorldDepth, initialSystemMessage, initialNpcMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 const triggeredLore = useMemo(() => {
     const flags = new Set(inventory.map(item => `inventory.${item}`));
@@ -468,7 +476,7 @@ const triggeredLore = useMemo(() => {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isThinking || npcState.ending !== 'none') return;
+    if (!trimmed || isThinking) return;
 
     const playerMessage: ChatMessage = { role: 'player', content: trimmed };
     const nextMessages = [...messages, playerMessage];
@@ -571,11 +579,10 @@ const triggeredLore = useMemo(() => {
               <input
                 value={input}
                 onChange={event => setInput(event.target.value)}
-                placeholder={isEnded ? '這段對話已結束' : '試著輸入：你的畫筆還在嗎 / 創作對你來說是什麼 / 我可以陪你坐一會 / 不畫畫也沒關係'}
-                disabled={isEnded}
-                style={{ flex: 1, background: '#101218', color: '#f5f0e8', border: '1px solid #444', borderRadius: 10, padding: '12px 14px', outline: 'none', fontSize: 14, opacity: isEnded ? 0.55 : 1 }}
+                placeholder={'試著輸入：你的畫筆還在嗎 / 創作對你來說是什麼 / 我可以陪你坐一會 / 不畫畫也沒關係'}
+                style={{ flex: 1, background: '#101218', color: '#f5f0e8', border: '1px solid #444', borderRadius: 10, padding: '12px 14px', outline: 'none', fontSize: 14 }}
               />
-              <GlimmerButton type="submit" tone="primary" disabled={isThinking || isEnded}>送出</GlimmerButton>
+              <GlimmerButton type="submit" tone="primary" disabled={isThinking}>送出</GlimmerButton>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, color: '#777', fontSize: 12 }}>
               <span>目前線索：{inventory.length > 0 ? inventory.map(id => CLUE_LABELS[id] || id).join(' / ') : '沒有線索'}</span>
