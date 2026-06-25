@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState, useEffect } from 'react';
+import { FormEvent, useMemo, useState, useEffect, useRef } from 'react';
 import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import MeterBar from '../components/MeterBar';
 import { blankPainterCard, blankPainterLorebook } from '../data/npcs/blankPainter';
@@ -350,6 +350,12 @@ export default function OuterWorldConversation({
   const [isInitializing, setIsInitializing] = useState(true);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // 每次消息更新时自动滚动到底部（瞬间到位，无动画）
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [messages]);
 
   useEffect(() => {
     async function loadHistory() {
@@ -590,6 +596,7 @@ const triggeredLore = useMemo(() => {
               </div>
                 ))}
                 {isThinking && <div style={{ color: '#888', fontSize: 13 }}>畫家沉默了一下，像是在等待雨聲替他組織句子……</div>}
+                <div ref={chatEndRef} />
               </>
             )}
           </div>
