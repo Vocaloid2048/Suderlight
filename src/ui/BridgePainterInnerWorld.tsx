@@ -768,8 +768,9 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
     }
     return count;
   }
+  // 停留在最後已完成的層數（讓玩家手動點擊下一層），首次進入為 1
   const initialLayerNum = isReturnVisit
-    ? Math.min(countCompletedFromSave() + 1, maxUnlockedLayer)
+    ? Math.max(1, countCompletedFromSave())
     : 1;
   const [layerNum, setLayerNum] = useState<number>(initialLayerNum);
   const [phase, setPhase] = useState<LayerPhase>(
