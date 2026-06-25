@@ -72,6 +72,7 @@ export type ClientNpcState = {
   trust: number;
   stress: number;
   knowledge: number;
+  innerWorldDepth?: number;
 };
 
 export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge_artist', collectedClueCount?: number, clientNpcState?: ClientNpcState): Promise<string> {

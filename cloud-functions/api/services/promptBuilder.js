@@ -10,7 +10,7 @@ function formatWorldbookEntries(entries) {
   return entries.map(e => `【${e.comment || e.id}】\n${e.content}`).join('\n\n');
 }
 
-function buildPrompt(npcId, playerMessage, recentInputTypes = [], playerId = null) {
+function buildPrompt(npcId, playerMessage, recentInputTypes = [], playerId = null, npcState = null) {
   const card = CHARACTER_CARDS[npcId] || {};
 
   // 世界书
@@ -29,14 +29,23 @@ function buildPrompt(npcId, playerMessage, recentInputTypes = [], playerId = nul
   const scenario = card.scenario || '';
   const firstMsg = card.first_mes || '';
   const examples = card.mes_example || '';
-  const sysPrompt = card.system_prompt || '';
+
+  // 情感弧线完成后使用 post-completion 规则，否则使用默认规则
+  const isArcComplete = npcState && (
+    npcState.ending === 'success' ||
+    (npcState.innerWorldDepth >= 3)
+  );
+  const sysPrompt = isArcComplete && card.system_prompt_post
+    ? card.system_prompt_post
+    : (card.system_prompt || '');
+
   const notes = card.creator_notes || '';
 
   const systemContent = `你正在《情緒修復師：微光城市》中扮演 NPC。
 
 【當前場景感知】
 ${worldbookText || '無特殊感知'}
-
+${isArcComplete ? '【情感弧線狀態】已完成。對方走進了你的整個內心世界，沒有逃開。你不再是那個把自己關在灰階裡的畫家。' : ''}
 【角色名稱】${name}
 【角色描述】${desc}
 【個性與心理狀態】${personality}

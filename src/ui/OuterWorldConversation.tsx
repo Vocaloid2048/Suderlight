@@ -108,6 +108,12 @@ function simulateBlankPainterReply(
   }
 
   if (hasAny(input, ['加油', '振作', '重新開始', '會好的', '你一定可以再畫', '復出'])) {
+    if (depth >= 3) {
+      return {
+        dialogue: '……你知道嗎。\n以前聽到這句話我會覺得你在否定現在的我。\n但現在——\n他頓了一下，手指在欄杆上輕輕敲了兩下。\n「也許有一天吧。不是為了證明什麼。只是想畫。」',
+        safetyLevel: 'safe',
+      };
+    }
     return {
       dialogue: '你們都很喜歡「再」這個字。\n再畫、再站起來、再變回以前。\n好像現在的我只是一張被你們丟掉的草稿。',
       safetyLevel: 'safe',
@@ -115,6 +121,13 @@ function simulateBlankPainterReply(
   }
 
   if (hasAny(input, ['我陪你', '陪你', '不說話', '聽你說', '慢慢來', '不用立刻', '不用證明'])) {
+    if (depth >= 3) {
+      return {
+        dialogue: '……你已經陪我走完了。\n從那個金光閃閃的展廳，到什麼都沒有的白房間。\n你都沒有逃開。\n……這種事情，以前沒有人做到過。',
+        dictionaryHint: '最深的理解不是分析，而是讓對方覺得「你本來就知道」。',
+        safetyLevel: 'safe',
+      };
+    }
     if (depth === 1) {
       return {
         dialogue: '你剛才去過那裡了對不對。\n但你只是看到了獎盃吧。跟其他人一樣。\n算了……你回去吧。反正也一樣。',
@@ -177,6 +190,13 @@ function simulateBlankPainterReply(
   }
 
   if (hasAny(input, ['雨聲', '風', '聽見', '沉默'])) {
+    if (depth >= 3) {
+      return {
+        dialogue: '雨聲……\n他抬起頭，第一次在雨裡沒有縮起肩膀。\n「以前我覺得雨水很吵。現在——它好像只是試著告訴我一件事。世界還在轉。我也還在這裡。」',
+        dictionaryHint: '感官不再只是創傷的觸發點；它們也可以是陪伴的證據。',
+        safetyLevel: 'safe',
+      };
+    }
     if (depth >= 2) {
       return {
         dialogue: '雨聲……\n剛才你在那裡的時候，雨有沒有也跟著你進去？\n我的展廳裡，是不是連雨聲都沒有。',
@@ -187,6 +207,14 @@ function simulateBlankPainterReply(
     return {
       dialogue: '雨聲……\n很久沒聽過了。\n我一直以為它也變成灰色了。',
       dictionaryHint: '把注意力帶回當下感官，有時比勸說更能降低防衛。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (depth >= 3 && hasAny(input, ['理解', '懂得', '知道', '看見', '去過', '美術館', '展廳', '畫廊'])) {
+    return {
+      dialogue: '你去過每一個房間了。\n那個金光閃閃的、那個一直下雨的、那個顏色正在逃跑的……\n還有最後那個，什麼都沒有的。\n他停了一下。\n「我不會說我好了。但我開始覺得——空白不一定是壞事。有時候空白，是讓人可以重新起稿的地方。」',
+      dictionaryHint: '真正的修復不是填滿空白，而是學會與空白共存，甚至讓空白成為新的起點。',
       safetyLevel: 'safe',
     };
   }
@@ -202,6 +230,13 @@ function simulateBlankPainterReply(
   if (depth === 1 && hasAny(input, ['理解', '懂得', '知道', '看見', '去過', '美術館', '展廳', '畫廊'])) {
     return {
       dialogue: '你去過了？\n但你不會懂的。\n那些獎盃很漂亮對吧。每個人都這麼說。',
+      safetyLevel: 'safe',
+    };
+  }
+
+  if (depth >= 3) {
+    return {
+      dialogue: '他看著你，沒有立刻開口。\n畫布還是白的，但他的手不再抖了。\n「我以前覺得空白是一種失敗。」\n他慢慢地說，像是在整理那些終於可以說出口的東西。\n「現在我覺得——空白裡面其實有所有還沒畫上去的東西。它只是還沒開始，不是沒有。」',
       safetyLevel: 'safe',
     };
   }
@@ -446,6 +481,7 @@ const triggeredLore = useMemo(() => {
         trust: npcState.trust,
         stress: npcState.stress,
         knowledge: npcState.knowledge,
+        innerWorldDepth: npcState.innerWorldDepth,
       });
       let reply: AiReply;
 

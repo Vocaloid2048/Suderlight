@@ -90,29 +90,17 @@ router.post('/', async (req, res, next) => {
       const npc = saveService.getNpc(npcId, playerId);
       if (!npc) throw new NotFoundError('NPC', npcId);
 
-      // 若前端傳來了客戶端 NPC 狀態（如 playtest dashboard 修改），覆蓋後端舊值
+      // 若前端傳來了客戶端 NPC 狀態（如 playtest dashboard 修改），覆蓋/補充後端值
       const clientNpcState = req.body.clientNpcState;
       if (clientNpcState) {
         if (typeof clientNpcState.trust === 'number') npc.trust = Math.max(0, Math.min(100, Math.round(clientNpcState.trust)));
         if (typeof clientNpcState.stress === 'number') npc.stress = Math.max(0, Math.min(100, Math.round(clientNpcState.stress)));
         if (typeof clientNpcState.knowledge === 'number') npc.knowledge = Math.max(0, Math.min(100, Math.round(clientNpcState.knowledge)));
+        if (typeof clientNpcState.innerWorldDepth === 'number') npc.innerWorldDepth = Math.max(0, Math.min(3, Math.round(clientNpcState.innerWorldDepth)));
       }
 
-      // 已结局 NPC
-      if (npc.ending && npc.ending !== 'none') {
-        return res.json({
-          text: npc.ending === 'success'
-            ? '雨聲還在。他沒有痊癒，但沒有再把自己藏進空白裡。'
-            : '天橋上只剩潮濕的紙張。那個人影沒有再回頭。',
-          psychology: { trustDelta: 0, stressDelta: 0, stateLabel: '普通對話' },
-          npcState: {
-            trust: npc.trust, stress: npc.stress, knowledge: npc.knowledge,
-            innerWorldUnlocked: npc.innerWorldUnlocked, ending: npc.ending,
-          },
-          roundCount: memoryService.getRoundCount(npcId, playerId),
-          summary: memoryService.getSummary(npcId, playerId),
-        });
-      }
+      // 已结局 NPC：允许继续对话，但系统 prompt 会根据 ending 切换为 post-completion 规则
+      // 不再封锁对话，让玩家可以在结局后与 NPC 继续交流
 
       // ---- 並行請求：AI 意圖分類 + NPC 對話回覆（兩者互不依賴）----
       const npcCard = CHARACTER_CARDS[npcId] || {};
@@ -124,7 +112,12 @@ router.post('/', async (req, res, next) => {
       };
       const recentMessages = memoryService.getRecentDialogue(npcId, 10, playerId);
       const recentInputTypes = memoryService.getRecentTypes(npcId, playerId);
-      const messages = buildPrompt(npcId, message, recentInputTypes, playerId);
+      // 传递 npc 状态（含 ending / innerWorldDepth），用于 promptBuilder 判断是否使用 post-completion 规则
+      const npcStateForPrompt = {
+        ending: npc.ending,
+        innerWorldDepth: npc.innerWorldDepth,
+      };
+      const messages = buildPrompt(npcId, message, recentInputTypes, playerId, npcStateForPrompt);
 
       // 获取玩家已收集的线索数量：优先使用前端传来的（反映真实客户端状态），后端存档作为 fallback
       const playerSave = saveService.readSave(playerId);
