@@ -6,7 +6,7 @@ import { bridgeArtistClues } from '../data/verticalSlice';
 import type { NpcRuntimeState } from '../systems/npcStateEngine';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
-import { loadDialogueHistory, appendDialogueExchange, clearDialogueHistory, saveInitialExchange } from '../lib/dialogueStore';
+import { loadDialogueHistory, appendDialogueExchange, clearDialogueHistory, saveInitialExchange, appendProgressOpening } from '../lib/dialogueStore';
 
 // 线索 ID → 中文描述映射
 const CLUE_LABELS: Record<string, string> = {};
@@ -368,6 +368,16 @@ export default function OuterWorldConversation({
               return;
             }
           });
+          // 检测进度变化：若 innerWorldDepth 增大，追加新深度的场景 + 开场白
+          const appended = appendProgressOpening(
+            'bridge_artist', playerId,
+            initialSystemMessage, initialNpcMessage, innerWorldDepth,
+          );
+          if (appended) {
+            rebuiltHistory.push({ role: 'system', content: initialSystemMessage });
+            rebuiltHistory.push({ role: 'npc', content: initialNpcMessage });
+          }
+
           setMessages(rebuiltHistory);
           setIsInitializing(false);
           return;
@@ -406,7 +416,7 @@ export default function OuterWorldConversation({
           { role: 'npc', content: initialNpcMessage },
         ];
         setMessages(initMessages);
-        saveInitialExchange('bridge_artist', playerId, initialSystemMessage, initialNpcMessage);
+        saveInitialExchange('bridge_artist', playerId, initialSystemMessage, initialNpcMessage, innerWorldDepth);
       } catch (error) {
         console.error('Failed to load chat history:', error);
         setMessages([

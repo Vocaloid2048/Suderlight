@@ -31,6 +31,8 @@ export type NpcDialogueData = {
   fullHistory: DialogueMessage[];
   summary: string;
   roundCount: number;
+  /** 上次对话时的 innerWorldDepth，用于检测进度变化以追加新的开场白 */
+  lastInnerWorldDepth: number;
 };
 
 export type PlayerDialogueStore = Record<string, NpcDialogueData>;
@@ -68,6 +70,7 @@ function getDefaultNpcData(): NpcDialogueData {
     fullHistory: [],
     summary: '',
     roundCount: 0,
+    lastInnerWorldDepth: 0,
   };
 }
 
@@ -188,6 +191,7 @@ export function saveInitialExchange(
   playerId: string,
   systemMessage: string,
   npcOpening: string,
+  innerWorldDepth?: number,
 ) {
   const store = loadPlayerStore(playerId);
   const data = store[npcId] || getDefaultNpcData();
@@ -195,9 +199,31 @@ export function saveInitialExchange(
   if (data.fullHistory.length === 0) {
     data.fullHistory.push({ role: 'system', content: systemMessage, timestamp: Date.now() });
     data.fullHistory.push({ role: 'assistant', content: npcOpening, timestamp: Date.now() });
+    if (typeof innerWorldDepth === 'number') data.lastInnerWorldDepth = innerWorldDepth;
     store[npcId] = data;
     savePlayerStore(playerId, store);
   }
+}
+
+/** 當前進度超過上次對話深度時，追加新的場景訊息 + 開場白 */
+export function appendProgressOpening(
+  npcId: string,
+  playerId: string,
+  systemMessage: string,
+  npcOpening: string,
+  currentDepth: number,
+): boolean {
+  const store = loadPlayerStore(playerId);
+  const data = store[npcId] || getDefaultNpcData();
+  if (currentDepth > data.lastInnerWorldDepth && data.fullHistory.length > 0) {
+    data.fullHistory.push({ role: 'system', content: systemMessage, timestamp: Date.now() });
+    data.fullHistory.push({ role: 'assistant', content: npcOpening, timestamp: Date.now() });
+    data.lastInnerWorldDepth = currentDepth;
+    store[npcId] = data;
+    savePlayerStore(playerId, store);
+    return true;
+  }
+  return false;
 }
 
 export function clearAllDialogueHistory(playerId: string) {
