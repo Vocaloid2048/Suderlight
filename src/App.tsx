@@ -112,7 +112,17 @@ export default function App() {
           inventory={save.collectedClues}
           innerWorldDepth={bridgeArtist.innerWorldDepth}
           npcState={bridgeArtist}
-          onClose={() => setScreen('city')}
+          onClose={() => {
+            // 检查内心世界四层是否全部完成 → 触发成功结局
+            const layers = save.npcs.bridge_artist.innerWorld?.layers;
+            const allLayersComplete = layers && [1, 2, 3, 4].every(l => layers[l]?.completed);
+            if (allLayersComplete && bridgeArtist.ending === 'none') {
+              completeNpcSuccess('bridge_artist');
+              setScreen('aftermath');
+            } else {
+              setScreen('city');
+            }
+          }}
           onBackendNpcStateApplied={(state) => applyBackendNpcState('bridge_artist', state)}
           onEnterInnerWorld={() => setScreen('innerWorld')}
 
@@ -126,13 +136,8 @@ export default function App() {
         <BridgePainterInnerWorld
           onReturnToSurface={(depth) => {
             setInnerWorldDepth(depth);
-            // depth=3 means all 4 layers completed (full arc)
-            if (depth >= 3) {
-              completeNpcSuccess('bridge_artist');
-              setScreen('aftermath');
-            } else {
-              setScreen('conversation');
-            }
+            // 内心世界返回不直接触发结局；玩家需完成全部四层后透过对话离开才进入余波汇报
+            setScreen('conversation');
           }}
           onAdvanceLayer={(layer) => advancePsychLayer(layer)}
         />

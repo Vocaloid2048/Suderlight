@@ -262,8 +262,7 @@ export function applyDialogueEvaluation(
 export function markNpcSuccess(state: NpcRuntimeState): NpcRuntimeState {
   return {
     ...state,
-    trust: Math.max(state.trust, state.trustRequired),
-    stress: Math.min(state.stress, 35),
+    // 不再强制修改 trust/stress；这些数值由对话系统自然累积完成
     innerWorldUnlocked: true,
     ending: 'success',
     flags: mergeFlags(state.flags, ['bridge_artist_repaired']),
