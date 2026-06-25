@@ -316,7 +316,14 @@ export default function OuterWorldConversation({
   onEndingTriggered,
 }: OuterWorldConversationProps) {
 
+  // 检查内心世界四层是否全部完成（弧线终结）
+  const layers = npcState.innerWorld?.layers;
+  const allLayersComplete = !!(layers && [1, 2, 3, 4].every(l => layers[l]?.completed));
+  // 用于进度检测：arc complete 视为 depth=4（innerWorldDepth 最大只到 3）
+  const effectiveDepth = allLayersComplete ? 4 : innerWorldDepth;
+
   const initialSystemMessage = (() => {
+    if (allLayersComplete) return '你回到了天橋。雨已經停了。欄杆上掛著幾滴水珠，在微弱的燈光下像剛畫上去的星點。';
     if (innerWorldDepth === 1) return '你回到了天橋。雨水仍在滴落。畫家看了你一眼，眼神像是在確認什麼——然後又移開了。';
     if (innerWorldDepth === 2) return '你回到了天橋。雨水仍在滴落，但畫家看你的眼神有些不一樣——像是感覺到你曾去過某個他不敢獨自前往的地方。';
     if (innerWorldDepth >= 3) return '你回到了天橋。畫家沒有抬頭。他的手停在畫布上方，像是不確定自己還能不能繼續畫——還是繼續不畫。';
@@ -324,6 +331,9 @@ export default function OuterWorldConversation({
   })();
 
   const initialNpcMessage = (() => {
+    if (allLayersComplete) {
+      return '他站在橋上，背對著你。\n畫布還是空白的，但他的手不再發抖。\n聽見你的腳步聲，他沒有立刻回頭。\n\n「……四個房間。」\n他的聲音比以前平穩。\n「榮耀的、下雨的、褪色的、空白的。你都走完了。」\n\n他轉過身。眼裡沒有淚，也沒有人們期待的光芒——只是一種平靜，像終於可以放下的重量。\n「我不知道以後還會不會畫。但我現在不害怕不知道了。」\n\n他停了一下，第一次直視你的眼睛。\n「謝謝你……沒有在空白面前轉身。」';
+    }
     if (innerWorldDepth === 1) {
       return '……你也去了那種地方。\n他把畫筆放下，看著你。\n「你看到那些獎盃之後，是不是也覺得我很厲害。對不對。」\n不是在問你。是在確認他一直害怕的那件事——全世界都只看到獎盃，從頭到尾沒有人看到過他。\n「算了……你回去吧。反正也一樣。」';
     }
@@ -368,10 +378,10 @@ export default function OuterWorldConversation({
               return;
             }
           });
-          // 检测进度变化：若 innerWorldDepth 增大，追加新深度的场景 + 开场白
+          // 检测进度变化：若 effectiveDepth（含 arc complete=4）增大，追加新开场白
           const appended = appendProgressOpening(
             'bridge_artist', playerId,
-            initialSystemMessage, initialNpcMessage, innerWorldDepth,
+            initialSystemMessage, initialNpcMessage, effectiveDepth,
           );
           if (appended) {
             rebuiltHistory.push({ role: 'system', content: initialSystemMessage });
@@ -416,7 +426,7 @@ export default function OuterWorldConversation({
           { role: 'npc', content: initialNpcMessage },
         ];
         setMessages(initMessages);
-        saveInitialExchange('bridge_artist', playerId, initialSystemMessage, initialNpcMessage, innerWorldDepth);
+        saveInitialExchange('bridge_artist', playerId, initialSystemMessage, initialNpcMessage, effectiveDepth);
       } catch (error) {
         console.error('Failed to load chat history:', error);
         setMessages([
