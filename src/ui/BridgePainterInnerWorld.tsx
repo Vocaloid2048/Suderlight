@@ -790,6 +790,13 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
     });
   }, []);
 
+  // 確保初始層也被標記為已訪問（非首次進入時直接到 exploring 模式的情況）
+  useEffect(() => {
+    if (isReturnVisit && phase.type === 'exploring') {
+      markLayerVisited(layerNum);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---- 從存檔載入 innerWorld 狀態初始化 ----
   const savedInnerWorld = save?.npcs?.bridge_artist?.innerWorld;
 
@@ -1264,10 +1271,10 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
               {[1, 2, 3, 4].map(num => {
                 const stressUnlocked = isLayerUnlockedByStress(num, safeStress);
                 const isCompleted = completedLayers.has(num);
-                // 【修复】当前层及以下所有层均可回顾访问；理解度达标时可跳过当前层直接切到下一层
+                // 【修复】当前层及以下 + 已拜访过的层均可回顾访问；理解度达标时可跳到下一层
                 const isAtOrBelowCurrent = num <= layerNum;
                 const canSkipToNext = thresholdMet && num === layerNum + 1;
-                const canSwitch = isCompleted || isAtOrBelowCurrent || canSkipToNext;
+                const canSwitch = isCompleted || isAtOrBelowCurrent || canSkipToNext || visitedLayers.has(num);
                 const isLocked = !stressUnlocked || !canSwitch;
 
                 return (
@@ -1291,6 +1298,8 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                         return;
                       }
                       setLayerNum(num as number);
+                      // 標記該層為已訪問（確保返回低層後高層仍可點擊）
+                      markLayerVisited(num);
                       // 首次進入該層 → 展示 entering 介紹畫面；已訪問過 → 直接進入探索
                       setPhase({ type: visitedLayers.has(num) ? 'exploring' : 'entering' });
                     }}
