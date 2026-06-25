@@ -999,6 +999,7 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                   setLayerLockMessage(null);
                 }}
                 fullWidth
+                style={{ color: '#3a2a14', borderColor: 'rgba(58,42,20,0.3)', opacity: 0.9 }}
               >
                 回到第{['一','二','三','四'][layerNum - 1]}層繼續探索
               </GlimmerButton>
@@ -1041,8 +1042,9 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
   return (
     <GuiFrame tone="inner">
       <div style={{ position:'relative',zIndex:2,height:'100%',display:'grid',gridTemplateColumns:'270px 1fr',gap:20,padding:28 }}>
-        {/* 左側欄 */}
-        <aside style={{ display:'flex',flexDirection:'column',gap:14,overflowY:'auto',maxHeight:'calc(100vh - 100px)',minHeight:0,paddingRight:4 }}>
+        {/* 左側欄：卡片列表 + 下方固定按鈕 */}
+        <div style={{ display:'flex',flexDirection:'column',maxHeight:'calc(100vh - 100px)',minHeight:0,gap:8 }}>
+        <aside style={{ display:'flex',flexDirection:'column',gap:14,overflowY:'auto',flex:1,minHeight:0,paddingRight:4 }}>
           <GlassPanel title={`第${CH[layerNum-1]}層`} subtitle={layer.layerName} variant={layer.colorScheme==='void'?'paper':'warm'} style={{ flexShrink:0 }} contentStyle={{ display:'flex',flexDirection:'column',gap:12 }}>
             <div style={{ color:layer.colorScheme==='void'?'#3a2a14':colors.sub,fontSize:13,lineHeight:1.9,whiteSpace:'pre-line' }}>{layerAtmoText(layerNum)}</div>
             {layer.nextLayerThreshold > 0 && (
@@ -1102,14 +1104,17 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
             </GlassPanel>
           )}
 
-          <div style={{ display:'flex',flexDirection:'column',gap:8,marginTop:'auto',flexShrink:0 }}>
+        </aside>
+
+          {/* 固定在左側欄底部的操作按鈕，不會被卡片內容擋住 */}
+          <div style={{ display:'flex',flexDirection:'column',gap:8,flexShrink:0,paddingTop:4 }}>
             {showLayerCompleteBtn && (
               <GlimmerButton tone="primary" onClick={() => setPhase({ type:'layer_complete' })} fullWidth>深入理解 →</GlimmerButton>
             )}
             <GlimmerButton tone="quiet" onClick={handleReturn} fullWidth>返回表世界</GlimmerButton>
           </div>
 
-        </aside>
+        </div>
 
         {/* 右側主區域 */}
         <main style={{
