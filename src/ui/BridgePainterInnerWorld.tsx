@@ -769,8 +769,11 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
     return count;
   }
   // 停留在最後已完成的層數（讓玩家手動點擊下一層），首次進入為 1
+  // 但若玩家已按過「深入下一層」→「進入XXX」拜訪了下一層，下次直接導航到該層
+  const completedCount = countCompletedFromSave();
+  const nextLayer = completedCount + 1;
   const initialLayerNum = isReturnVisit
-    ? Math.max(1, countCompletedFromSave())
+    ? (nextLayer <= 4 && initialVisited.has(nextLayer) ? nextLayer : Math.max(1, completedCount))
     : 1;
   const [layerNum, setLayerNum] = useState<number>(initialLayerNum);
   const [phase, setPhase] = useState<LayerPhase>(
