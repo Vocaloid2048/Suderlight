@@ -430,7 +430,7 @@ const layer4Interactables: PsychInteractable[] = [
     row: 0,
     col: 0,
     surfaceInfo:
-      "Layer 1 的獎盃在這裡變成了一個半透明的投影，在虛空中微弱地發光。刻字幾乎看不見了。",
+      "第一層中的獎盃在這裡變成了一個半透明的投影，在虛空中微弱地發光。刻字幾乎看不見了。",
     deepMessage:
       "你伸手觸碰——投影散成光點，只留下一句話在空中迴盪：\n"
       + "「我不再需要用名字證明自己存在。」\n"
@@ -449,7 +449,7 @@ const layer4Interactables: PsychInteractable[] = [
     row: 0,
     col: 2,
     surfaceInfo:
-      "Layer 2 那支折斷的畫筆，現在安靜地躺在地上——但斷口處發著微光，像被某種東西修復了。",
+      "第二層中那支折斷的畫筆，現在安靜地躺在地上——但斷口處發著微光，像被某種東西修復了。",
     deepMessage:
       "筆還是斷的。兩半之間的空隙沒有被填補。\n"
       + "但那道光來自筆本身——不是被修復了，而是被接納了。\n"

@@ -6,12 +6,32 @@ type DictEntry = {
   name: string;
   description: string;
   relatedClues: string[];
+  unlockCondition: string;
   unlocked: boolean;
 };
 
 type EmotionDictionaryPageProps = {
   onBack: () => void;
 };
+
+const SAVE_KEY = 'glimmer_city_vertical_slice_save_v1';
+
+function getCollectedClues(): string[] {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return [];
+    const save = JSON.parse(raw);
+    return Array.isArray(save.collectedClues) ? save.collectedClues : [];
+  } catch {
+    return [];
+  }
+}
+
+function isEntryUnlocked(entry: { relatedClues?: string[]; unlockCondition?: string }, collectedClues: string[]) {
+  const related = Array.isArray(entry.relatedClues) ? entry.relatedClues : [];
+  const condition = entry.unlockCondition;
+  return collectedClues.some(c => related.includes(c) || c === condition);
+}
 
 export default function EmotionDictionaryPage({ onBack }: EmotionDictionaryPageProps) {
   const [entries, setEntries] = useState<DictEntry[]>([]);
@@ -22,7 +42,12 @@ export default function EmotionDictionaryPage({ onBack }: EmotionDictionaryPageP
     fetch('/api/dictionary')
       .then(res => res.json())
       .then(data => {
-        setEntries(data.entries);
+        const collectedClues = getCollectedClues();
+        const entriesWithUnlock = (Array.isArray(data.entries) ? data.entries : []).map((entry: any) => ({
+          ...entry,
+          unlocked: isEntryUnlocked(entry, collectedClues),
+        }));
+        setEntries(entriesWithUnlock);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -36,7 +61,6 @@ export default function EmotionDictionaryPage({ onBack }: EmotionDictionaryPageP
     <GuiFrame tone="paper">
       <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'grid', gridTemplateColumns: '320px minmax(520px, 820px)', gap: 24, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <GlassPanel title="情緒詞典" subtitle="Emotion Dictionary" variant="paper" contentStyle={{ display: 'grid', gap: 10 }}>
-          <GlimmerButton tone="ghost" onClick={onBack}>返回</GlimmerButton>
           {loading && <div style={{ color: '#6b5137', padding: 16 }}>載入中...</div>}
           {!loading && unlockedEntries.length === 0 && <div style={{ color: '#6b5137', padding: 16 }}>尚未解鎖任何理解。</div>}
           {!loading && unlockedEntries.map(entry => (
@@ -59,6 +83,7 @@ export default function EmotionDictionaryPage({ onBack }: EmotionDictionaryPageP
             </button>
           ))}
           {lockedCount > 0 && <div style={{ color: '#775f45', fontSize: 13, textAlign: 'center', paddingTop: 8 }}>尚有未解鎖的理解等待發現</div>}
+          <GlimmerButton tone="ghost" onClick={onBack}>返回</GlimmerButton>
         </GlassPanel>
 
         <GlassPanel title={selected?.name ?? '未選擇詞條'} subtitle="Welfare Card" variant="paper" style={{ minHeight: 560 }} contentStyle={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'stretch' }}>

@@ -5,9 +5,11 @@ import {
   markNpcFailed,
   markNpcSuccess,
   shouldUnlockInnerWorld,
+  type InnerWorldSave,
 } from '../systems/npcStateEngine';
-import { clearSave, createInitialSave, loadSave, loadSaveFromBackend, persistSave, syncSaveToBackend, type GameSave, type GhostRecord } from '../systems/saveSystem';
+import { clearSave, createInitialSave, loadSave, persistSave, type GameSave, type GhostRecord } from '../systems/saveSystem';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
+import { clearDialogueHistory } from '../lib/dialogueStore';
 import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
 
 export type CollectClueResult = {
@@ -39,10 +41,10 @@ type GameStore = {
   setInnerWorldDepth: (depth: number) => void;
   /** 記錄心理世界層級進展 (1-4) */
   advancePsychLayer: (layer: number) => void;
-  /** 從後端加載存檔（異地登錄） */
-  loadRemoteSave: () => Promise<void>;
-  /** 從本地存檔初始化時同步到後端 */
-  initAndSync: () => Promise<void>;
+  /** 同步內心世界詳細進度到存檔 */
+  syncInnerWorldState: (innerWorld: InnerWorldSave) => void;
+  /** Playtest: 直接設定 NPC 數值 (trust/stress/knowledge) */
+  setNpcStat: (npcId: NpcId, stat: 'trust' | 'stress' | 'knowledge', value: number) => void;
   /** Playtest: 強制滿足內心世界解鎖條件 */
   forceUnlockInnerWorld: () => void;
 };
@@ -50,11 +52,10 @@ type GameStore = {
 function cloneSave(save: GameSave): GameSave {
   return {
     ...save,
-    player: { ...save.player },
     collectedClues: [...save.collectedClues],
     npcs: {
-      bridge_artist: { ...save.npcs.bridge_artist, flags: [...save.npcs.bridge_artist.flags], innerWorldLayer: save.npcs.bridge_artist.innerWorldLayer ?? 0 },
-      victor: { ...save.npcs.victor, flags: [...save.npcs.victor.flags], innerWorldLayer: save.npcs.victor.innerWorldLayer ?? 0 },
+      bridge_artist: { ...save.npcs.bridge_artist, flags: [...save.npcs.bridge_artist.flags], innerWorldLayer: save.npcs.bridge_artist.innerWorldLayer ?? 0, innerWorld: save.npcs.bridge_artist.innerWorld ? { ...save.npcs.bridge_artist.innerWorld, layers: { ...save.npcs.bridge_artist.innerWorld.layers } } : undefined },
+      victor: { ...save.npcs.victor, flags: [...save.npcs.victor.flags], innerWorldLayer: save.npcs.victor.innerWorldLayer ?? 0, innerWorld: save.npcs.victor.innerWorld ? { ...save.npcs.victor.innerWorld, layers: { ...save.npcs.victor.innerWorld.layers } } : undefined },
     },
     ghosts: [...save.ghosts],
   };
@@ -62,8 +63,6 @@ function cloneSave(save: GameSave): GameSave {
 
 function persistAndReturn(save: GameSave) {
   persistSave(save);
-  // 异步同步到后端（不阻塞 UI）
-  syncSaveToBackend(save).catch(() => {});
   return save;
 }
 
@@ -85,7 +84,7 @@ function addGhostIfNeeded(save: GameSave, npcId: NpcId): GameSave {
 
 function syncBridgeArtistUnlock(save: GameSave) {
   const bridgeArtist = save.npcs.bridge_artist;
-  if (!bridgeArtist.innerWorldUnlocked && shouldUnlockInnerWorld(bridgeArtist, save.player.knowledge)) {
+  if (!bridgeArtist.innerWorldUnlocked && shouldUnlockInnerWorld(bridgeArtist, bridgeArtist.knowledge)) {
     save.npcs.bridge_artist = {
       ...bridgeArtist,
       innerWorldUnlocked: true,
@@ -126,7 +125,10 @@ export const useGameStore = create<GameStore>((set) => ({
 
       const knowledgeAdded = getClueKnowledge(clueId);
       next.collectedClues.push(clueId);
-      next.player.knowledge = Math.min(100, next.player.knowledge + knowledgeAdded);
+      next.npcs.bridge_artist = {
+        ...next.npcs.bridge_artist,
+        knowledge: Math.min(100, next.npcs.bridge_artist.knowledge + knowledgeAdded),
+      };
       syncBridgeArtistUnlock(next);
 
       result = {
@@ -166,6 +168,7 @@ export const useGameStore = create<GameStore>((set) => ({
         ...target,
         trust: backendState.trust,
         stress: backendState.stress,
+        knowledge: backendState.knowledge != null ? backendState.knowledge : target.knowledge,
         innerWorldUnlocked: Boolean(backendState.innerWorldUnlocked),
         ending: backendState.ending === null ? 'none' : backendState.ending,
       };
@@ -198,29 +201,23 @@ export const useGameStore = create<GameStore>((set) => ({
     const playerId = getPlayerId();
     if (playerId) {
       try {
-        // 並行但等待兩者完成
-        await Promise.all([
-          syncSaveToBackend(createInitialSave()),
-          getPlayerAuthHeaders(playerId).then((headers) =>
-            fetch('/api/chat/reset-all', {
-              method: 'POST',
-              headers,
-            })
-          ),
-          getPlayerAuthHeaders(playerId).then((headers) =>
-            fetch('/api/dictionary/reset', {
-              method: 'POST',
-              headers,
-            })
-          )
-        ]);
-
+        const headers = await getPlayerAuthHeaders(playerId);
+        await fetch('/api/chat/reset-all', {
+          method: 'POST',
+          headers,
+        });
       } catch (err) {
         console.error('Remote reset failed:', err);
       }
     }
     
     clearSave();
+    // 同时清除本地对话纪录
+    if (playerId) {
+      clearDialogueHistory('bridge_artist', playerId);
+    }
+    // 清除内心世界首次访问纪录
+    try { window.localStorage.removeItem('sud_bridge_inner_visited'); } catch { /* ignore */ }
     const fresh = createInitialSave();
     persistSave(fresh);
     set({ save: fresh });
@@ -237,47 +234,72 @@ export const useGameStore = create<GameStore>((set) => ({
     });
   },
 
-  /** 記錄心理世界層級進展：將 innerWorldLayer 設為完成的最大層級 */
+  /** 記錄心理世界層級進展：將 innerWorldLayer 設為完成的最大層級，同時標記對應 innerWorld 層級完成 */
   advancePsychLayer: (layer) => {
     set(state => {
       const next = cloneSave(state.save);
       const currentLayer = next.npcs.bridge_artist.innerWorldLayer ?? 0;
+      // 同步更新 innerWorld
+      const iw = next.npcs.bridge_artist.innerWorld;
+      if (iw) {
+        const layerState = iw.layers[layer];
+        if (layerState) {
+          iw.layers[layer] = { ...layerState, completed: true };
+          // 下一層如未在 unlockedLayers 中則加入
+          const nextLayer = layer + 1;
+          if (nextLayer <= 4 && !iw.unlockedLayers.includes(nextLayer)) {
+            iw.unlockedLayers = [...iw.unlockedLayers, nextLayer];
+          }
+        }
+      }
       next.npcs.bridge_artist = {
         ...next.npcs.bridge_artist,
         innerWorldLayer: Math.max(currentLayer, layer),
+        innerWorld: iw,
       };
       return { save: persistAndReturn(next) };
     });
   },
 
-  /** 從後端加載存檔 → 用於異地登錄場景 */
-  loadRemoteSave: async () => {
-    const playerId = getPlayerId();
-    if (!playerId) return;
-
-    const remoteSave = await loadSaveFromBackend(playerId);
-    if (!remoteSave) return;
-
-    // 將後端存檔合入本地（後端為權威來源）
-    persistSave(remoteSave);
-    set({ save: remoteSave });
+  /** 將 BridgePainterInnerWorld 運行時狀態同步到存檔 */
+  syncInnerWorldState: (innerWorld) => {
+    set(state => {
+      const next = cloneSave(state.save);
+      next.npcs.bridge_artist = {
+        ...next.npcs.bridge_artist,
+        innerWorld,
+      };
+      return { save: persistAndReturn(next) };
+    });
   },
 
-  /** 初始化後將本地存檔同步到後端 */
-  initAndSync: async () => {
-    const state = getCurrentSaveSnapshot();
-    if (state) {
-      await syncSaveToBackend(state);
-    }
+  /** Playtest: 直接設定 NPC 數值 (會自動重檢 innerWorldUnlocked) */
+  setNpcStat: (npcId, stat, value) => {
+    set(state => {
+      const next = cloneSave(state.save);
+      const target = next.npcs[npcId];
+      if (!target) return { save: state.save };
+
+      const clamped = Math.max(0, Math.min(100, Math.round(value)));
+      const updated = { ...target, [stat]: clamped };
+
+      // 重新檢查 innerWorldUnlocked 條件
+      if (stat === 'trust' || stat === 'knowledge') {
+        updated.innerWorldUnlocked = shouldUnlockInnerWorld(updated, updated.knowledge);
+      }
+
+      next.npcs[npcId] = updated;
+      return { save: persistAndReturn(next) };
+    });
   },
 
   /** Playtest: 強制滿足內心世界解鎖條件 (F7) */
   forceUnlockInnerWorld: () => {
     set(state => {
       const next = cloneSave(state.save);
-      next.player.knowledge = Math.max(next.player.knowledge, next.npcs.bridge_artist.knowledgeRequired);
       next.npcs.bridge_artist = {
         ...next.npcs.bridge_artist,
+        knowledge: Math.max(next.npcs.bridge_artist.knowledge, next.npcs.bridge_artist.knowledgeRequired),
         trust: Math.max(next.npcs.bridge_artist.trust, next.npcs.bridge_artist.trustRequired),
         innerWorldUnlocked: true,
         flags: Array.from(new Set([...next.npcs.bridge_artist.flags, 'inner_world_unlocked'])),

@@ -3,7 +3,7 @@
 // 顯示所有內部數值、AI 解讀與敘事事件 — 評審用
 // ============================================================
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import {
   useNarrativePlaytestStore,
@@ -69,6 +69,23 @@ const ROW: React.CSSProperties = {
 
 const LBL: React.CSSProperties = { color: '#8899aa', flexShrink: 0 };
 const VAL: React.CSSProperties = { color: '#dde4ef', fontWeight: 500, textAlign: 'right' };
+
+const btnStyle: React.CSSProperties = {
+  width: 22,
+  height: 22,
+  borderRadius: 4,
+  border: '1px solid rgba(255,255,255,0.15)',
+  background: 'rgba(255,255,255,0.06)',
+  color: '#c8d6e5',
+  cursor: 'pointer',
+  fontSize: 13,
+  lineHeight: '20px',
+  textAlign: 'center',
+  padding: 0,
+  fontFamily: 'inherit',
+  flexShrink: 0,
+  userSelect: 'none',
+};
 
 // ---- Helpers ----
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
@@ -174,6 +191,7 @@ type Props = { currentScreen: string };
 
 export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
   const save = useGameStore((s) => s.save);
+  const setNpcStat = useGameStore((s) => s.setNpcStat);
   const lastEval = useNarrativePlaytestStore((s) => s.lastEvaluation);
   const innerWorldEvents = useNarrativePlaytestStore((s) => s.innerWorldEvents);
   const eventLog = useNarrativePlaytestStore((s) => s.eventLog);
@@ -185,10 +203,40 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
   const branches = useMemo(() => computeBranches(save.collectedClues), [save.collectedClues]);
   const completedCount = innerWorldEvents.filter((e) => e.completed).length;
 
+  // ---- Free Stat Control ----
+  const [localTrust, setLocalTrust] = useState(npc.trust);
+  const [localStress, setLocalStress] = useState(npc.stress);
+  const [localKnowledge, setLocalKnowledge] = useState(npc.knowledge);
+  const [autoSave, setAutoSave] = useState(true);
+
+  // 外部數值變化時同步本地狀態
+  useEffect(() => { setLocalTrust(npc.trust); }, [npc.trust]);
+  useEffect(() => { setLocalStress(npc.stress); }, [npc.stress]);
+  useEffect(() => { setLocalKnowledge(npc.knowledge); }, [npc.knowledge]);
+
+  const applyStat = useCallback((stat: 'trust' | 'stress' | 'knowledge', value: number) => {
+    setNpcStat('bridge_artist', stat, value);
+  }, [setNpcStat]);
+
+  const adjustStat = useCallback((stat: 'trust' | 'stress' | 'knowledge', delta: number) => {
+    const current = stat === 'trust' ? localTrust : stat === 'stress' ? localStress : localKnowledge;
+    const next = Math.max(0, Math.min(100, Math.round(current + delta)));
+    if (stat === 'trust') setLocalTrust(next);
+    if (stat === 'stress') setLocalStress(next);
+    if (stat === 'knowledge') setLocalKnowledge(next);
+    if (autoSave) applyStat(stat, next);
+  }, [localTrust, localStress, localKnowledge, autoSave, applyStat]);
+
+  const handleManualApply = useCallback(() => {
+    applyStat('trust', localTrust);
+    applyStat('stress', localStress);
+    applyStat('knowledge', localKnowledge);
+  }, [localTrust, localStress, localKnowledge, applyStat]);
+
   // ---- Chapter progress ----
   const chapterProgress = CHAPTERS.map((ch) => ({
     ...ch,
-    unlocked: npc.trust >= ch.requiredTrust && save.player.knowledge >= ch.requiredKnowledge,
+    unlocked: npc.trust >= ch.requiredTrust && npc.knowledge >= ch.requiredKnowledge,
   }));
 
   return (
@@ -261,7 +309,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
         <div style={ROW}><span style={LBL}>Openness</span><span style={VAL}>{opennessLabel(npc)}</span></div>
         <div style={ROW}><span style={LBL}>Ending</span><span style={{ ...VAL, color: npc.ending === 'success' ? '#4caf50' : npc.ending === 'failed' ? '#f44336' : '#889' }}>{npc.ending === 'none' ? 'ongoing' : npc.ending}</span></div>
         <div style={ROW}><span style={LBL}>Depth</span><span style={VAL}>{npc.innerWorldDepth} / 3</span></div>
-        <div style={ROW}><span style={LBL}>Knowledge Req</span><span style={VAL}>{save.player.knowledge}/{npc.knowledgeRequired}</span></div>
+        <div style={ROW}><span style={LBL}>Knowledge Req</span><span style={VAL}>{npc.knowledge}/{npc.knowledgeRequired}</span></div>
         {npc.flags.length > 0 && (
           <div style={{ marginTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 6 }}>
             <div style={{ ...LBL, marginBottom: 4 }}>Flags</div>
@@ -273,10 +321,87 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       </div>
 
       {/* ============================================================ */}
+      {/* Free Stat Control (Playtest)                                  */}
+      {/* ============================================================ */}
+      <div style={{ ...SECTION, borderColor: 'rgba(255,180,60,0.25)' }}>
+        <div style={{ ...SEC_TITLE, color: '#ffb74d' }}>2. 5 Free Stat Control - {npc.name}</div>
+
+        {/* ---- Trust ---- */}
+        <div style={{ ...ROW, marginBottom: 4 }}>
+          <span style={{ ...LBL, minWidth: 52 }}>Trust</span>
+          <button onClick={() => adjustStat('trust', -5)} style={btnStyle}>−</button>
+          <div style={{ flex: 1, margin: '0 6px' }}>
+            <div style={{ width: '100%', height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div style={{ width: `${localTrust}%`, height: '100%', borderRadius: 4, background: localTrust >= 50 ? '#4caf50' : localTrust >= 30 ? '#ff9800' : '#f44336', transition: 'width 0.15s ease' }} />
+            </div>
+          </div>
+          <span style={{ ...VAL, minWidth: 26, textAlign: 'center' }}>{localTrust}</span>
+          <button onClick={() => adjustStat('trust', 5)} style={btnStyle}>+</button>
+        </div>
+
+        {/* ---- Stress ---- */}
+        <div style={{ ...ROW, marginBottom: 4 }}>
+          <span style={{ ...LBL, minWidth: 52 }}>Stress</span>
+          <button onClick={() => adjustStat('stress', -5)} style={btnStyle}>−</button>
+          <div style={{ flex: 1, margin: '0 6px' }}>
+            <div style={{ width: '100%', height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div style={{ width: `${localStress}%`, height: '100%', borderRadius: 4, background: localStress <= 30 ? '#4caf50' : localStress <= 60 ? '#ff9800' : '#f44336', transition: 'width 0.15s ease' }} />
+            </div>
+          </div>
+          <span style={{ ...VAL, minWidth: 26, textAlign: 'center' }}>{localStress}</span>
+          <button onClick={() => adjustStat('stress', 5)} style={btnStyle}>+</button>
+        </div>
+
+        {/* ---- Knowledge ---- */}
+        <div style={{ ...ROW, marginBottom: 6 }}>
+          <span style={{ ...LBL, minWidth: 52 }}>Knowl.</span>
+          <button onClick={() => adjustStat('knowledge', -5)} style={btnStyle}>−</button>
+          <div style={{ flex: 1, margin: '0 6px' }}>
+            <div style={{ width: '100%', height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div style={{ width: `${localKnowledge}%`, height: '100%', borderRadius: 4, background: '#2196f3', transition: 'width 0.15s ease' }} />
+            </div>
+          </div>
+          <span style={{ ...VAL, minWidth: 26, textAlign: 'center' }}>{localKnowledge}</span>
+          <button onClick={() => adjustStat('knowledge', 5)} style={btnStyle}>+</button>
+        </div>
+
+        {/* ---- Bottom row: auto-save checkbox + manual apply button ---- */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 10, color: '#889' }}>
+            <input
+              type="checkbox"
+              checked={autoSave}
+              onChange={(e) => setAutoSave(e.target.checked)}
+              style={{ cursor: 'pointer', accentColor: '#7ec8ff' }}
+            />
+            自動儲存
+          </label>
+          {!autoSave && (
+            <button
+              onClick={handleManualApply}
+              style={{
+                background: 'rgba(126,200,255,0.15)',
+                border: '1px solid rgba(126,200,255,0.3)',
+                color: '#7ec8ff',
+                borderRadius: 4,
+                cursor: 'pointer',
+                padding: '3px 12px',
+                fontSize: 10,
+                fontFamily: 'inherit',
+                fontWeight: 600,
+              }}
+            >
+              套用
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ============================================================ */}
       {/* AI Interpretation + State Changes                            */}
       {/* ============================================================ */}
       <div style={{ ...SECTION, borderColor: 'rgba(100,180,255,0.15)' }}>
-        <div style={SEC_TITLE}>2. AI Interpretation & State Changes</div>
+        <div style={SEC_TITLE}>3. AI Interpretation & State Changes</div>
 
         {!lastEval ? (
           <div style={{ color: '#556', fontSize: 10 }}>尚未發生對話評估。</div>
@@ -332,7 +457,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* Inner World Progress + Chapter Status                        */}
       {/* ============================================================ */}
       <div style={SECTION}>
-        <div style={SEC_TITLE}>3. Inner World Progress</div>
+        <div style={SEC_TITLE}>4. Inner World Progress</div>
 
         {/* Chapter status */}
         {chapterProgress.map((ch) => (
@@ -386,7 +511,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* Dialogue Branches                                            */}
       {/* ============================================================ */}
       <div style={SECTION}>
-        <div style={SEC_TITLE}>4. Dialogue Branches</div>
+        <div style={SEC_TITLE}>5. Dialogue Branches</div>
         <div style={{ color: '#4caf50', fontSize: 9.5, letterSpacing: 0.5, marginBottom: 3 }}>
           ▸ 已解鎖 ({branches.unlocked.length})
         </div>
@@ -413,7 +538,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* Narrative Event Log                                          */}
       {/* ============================================================ */}
       <div style={{ ...SECTION, borderColor: 'rgba(171,71,188,0.15)' }}>
-        <div style={SEC_TITLE}>5. Narrative Event Log ({eventLog.length})</div>
+        <div style={SEC_TITLE}>6. Narrative Event Log ({eventLog.length})</div>
         {eventLog.length === 0 ? (
           <div style={{ color: '#556', fontSize: 10 }}>尚無事件紀錄。</div>
         ) : (
@@ -441,8 +566,8 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* Player Knowledge State                                       */}
       {/* ============================================================ */}
       <div style={SECTION}>
-        <div style={SEC_TITLE}>6. Player Knowledge</div>
-        <div style={ROW}><span style={LBL}>Knowledge</span><Bar value={save.player.knowledge} max={100} color="#2196f3" /></div>
+        <div style={SEC_TITLE}>7. Player Knowledge</div>
+        <div style={ROW}><span style={LBL}>Knowledge</span><Bar value={npc.knowledge} max={100} color="#2196f3" /></div>
         <div style={ROW}><span style={LBL}>Location</span><span style={VAL}>{save.currentLocation}</span></div>
         <div style={{ marginTop: 6 }}>
           <div style={{ color: '#4caf50', fontSize: 9.5, marginBottom: 3, letterSpacing: 0.5 }}>▸ 已收集 ({save.collectedClues.length})</div>

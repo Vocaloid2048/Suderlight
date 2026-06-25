@@ -1,0 +1,14 @@
+{
+  "name": "glimmer-city-cloud-functions",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "EdgeOne Pages Cloud Functions for 情緒修復師：微光城市",
+  "main": "[[default]].js",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0"
+  }
+}

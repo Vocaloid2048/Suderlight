@@ -70,8 +70,9 @@ type Props = {
 export default function ChapterSelectorModal({ onSelectChapter }: Props) {
   const close = useNarrativePlaytestStore((s) => s.closeChapterSelector);
   const save = useGameStore((s) => s.save);
-  const { knowledge } = save.player;
-  const { trust } = save.npcs.bridge_artist;
+  const bridgeArtist = save.npcs.bridge_artist;
+  const { knowledge } = bridgeArtist;
+  const { trust } = bridgeArtist;
 
   const isUnlocked = (ch: ChapterInfo) =>
     trust >= ch.requiredTrust && knowledge >= ch.requiredKnowledge;

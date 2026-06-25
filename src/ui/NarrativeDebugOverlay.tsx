@@ -212,7 +212,7 @@ export default function NarrativeDebugOverlay({ currentScreen }: Props) {
         <div style={ROW}><span style={LABEL}>Defensiveness</span><span style={VALUE}>{defensivenessLabel(npc)}</span></div>
         <div style={ROW}><span style={LABEL}>Ending</span><span style={{ ...VALUE, color: npc.ending === 'success' ? '#4caf50' : npc.ending === 'failed' ? '#f44336' : '#889' }}>{npc.ending === 'none' ? 'ongoing' : npc.ending}</span></div>
         <div style={ROW}><span style={LABEL}>Inner Depth</span><span style={VALUE}>{npc.innerWorldDepth} / 3</span></div>
-        <div style={ROW}><span style={LABEL}>Knowledge Req</span><span style={VALUE}>{save.player.knowledge}/{npc.knowledgeRequired}</span></div>
+        <div style={ROW}><span style={LABEL}>Knowledge Req</span><span style={VALUE}>{npc.knowledge}/{npc.knowledgeRequired}</span></div>
         {npc.flags.length > 0 && (
           <div style={{ marginTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 6 }}>
             <div style={{ ...LABEL, marginBottom: 4 }}>Flags</div>
@@ -269,7 +269,7 @@ export default function NarrativeDebugOverlay({ currentScreen }: Props) {
       {/* ================================================================ */}
       <div style={SECTION}>
         <div style={SECTION_TITLE}>3. Player Knowledge State</div>
-        <div style={ROW}><span style={LABEL}>Knowledge</span><Bar value={save.player.knowledge} max={100} color="#2196f3" /></div>
+        <div style={ROW}><span style={LABEL}>Knowledge</span><Bar value={npc.knowledge} max={100} color="#2196f3" /></div>
         <div style={ROW}><span style={LABEL}>Location</span><span style={VALUE}>{save.currentLocation}</span></div>
 
         {/* discovered memories (collected clues) */}

@@ -6,3 +6,4 @@ cert/
 .pem
 /backend/data/memories
 /backend/data/saves
+/.idea

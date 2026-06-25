@@ -16,9 +16,7 @@ import painterUnlockedImage from '../../images/character/IMG_3562.png';
 type Point = { x: number; y: number };
 type EntityId = 'painter' | 'gallery_door' | ClueId;
 type ModalAction = { label: string; tone?: 'primary' | 'danger' | 'ghost'; onClick: () => void };
-type ModalState = { title: string; content: string; actions?: ModalAction[] } | null;
-type DiscoveryPhase = 'intro' | 'moving';
-type DiscoveryState = { name: string; description: string; phase: DiscoveryPhase } | null;
+type ModalState = { title: string; content: string; actions?: ModalAction[]; discoveryContent?: string; discoveryTitle?: string; discoveryDesc?: string } | null;
 
 type Entity = {
 
@@ -193,16 +191,23 @@ const buildings: Building[] = [
     id: 'gallery',
     name: '失色畫廊',
     locationId: 'skybridge',
-    pos: { x: 15., y: 2 },
+    pos: { x: 14.5, y: 2 },
     size: { x: 4, y: 3 },
     tall: 260,
     baseColor: '#ec407a', // 洋紅色
     windows: [
-      { side: 'left', x: 0.2, y: 0.3, w: 0.2, h: 0.2 },
-      { side: 'left', x: 0.6, y: 0.3, w: 0.2, h: 0.2 },
-      { side: 'left', x: 0.2, y: 0.6, w: 0.2, h: 0.2 },
-      { side: 'left', x: 0.6, y: 0.6, w: 0.2, h: 0.2 },
-      { side: 'right', x: 0.3, y: 0.3, w: 0.4, h: 0.4 },
+      { side: 'left', x: 0.1, y: 0.3, w: 0.2, h: 0.2 },
+      { side: 'left', x: 0.7, y: 0.3, w: 0.2, h: 0.2 },
+      { side: 'left', x: 0.1, y: 0.6, w: 0.2, h: 0.2 },
+      { side: 'left', x: 0.4, y: 0.6, w: 0.2, h: 0.2 },
+      { side: 'left', x: 0.7, y: 0.6, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.1, y: 0.3, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.4, y: 0.3, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.7, y: 0.3, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.1, y: 0.6, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.4, y: 0.6, w: 0.2, h: 0.2 },
+      { side: 'right', x: 0.7, y: 0.6, w: 0.2, h: 0.2 },
+
     ],
   },
   // 2. 報攤場景：木質報攤
@@ -210,7 +215,7 @@ const buildings: Building[] = [
     id: 'news_cabin',
     name: '拾光報攤',
     locationId: 'newsstand',
-    pos: { x: 4, y: 11.5 },
+    pos: { x: 5, y: 11.5 },
     size: { x: 3.5, y: 3.5 },
     tall: 130,
     baseColor: '#d84315', // 溫暖木黃橙
@@ -286,14 +291,8 @@ function IsometricBuilding({ building, isRepaired }: { building: Building; isRep
   const darkColor = isRepaired ? adjustColorBrightness(color, -25) : '#222222';
 
   const galleryDoorDef: WindowDef | null = building.id === 'gallery'
-    ? { side: 'left', x: 0.5, y: 0.05, w: 0.28, h: 0.44 }
+    ? { side: 'left', x: 0.36, y: 0.05, w: 0.28, h: 0.44 }
     : null;
-
-
-
-
-
-
 
   const galleryDoorFrameDef: WindowDef | null = galleryDoorDef
     ? {
@@ -731,12 +730,9 @@ export default function OuterWorldExplorer({
   const [mapPos, setMapPos] = useState({ x: -320, y: -160 });
   const [modal, setModal] = useState<ModalState>(null);
   const [ghostFlash, setGhostFlash] = useState<string | null>(null);
-  const [discoveryState, setDiscoveryState] = useState<DiscoveryState>(null);
   const dragStart = useRef({ x: 0, y: 0 });
   const hasMoved = useRef(false);
   const keys = useRef(new Set<string>());
-  const discoveryTimersRef = useRef<number[]>([]);
-  const pendingClueModalRef = useRef<ModalState>(null);
 
 
   const displayLocation = useMemo(() => {
@@ -773,7 +769,7 @@ export default function OuterWorldExplorer({
         id: 'gallery_door',
         label: '畫廊大門',
         type: 'clue',
-        pos: { x: 17.0, y: 5.5 },
+        pos: { x: 18.0, y: 7.0 },
         color: '#ec407a',
         icon: '門',
       });
@@ -824,18 +820,6 @@ export default function OuterWorldExplorer({
     setGhostFlash(ghost.memoryText);
     window.setTimeout(() => setGhostFlash(null), 1800);
   };
-
-  const clearDiscoveryTimers = () => {
-    discoveryTimersRef.current.forEach(timer => window.clearTimeout(timer));
-    discoveryTimersRef.current = [];
-  };
-
-  const queueDiscoverySequence = (name: string, description: string, nextModal: ModalState) => {
-    clearDiscoveryTimers();
-    pendingClueModalRef.current = nextModal;
-    setDiscoveryState({ name, description, phase: 'intro' });
-  };
-
 
   const openFailureModal = () => {
     setModal({
@@ -913,12 +897,33 @@ export default function OuterWorldExplorer({
     const clue = bridgeArtistClues[targetId];
     maybeTriggerGhost();
 
-    const clueModal: ModalState = {
-      title: `獲得線索：${result.label}`,
-      content: `${clue.content}\n\n情緒詞典浮現：${clue.dictionaryHint}${result.unlockedNow ? '\n\n天橋盡頭傳來一聲很輕的門軸聲。某個通往內心深處的入口，似乎鬆動了。' : ''}`,
+    // 線索內容
+    const buildClueContent = () => {
+      let content = `${clue.content}`;
+      if (result.unlockedNow) {
+        content += '\n\n天橋盡頭傳來一聲很輕的門軸聲。某個通往內心深處的入口，似乎鬆動了。';
+      }
+      return content;
     };
 
-    const openClueModal = () => setModal(clueModal);
+    // 情緒理解提示（分為字典提示 + 獲得新理解標題 + 描述）
+    const buildDiscoveryContent = (extraInfo?: { discoveryTitle?: string; discoveryDesc?: string }) => {
+      const dictHint = `情緒詞典浮現：${clue.dictionaryHint}`;
+      const entryTitle = extraInfo?.discoveryTitle || '';
+      const entryDesc = extraInfo?.discoveryDesc || '';
+      return { dictHint, entryTitle, entryDesc };
+    };
+
+    const openClueModal = (extraInfo?: { discoveryTitle?: string; discoveryDesc?: string }) => {
+      const { dictHint, entryTitle, entryDesc } = buildDiscoveryContent(extraInfo);
+      setModal({
+        title: `獲得線索：${result.label}`,
+        content: buildClueContent(),
+        discoveryContent: dictHint,
+        discoveryTitle: entryTitle || undefined,
+        discoveryDesc: entryDesc || undefined,
+      });
+    };
 
     if (!result.alreadyCollected) {
       getPlayerAuthHeaders().then((authHeaders) =>
@@ -946,7 +951,7 @@ export default function OuterWorldExplorer({
             .then(dict => {
               const entry = dict.entries.find((item: { id: string; name: string; description?: string }) => unlocked.includes(item.id));
               if (entry) {
-                queueDiscoverySequence(entry.name, entry.description ?? clue.dictionaryHint, clueModal);
+                openClueModal({ discoveryTitle: entry.name, discoveryDesc: entry.description ?? clue.dictionaryHint });
                 return;
               }
               openClueModal();
@@ -966,40 +971,6 @@ export default function OuterWorldExplorer({
     const onResize = () => focusCameraOnPlayer(playerPos);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  useEffect(() => {
-    if (!discoveryState) return;
-
-    clearDiscoveryTimers();
-
-    if (discoveryState.phase === 'intro') {
-      discoveryTimersRef.current.push(
-        window.setTimeout(() => {
-          setDiscoveryState(prev => (prev ? { ...prev, phase: 'moving' } : prev));
-        }, 1200)
-      );
-      return;
-    }
-
-    discoveryTimersRef.current.push(
-      window.setTimeout(() => {
-        if (pendingClueModalRef.current) {
-          setModal(pendingClueModalRef.current);
-          pendingClueModalRef.current = null;
-        }
-      }, 700)
-    );
-
-    discoveryTimersRef.current.push(
-      window.setTimeout(() => {
-        setDiscoveryState(null);
-      }, 1800)
-    );
-  }, [discoveryState]);
-
-  useEffect(() => {
-    return () => clearDiscoveryTimers();
   }, []);
 
   useEffect(() => {
@@ -1025,7 +996,7 @@ export default function OuterWorldExplorer({
         return;
       }
 
-      if (modal || discoveryState) return;
+      if (modal) return;
 
 
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(key)) {
@@ -1106,8 +1077,8 @@ export default function OuterWorldExplorer({
                 // 區域 A：天橋橫向橋面 (x: 4.0 ~ 19.0, y: 8.0 ~ 10.0)
                 const inBridge = pt.x >= 4.5 && pt.x <= 19.0 && pt.y >= 8.5 && pt.y <= 10.0;
                 
-                // 區域 B：通往右上角畫廊的縱向通道 (x: 17.0 ~ 19.0, y: 4.0 ~ 8.0)
-                const inPassage = pt.x >= 17.5 && pt.x <= 19.0 && pt.y >= 4.0 && pt.y <= 8.5;
+                // 區域 B：通往右上角畫廊的縱向通道 (x: 17.0 ~ 19.0, y: 7.0 ~ 8.0)
+                const inPassage = pt.x >= 17.5 && pt.x <= 19.0 && pt.y >= 7.0 && pt.y <= 8.5;
 
                 // 區域 C：連接樓梯 (x: 4.0 ~ 6.0, y: 10.0 ~ 16.0)
                 const inStairs = pt.x >= 4.5 && pt.x <= 6.0 && pt.y >= 10.0 && pt.y <= 17.0;
@@ -1234,7 +1205,7 @@ export default function OuterWorldExplorer({
         E / Space：互動
       </GlassPanel>
 
-      {nearbyEntity && !modal && !discoveryState && (
+      {nearbyEntity && !modal && (
 
         <div style={{ position: 'absolute', bottom: 34, left: '50%', transform: 'translateX(-50%)', zIndex: 100, color: '#f4d99d', fontSize: 14, pointerEvents: 'none', background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(244,217,157,0.28)', borderRadius: 999, padding: '8px 16px' }}>
           按 E 觀察：{nearbyEntity.label}
@@ -1247,27 +1218,8 @@ export default function OuterWorldExplorer({
         </div>
       )}
 
-      {discoveryState && (
-        <div
-          style={{
-            position: 'absolute',
-            top: discoveryState.phase === 'intro' ? '38%' : '18%',
-            left: '50%',
-            transform: `translate(-50%, -50%) scale(${discoveryState.phase === 'intro' ? 1 : 0.96})`,
-            zIndex: 280,
-            pointerEvents: 'none',
-            width: 540,
-            transition: 'top 0.7s ease, transform 0.7s ease, opacity 0.4s ease',
-            opacity: 1,
-          }}
-        >
-          <div style={{ background: 'rgba(8, 10, 14, 0.92)', border: '1px solid rgba(244,217,157,0.35)', borderRadius: 14, boxShadow: '0 10px 40px rgba(0,0,0,0.45), 0 0 26px rgba(244,217,157,0.2)', padding: '16px 18px' }}>
-            <div style={{ color: '#f4d99d', fontSize: 22, fontWeight: 'bold', textShadow: '0 0 30px rgba(244,217,157,0.6), 0 0 60px rgba(244,217,157,0.2)', letterSpacing: 3, marginBottom: 8 }}>新的理解</div>
-            <div style={{ color: '#f1e7d3', fontSize: 18, fontWeight: 700, letterSpacing: 2, marginBottom: 10 }}>{discoveryState.name}</div>
-            <div style={{ color: '#d0c8ba', fontSize: 14, lineHeight: 1.75, whiteSpace: 'pre-line' }}>{discoveryState.description}</div>
-          </div>
-        </div>
-      )}
+
+
 
 
       <div style={{ position: 'absolute', transform: `translate(${mapPos.x}px, ${mapPos.y}px)`, width: MAP_WIDTH, height: MAP_HEIGHT }}>
@@ -1338,7 +1290,7 @@ export default function OuterWorldExplorer({
           );
         })}
 
-        {entities.filter(entity => entity.id !== 'gallery_door').map(entity => {
+        {entities.map(entity => {
 
           const entityBaseScreen = isoToScreen(entity.pos);
           const screen = {
@@ -1473,6 +1425,33 @@ export default function OuterWorldExplorer({
         <div style={{ position: 'absolute', inset: 0, zIndex: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }} onClick={() => setModal(null)}>
           <GlassPanel title={modal.title} variant="dark" style={{ width: 540 }} contentStyle={{ color: '#ccc', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
             {modal.content}
+            {modal.discoveryContent && (
+              <div style={{ marginTop: 14, color: '#d0c8ba', fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+                {modal.discoveryContent}
+              </div>
+            )}
+            {(modal.discoveryTitle || modal.discoveryDesc) && (
+              <div style={{
+                marginTop: 10, padding: '12px 14px',
+                background: 'rgba(244,217,157,0.08)',
+                border: '1px solid rgba(244,217,157,0.22)',
+                borderRadius: 10,
+                color: '#f4d99d',
+                fontSize: 14,
+                lineHeight: 1.7,
+              }}>
+                {modal.discoveryTitle && (
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#f4d99d', letterSpacing: 1 }}>
+                    獲得新理解：{modal.discoveryTitle}
+                  </div>
+                )}
+                {modal.discoveryDesc && (
+                  <div style={{ marginTop: 6, fontSize: 14, color: '#d0c8ba', lineHeight: 1.75, whiteSpace: 'pre-line' }}>
+                    {modal.discoveryDesc}
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }} onClick={event => event.stopPropagation()}>
               {modal.actions?.map(action => (
                 <GlimmerButton key={action.label} tone={action.tone} onClick={action.onClick}>{action.label}</GlimmerButton>

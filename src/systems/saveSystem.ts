@@ -1,6 +1,5 @@
 import type { ClueId, LocationId, NpcId } from '../data/verticalSlice';
-import { createBridgeArtistState, createVictorState, type NpcRuntimeState } from './npcStateEngine';
-import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
+import { createBridgeArtistState, createVictorState, createDefaultInnerWorldSave, type NpcRuntimeState } from './npcStateEngine';
 
 export type GhostRecord = {
   npc: NpcId;
@@ -10,9 +9,6 @@ export type GhostRecord = {
 };
 
 export type GameSave = {
-  player: {
-    knowledge: number;
-  };
   currentLocation: LocationId;
   collectedClues: ClueId[];
   npcs: Record<NpcId, NpcRuntimeState>;
@@ -23,9 +19,6 @@ const SAVE_KEY = 'glimmer_city_vertical_slice_save_v1';
 
 export function createInitialSave(): GameSave {
   return {
-    player: {
-      knowledge: 0,
-    },
     currentLocation: 'skybridge',
     collectedClues: [],
     npcs: {
@@ -42,23 +35,44 @@ export function loadSave(): GameSave | null {
   try {
     const raw = window.localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as GameSave;
+    const parsed = JSON.parse(raw) as any;
 
-    if (!parsed.player || !parsed.npcs?.bridge_artist || !Array.isArray(parsed.collectedClues)) {
+    // 验证关键字段
+    if (!parsed.npcs?.bridge_artist || !Array.isArray(parsed.collectedClues)) {
       return null;
     }
 
-    // Backward compat: ensure new fields exist on older saves
-    if (parsed.npcs.bridge_artist) {
-      if (parsed.npcs.bridge_artist.innerWorldDepth === undefined) parsed.npcs.bridge_artist.innerWorldDepth = 0;
-      if (parsed.npcs.bridge_artist.innerWorldLayer === undefined) parsed.npcs.bridge_artist.innerWorldLayer = 0;
-    }
-    if (parsed.npcs.victor) {
-      if (parsed.npcs.victor.innerWorldDepth === undefined) parsed.npcs.victor.innerWorldDepth = 0;
-      if (parsed.npcs.victor.innerWorldLayer === undefined) parsed.npcs.victor.innerWorldLayer = 0;
+    // Backward compat: 旧存档以 player.knowledge 形式存储 → 迁移到 npcs.npcId.knowledge
+    if (typeof parsed.player?.knowledge === 'number') {
+      if (parsed.npcs.bridge_artist && parsed.npcs.bridge_artist.knowledge === undefined) {
+        parsed.npcs.bridge_artist.knowledge = parsed.player.knowledge;
+      }
+      if (parsed.npcs.victor && parsed.npcs.victor.knowledge === undefined) {
+        parsed.npcs.victor.knowledge = 0;
+      }
+      delete parsed.player;
     }
 
-    return parsed;
+    // 向下兼容旧字段
+    const bridgeArtist = parsed.npcs.bridge_artist;
+    if (bridgeArtist) {
+      if (bridgeArtist.knowledge === undefined) bridgeArtist.knowledge = 0;
+      if (bridgeArtist.innerWorldDepth === undefined) bridgeArtist.innerWorldDepth = 0;
+      if (bridgeArtist.innerWorldLayer === undefined) bridgeArtist.innerWorldLayer = 0;
+      // 旧存档没有 innerWorld → 初始化
+      if (!bridgeArtist.innerWorld) bridgeArtist.innerWorld = createDefaultInnerWorldSave();
+    }
+    const victor = parsed.npcs.victor;
+    if (victor) {
+      if (victor.knowledge === undefined) victor.knowledge = 0;
+      if (victor.innerWorldDepth === undefined) victor.innerWorldDepth = 0;
+      if (victor.innerWorldLayer === undefined) victor.innerWorldLayer = 0;
+      if (!victor.innerWorld) victor.innerWorld = createDefaultInnerWorldSave();
+    }
+
+    // 移除旧的 player 字段（兼容旧存档格式）
+    const result = parsed as GameSave;
+    return result;
   } catch (error) {
     console.warn('讀取存檔失敗，將使用新存檔。', error);
     return null;
@@ -68,88 +82,6 @@ export function loadSave(): GameSave | null {
 export function persistSave(save: GameSave) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(SAVE_KEY, JSON.stringify(save, null, 2));
-}
-
-/**
- * 將存檔同步到後端伺服器（用於跨設備存取）
- * 返回 true 表示同步成功
- */
-export async function syncSaveToBackend(save: GameSave): Promise<boolean> {
-  if (typeof window === 'undefined') return false;
-  const playerId = getPlayerId();
-  if (!playerId) return false;
-
-  try {
-    const headers = await getPlayerAuthHeaders();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
-      body: JSON.stringify(save),
-    });
-    return res.ok;
-  } catch (error) {
-    console.warn('後端存檔同步失敗，仍保留本地存檔。', error);
-    return false;
-  }
-}
-
-/**
- * 從後端伺服器加載存檔（用於跨設備登錄）
- * 返回 null 表示無存檔或載入失敗
- */
-export async function loadSaveFromBackend(playerId?: string): Promise<GameSave | null> {
-  if (typeof window === 'undefined') return null;
-  const id = playerId || getPlayerId();
-  if (!id) return null;
-
-  try {
-    const authHeaders = await getPlayerAuthHeaders(id);
-    const res = await fetch('/api/save', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-      },
-    });
-    if (!res.ok) {
-      console.warn('後端存檔載入失敗:', res.status);
-      return null;
-    }
-
-    const data = await res.json();
-    const backendSave = data.save;
-
-    // 验证存档结构
-    if (!backendSave?.player || !backendSave?.npcs?.bridge_artist) {
-      return null;
-    }
-
-    return backendSave as GameSave;
-  } catch (error) {
-    console.warn('後端存檔載入異常:', error);
-    return null;
-  }
-}
-
-/**
- * 检查后端是否存在该球员存档（用于异地登录验证）
- */
-export async function checkPlayerExists(playerId: string): Promise<boolean> {
-  try {
-    const res = await fetch('/api/save/lookup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    return data.exists === true;
-  } catch {
-    return false;
-  }
 }
 
 export function clearSave() {

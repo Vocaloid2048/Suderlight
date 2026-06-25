@@ -1,4 +1,5 @@
-import { getPlayerAuthHeaders } from '../lib/playerId';
+import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
+import { getRoundCount } from '../lib/dialogueStore';
 
 export type BackendNpcState = {
   trust: number;
@@ -13,10 +14,14 @@ export type BackendChatResponse = {
   psychology?: {
     trustDelta: number;
     stressDelta: number;
+    knowledgeDelta?: number;
     stateLabel: string;
     inputType?: string;
   };
   npcState?: BackendNpcState;
+  roundCount?: number;
+  summary?: string;
+  summaryError?: string;
 };
 
 /**
@@ -63,7 +68,14 @@ export async function sendMessage(text: string): Promise<{ reply: string; emotio
  * @param npcIdOrName 當前對談的角色名稱或角色 ID (預設為 'bridge_artist')
  * @returns 格式化後的 JSON 字串
  */
-export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge_artist'): Promise<string> {
+export type ClientNpcState = {
+  trust: number;
+  stress: number;
+  knowledge: number;
+  innerWorldDepth?: number;
+};
+
+export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge_artist', collectedClueCount?: number, clientNpcState?: ClientNpcState): Promise<string> {
   try {
     // 智慧轉換角色名稱：若傳入的是大字串或中文名，自動對應回後端識別的 'bridge_artist'
     let finalNpcId = 'bridge_artist';
@@ -75,18 +87,23 @@ export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge
     }
 
     const authHeaders = await getPlayerAuthHeaders();
+    const playerId = getPlayerId();
+    const clientRoundCount = getRoundCount(finalNpcId, playerId);
+
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({
         npcId: finalNpcId,
         message: playerMessage,
+        roundCount: clientRoundCount,
+        collectedClueCount,
+        clientNpcState,
       }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(`Backend chat API error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`);
+      throw new Error('API 暫時無法回應，請稍後再試');
     }
 
     const data: BackendChatResponse = await response.json();
@@ -103,6 +120,9 @@ export async function fetchLLMReply(playerMessage: string, npcIdOrName = 'bridge
       safetyLevel: 'safe' as const,
       backendPsychology: data.psychology,
       backendNpcState: data.npcState,
+      backendRoundCount: data.roundCount,
+      backendSummary: data.summary,
+      backendSummaryError: data.summaryError,
     });
   } catch (error) {
     console.error('Error in fetchLLMReply via Express backend:', error);
