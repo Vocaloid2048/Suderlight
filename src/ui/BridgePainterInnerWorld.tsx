@@ -83,7 +83,7 @@ function getSchemeColors(scheme: LayerColorScheme) {
     gold:   { accent:'#d4a35e', text:'#d8c29b', sub:'#b0a58b', cellEmpty:'rgba(255,255,255,0.12)', cellNorm:'rgba(255,255,255,0.08)', cellDisc:'rgba(255,255,255,0.10)', cellInsight:'linear-gradient(135deg, rgba(214,163,94,0.16), rgba(138,91,45,0.1))', border:'rgba(214,163,94,0.12)', gridBg:'radial-gradient(ellipse at center, rgba(45,36,22,0.5), rgba(18,14,10,0.85))' },
     cold:  { accent:'#6b9ec4', text:'#b0c8dd', sub:'#7a8fa0', cellEmpty:'rgba(160,180,200,0.14)', cellNorm:'rgba(160,180,200,0.10)', cellDisc:'rgba(160,180,200,0.12)', cellInsight:'linear-gradient(135deg, rgba(107,158,196,0.16), rgba(60,110,150,0.1))', border:'rgba(107,158,196,0.12)', gridBg:'radial-gradient(ellipse at center, rgba(12,22,35,0.5), rgba(4,8,14,0.88))' },
     faded: { accent:'#a89880', text:'#c8bca0', sub:'#8a7e6c', cellEmpty:'rgba(180,160,140,0.12)', cellNorm:'rgba(180,160,140,0.08)', cellDisc:'rgba(180,160,140,0.10)', cellInsight:'linear-gradient(135deg, rgba(168,152,128,0.12), rgba(130,110,80,0.08))', border:'rgba(168,152,128,0.1)', gridBg:'radial-gradient(ellipse at center, rgba(38,34,28,0.5), rgba(16,14,12,0.88))' },
-    void:  { accent:'#b8a9c9', text:'#4a3f5c', sub:'#7a6e8a', cellEmpty:'rgba(100,90,110,0.15)', cellNorm:'rgba(200,180,220,0.10)', cellDisc:'rgba(200,180,220,0.14)', cellInsight:'linear-gradient(135deg, rgba(184,169,201,0.14), rgba(150,130,180,0.08))', border:'rgba(184,169,201,0.2)', gridBg:'rgba(245,243,248,0.5)' },
+    void:  { accent:'#b8a9c9', text:'#d8cee8', sub:'#b0a0c8', cellEmpty:'rgba(184,169,201,0.16)', cellNorm:'rgba(184,169,201,0.10)', cellDisc:'rgba(184,169,201,0.14)', cellInsight:'linear-gradient(135deg, rgba(184,169,201,0.16), rgba(150,130,180,0.08))', border:'rgba(184,169,201,0.2)', gridBg:'rgba(30,25,40,0.5)' },
   };
   return map[scheme];
 }
@@ -1055,20 +1055,20 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
         {/* 左側欄：卡片列表 + 下方固定按鈕 */}
         <div style={{ display:'flex',flexDirection:'column',maxHeight:'calc(100vh - 100px)',minHeight:0,gap:8 }}>
         <aside style={{ display:'flex',flexDirection:'column',gap:14,overflowY:'auto',flex:1,minHeight:0,paddingRight:4 }}>
-          <GlassPanel title={`第${CH[layerNum-1]}層`} subtitle={layer.layerName} variant={layer.colorScheme==='void'?'paper':'warm'} style={{ flexShrink:0 }} contentStyle={{ display:'flex',flexDirection:'column',gap:12 }}>
-            <div style={{ color:layer.colorScheme==='void'?'#3a2a14':colors.sub,fontSize:13,lineHeight:1.9,whiteSpace:'pre-line' }}>{layerAtmoText(layerNum)}</div>
+          <GlassPanel title={`第${CH[layerNum-1]}層`} subtitle={layer.layerName} variant="warm" style={{ flexShrink:0 }} contentStyle={{ display:'flex',flexDirection:'column',gap:12 }}>
+            <div style={{ color:colors.sub,fontSize:13,lineHeight:1.9,whiteSpace:'pre-line' }}>{layerAtmoText(layerNum)}</div>
             {layer.nextLayerThreshold > 0 && (
               <div style={{ marginTop:4 }}>
-                <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:layer.colorScheme==='void'?'#5a4328':colors.sub,marginBottom:4 }}><span>理解深度</span><span>{score}/{layer.nextLayerThreshold}</span></div>
-                <div style={{ width:'100%',height:4,borderRadius:2,background:layer.colorScheme==='void'?'rgba(80,60,40,0.18)':colors.cellEmpty,overflow:'hidden' }}>
+                <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:colors.sub,marginBottom:4 }}><span>理解深度</span><span>{score}/{layer.nextLayerThreshold}</span></div>
+                <div style={{ width:'100%',height:4,borderRadius:2,background:colors.cellEmpty,overflow:'hidden' }}>
                   <div style={{ width:`${Math.min(100,(score/layer.nextLayerThreshold)*100)}%`,height:'100%',borderRadius:2,background:`linear-gradient(90deg, ${colors.accent}, ${colors.accent}88)`,transition:'width 0.5s ease' }}/>
                 </div>
               </div>
             )}
             {isLast && (
               <div style={{ marginTop:4 }}>
-                <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:layer.colorScheme==='void'?'#5a4328':colors.sub,marginBottom:4 }}><span>理解深度</span><span>{insightCount}/{layer.interactables.length} 個片段</span></div>
-                <div style={{ width:'100%',height:4,borderRadius:2,background:layer.colorScheme==='void'?'rgba(80,60,40,0.18)':colors.cellEmpty,overflow:'hidden' }}>
+                <div style={{ display:'flex',justifyContent:'space-between',fontSize:11,color:colors.sub,marginBottom:4 }}><span>理解深度</span><span>{insightCount}/{layer.interactables.length} 個片段</span></div>
+                <div style={{ width:'100%',height:4,borderRadius:2,background:colors.cellEmpty,overflow:'hidden' }}>
                   <div style={{ width:`${Math.min(100,(insightCount/layer.interactables.length)*100)}%`,height:'100%',borderRadius:2,background:`linear-gradient(90deg, ${colors.accent}, ${colors.accent}88)`,transition:'width 0.5s ease' }}/>
                 </div>
               </div>
@@ -1119,9 +1119,14 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
           {/* 固定在左側欄底部的操作按鈕，不會被卡片內容擋住 */}
           <div style={{ display:'flex',flexDirection:'column',gap:8,flexShrink:0,paddingTop:4 }}>
             {showLayerCompleteBtn && (
-              <GlimmerButton tone="primary" onClick={() => setPhase({ type:'layer_complete' })} fullWidth>深入理解 →</GlimmerButton>
+              <GlimmerButton tone="primary" onClick={() => setPhase({ type:'layer_complete' })} fullWidth>
+                {isLast ? '理解達成' : '深入理解 →'}
+              </GlimmerButton>
             )}
-            <GlimmerButton tone="quiet" onClick={handleReturn} fullWidth>返回表世界</GlimmerButton>
+            {/* 第四層不顯示返回表世界按鈕，必須通過理解達成完成 */}
+            {!isLast && (
+              <GlimmerButton tone="quiet" onClick={handleReturn} fullWidth>返回表世界</GlimmerButton>
+            )}
           </div>
 
         </div>
@@ -1265,6 +1270,16 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
                   ⚠ {layerLockMessage}
                 </div>
               </div>
+            )}
+
+            {/* 第四层：理解达成提示 */}
+            {isLast && showLayerCompleteBtn && (
+              <>
+                <style>{`@keyframes insightPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.03); } }`}</style>
+                <div style={{ marginBottom: 4, fontSize: 14, color: '#ffd54f', textAlign: 'center', fontWeight: 600, textShadow: '0 0 10px rgba(255,213,79,0.4)', animation: 'insightPulse 1.5s ease-in-out infinite' }}>
+                  ✨ 理解已達成 — 請點擊左側「理解達成」按鈕完成這一層
+                </div>
+              </>
             )}
 
             <div style={{ display: 'flex', gap: 16, width: '100%', justifyContent: 'center' }}>

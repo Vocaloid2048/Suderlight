@@ -401,7 +401,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* AI Interpretation + State Changes                            */}
       {/* ============================================================ */}
       <div style={{ ...SECTION, borderColor: 'rgba(100,180,255,0.15)' }}>
-        <div style={SEC_TITLE}>2. AI Interpretation & State Changes</div>
+        <div style={SEC_TITLE}>3. AI Interpretation & State Changes</div>
 
         {!lastEval ? (
           <div style={{ color: '#556', fontSize: 10 }}>尚未發生對話評估。</div>
@@ -457,7 +457,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* Inner World Progress + Chapter Status                        */}
       {/* ============================================================ */}
       <div style={SECTION}>
-        <div style={SEC_TITLE}>3. Inner World Progress</div>
+        <div style={SEC_TITLE}>4. Inner World Progress</div>
 
         {/* Chapter status */}
         {chapterProgress.map((ch) => (
@@ -511,7 +511,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* Dialogue Branches                                            */}
       {/* ============================================================ */}
       <div style={SECTION}>
-        <div style={SEC_TITLE}>4. Dialogue Branches</div>
+        <div style={SEC_TITLE}>5. Dialogue Branches</div>
         <div style={{ color: '#4caf50', fontSize: 9.5, letterSpacing: 0.5, marginBottom: 3 }}>
           ▸ 已解鎖 ({branches.unlocked.length})
         </div>
@@ -538,7 +538,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* Narrative Event Log                                          */}
       {/* ============================================================ */}
       <div style={{ ...SECTION, borderColor: 'rgba(171,71,188,0.15)' }}>
-        <div style={SEC_TITLE}>5. Narrative Event Log ({eventLog.length})</div>
+        <div style={SEC_TITLE}>6. Narrative Event Log ({eventLog.length})</div>
         {eventLog.length === 0 ? (
           <div style={{ color: '#556', fontSize: 10 }}>尚無事件紀錄。</div>
         ) : (
@@ -566,7 +566,7 @@ export default function NarrativePlaytestDashboard({ currentScreen }: Props) {
       {/* Player Knowledge State                                       */}
       {/* ============================================================ */}
       <div style={SECTION}>
-        <div style={SEC_TITLE}>6. Player Knowledge</div>
+        <div style={SEC_TITLE}>7. Player Knowledge</div>
         <div style={ROW}><span style={LBL}>Knowledge</span><Bar value={npc.knowledge} max={100} color="#2196f3" /></div>
         <div style={ROW}><span style={LBL}>Location</span><span style={VAL}>{save.currentLocation}</span></div>
         <div style={{ marginTop: 6 }}>
