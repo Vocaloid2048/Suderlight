@@ -63,6 +63,14 @@ export default function App() {
   const bridgeArtist = save.npcs.bridge_artist;
 
   const openScreenWithReturn = (nextScreen: Screen) => {
+    // 【修复】只有在 NPC 有實際結局（成功或失敗）時才能進入 AftermathReport
+    if (nextScreen === 'aftermath') {
+      const ending = save.npcs.bridge_artist.ending;
+      if (ending === 'none') {
+        // 尚無結局，不允許進入
+        return;
+      }
+    }
     setReturnScreen(screen);
     setScreen(nextScreen);
   };

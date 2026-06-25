@@ -58,7 +58,17 @@ export default function AftermathReport({ save, onBack, onOpenReconciliation }: 
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 20 }}>
             <GlimmerButton tone="primary" onClick={onBack}>回到城市</GlimmerButton>
-            <GlimmerButton onClick={onOpenReconciliation}>進入自我和解</GlimmerButton>
+            {/* 【修复】仅在 NPC 修復成功（完成全部四層心理世界）後才能進入自我和解 */}
+            {painter.ending === 'success' && (
+              <GlimmerButton onClick={onOpenReconciliation}>進入自我和解</GlimmerButton>
+            )}
+            {painter.ending !== 'success' && (
+              <div style={{ color: '#9a8a6a', fontSize: 12, fontStyle: 'italic', alignSelf: 'center' }}>
+                {painter.ending === 'failed'
+                  ? '失敗殘影已紀錄。完成修復後才能進入自我和解。'
+                  : '尚在進行中。完成修復後才能進入自我和解。'}
+              </div>
+            )}
           </div>
         </GlassPanel>
       </div>

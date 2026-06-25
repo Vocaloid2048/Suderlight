@@ -216,6 +216,8 @@ export const useGameStore = create<GameStore>((set) => ({
     if (playerId) {
       clearDialogueHistory('bridge_artist', playerId);
     }
+    // 清除内心世界首次访问纪录
+    try { window.localStorage.removeItem('sud_bridge_inner_visited'); } catch { /* ignore */ }
     const fresh = createInitialSave();
     persistSave(fresh);
     set({ save: fresh });
