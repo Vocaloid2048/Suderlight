@@ -35,6 +35,7 @@ type GameStore = {
   applyBackendNpcState: (npcId: NpcId, backendState: BackendNpcStateSnapshot) => void;
   completeNpcSuccess: (npcId: NpcId) => void;
   failNpc: (npcId: NpcId) => void;
+  addFlagToNpc: (npcId: NpcId, flag: string) => void;
   resetSave: () => void;
 
   /** 設定橋上畫家的心理世界探索深度 (0-3) */
@@ -194,6 +195,20 @@ export const useGameStore = create<GameStore>((set) => ({
       const next = cloneSave(state.save);
       next.npcs[npcId] = markNpcFailed(next.npcs[npcId]);
       return { save: persistAndReturn(addGhostIfNeeded(next, npcId)) };
+    });
+  },
+
+  addFlagToNpc: (npcId, flag) => {
+    set(state => {
+      const next = cloneSave(state.save);
+      const target = next.npcs[npcId];
+      if (!target) return { save: state.save };
+      if (target.flags.includes(flag)) return { save: state.save }; // 已存在则跳过
+      next.npcs[npcId] = {
+        ...target,
+        flags: [...target.flags, flag],
+      };
+      return { save: persistAndReturn(next) };
     });
   },
 

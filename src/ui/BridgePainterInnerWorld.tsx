@@ -30,6 +30,10 @@ import accidentMemoryVideo from '../video/grok-video-5614ed35-6339-496a-bc6b-027
 type Props = {
   onReturnToSurface: (depth: number) => void;
   onAdvanceLayer?: (layer: number) => void;
+  /** 外部傳入：是否直接展示情感弧線失敗畫面 */
+  arcFailure?: boolean;
+  /** 弧線失敗畫面 → 查看心靈餘波匯報 */
+  onOpenReport?: () => void;
 };
 
 const STRESS_UNLOCK_BY_LAYER: Record<1 | 2 | 3 | 4, number> = {
@@ -732,7 +736,7 @@ function GlowingCanvasVisual({ children, layerNum }: { children: React.ReactNode
 // ============================================================
 // 主組件
 // ============================================================
-export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLayer }: Props) {
+export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFailure, onOpenReport }: Props) {
   const save = useGameStore(s => s.save);
   const syncInnerWorldState = useGameStore(s => s.syncInnerWorldState);
   const stress = save?.npcs?.bridge_artist?.stress ?? 100;
@@ -976,6 +980,28 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
     thresholdMet || (isLast && insightCount >= 3)
   );
   const isModalOpen = phase.type !== 'exploring';
+
+  // ---- 弧線失敗（必須在所有 phase 檢查之前，避免 entering 等 phase 攔截）----
+  if (arcFailure) {
+    return (
+      <GuiFrame tone="inner">
+        <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48 }}>
+          <GlassPanel title="情感弧線 — 斷裂" subtitle="Trust never built · Stress at threshold · Connection severed" variant="paper" style={{ maxWidth: 600, width: '100%', textAlign: 'center' }}>
+            <div style={{ color: '#3a2a14', fontSize: 20, fontWeight: 600, lineHeight: 2, marginBottom: 8 }}>
+              你沒能走完天橋畫家的情感弧線。
+            </div>
+            <div style={{ color: '#5a4328', fontSize: 15, lineHeight: 2.2, fontStyle: 'italic', whiteSpace: 'pre-line', marginBottom: 8 }}>
+              從懷疑到恐懼，從恐懼到崩潰。{'\n'}他沒有等到那個能走進他內心四個房間的人。
+            </div>
+            <div style={{ color: '#4a3620', fontSize: 14, lineHeight: 1.9, marginBottom: 24, padding: '12px 16px', borderRadius: 10, background: 'rgba(214,163,94,0.1)', border: '1px solid rgba(214,163,94,0.15)' }}>
+              天橋的雨還在落。他帶著最後一筆未完成的鉛筆線，走進雨夜最深處。{'\n'}恐懼值達到臨界，信任從未真正建立。{'\n'}空白畫布上的名字被雨水沖淡——城市的這一部分，繼續黯淡無光。
+            </div>
+            <GlimmerButton tone="primary" onClick={onOpenReport} fullWidth>查看心靈餘波匯報</GlimmerButton>
+          </GlassPanel>
+        </div>
+      </GuiFrame>
+    );
+  }
 
   // ---- 進入畫面 ----
   if (phase.type === 'entering') {
