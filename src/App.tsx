@@ -30,9 +30,11 @@ export default function App() {
   const setInnerWorldDepth = useGameStore(state => state.setInnerWorldDepth);
   const advancePsychLayer = useGameStore(state => state.advancePsychLayer);
   const forceUnlockInnerWorld = useGameStore(state => state.forceUnlockInnerWorld);
+  const addFlagToNpc = useGameStore(state => state.addFlagToNpc);
 
   const [screen, setScreen] = useState<Screen>('title');
   const [returnScreen, setReturnScreen] = useState<Screen>('city');
+  const [arcFailureActive, setArcFailureActive] = useState(false);
 
   // ---- Playtest callbacks ----
   const onForceUnlock = useCallback(() => {
@@ -134,9 +136,13 @@ export default function App() {
     if (screen === 'innerWorld') {
       return (
         <BridgePainterInnerWorld
+          arcFailure={arcFailureActive}
+          onOpenReport={() => {
+            setArcFailureActive(false);
+            openScreenWithReturn('aftermath');
+          }}
           onReturnToSurface={(depth) => {
             setInnerWorldDepth(depth);
-            // 内心世界返回不直接触发结局；玩家需完成全部四层后透过对话离开才进入余波汇报
             setScreen('conversation');
           }}
           onAdvanceLayer={(layer) => advancePsychLayer(layer)}
@@ -152,7 +158,7 @@ export default function App() {
       return (
         <AftermathReport
           save={save}
-          onBack={() => setScreen(returnScreen === 'title' ? 'city' : returnScreen)}
+          onBack={() => setScreen('city')}
           onOpenReconciliation={() => setScreen('reconciliation')}
         />
       );
@@ -179,6 +185,11 @@ export default function App() {
         onOpenTavern={() => openScreenWithReturn('tavern')}
         onOpenReport={() => openScreenWithReturn('aftermath')}
         onEnterInnerWorld={() => setScreen('innerWorld')}
+        addFlagToNpc={addFlagToNpc}
+        onOpenArcFailure={() => {
+          setArcFailureActive(true);
+          setScreen('innerWorld');
+        }}
       />
     );
   })();

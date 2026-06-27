@@ -1,6 +1,6 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { GlimmerButton, GlassPanel } from '../components';
-import { bridgeArtistClues, clueOrder, locations, type ClueId, type LocationId } from '../data/verticalSlice';
+import { bridgeArtistClues, clueOrder, locations, type ClueId, type LocationId, type NpcId } from '../data/verticalSlice';
 import { getPlayerAuthHeaders } from '../lib/playerId';
 import type { CollectClueResult } from '../store/gameStore';
 import type { GameSave } from '../systems/saveSystem';
@@ -14,7 +14,7 @@ import painterUnlockedImage from '../../images/character/IMG_3562.png';
 
 
 type Point = { x: number; y: number };
-type EntityId = 'painter' | 'gallery_door' | ClueId;
+type EntityId = 'painter' | 'gallery_door' | 'torn_canvas' | ClueId;
 type ModalAction = { label: string; tone?: 'primary' | 'danger' | 'ghost'; onClick: () => void };
 type ModalState = { title: string; content: string; actions?: ModalAction[]; discoveryContent?: string; discoveryTitle?: string; discoveryDesc?: string } | null;
 
@@ -38,6 +38,8 @@ type OuterWorldExplorerProps = {
   onOpenTavern: () => void;
   onOpenReport: () => void;
   onEnterInnerWorld: () => void;
+  addFlagToNpc: (npcId: NpcId, flag: string) => void;
+  onOpenArcFailure: () => void;
 };
 
 const MAP_WIDTH = 2400;
@@ -724,6 +726,8 @@ export default function OuterWorldExplorer({
   onOpenTavern,
   onOpenReport,
   onEnterInnerWorld,
+  addFlagToNpc,
+  onOpenArcFailure,
 }: OuterWorldExplorerProps) {
   const [playerPos, setPlayerPos] = useState<Point>(locations[save.currentLocation].spawn);
   const [isDragging, setIsDragging] = useState(false);
@@ -756,14 +760,26 @@ export default function OuterWorldExplorer({
 
     // 當前在天橋大世界 (skybridge) 時，一併加載並重映射報攤和公園的 entities
     if (save.currentLocation === 'skybridge') {
-      list.push({
-        id: 'painter',
-        label: '天橋畫家',
-        type: 'npc',
-        pos: { x: 13, y: 9 },
-        color: bridgeArtist.ending === 'failed' ? '#a55' : '#ffaa33',
-        icon: bridgeArtist.ending === 'success' ? '光' : '畫',
-      });
+      if (bridgeArtist.ending === 'failed') {
+        // 反面結局：畫家消失，留下撕碎的空白畫布
+        list.push({
+          id: 'torn_canvas',
+          label: '被撕碎的空白畫布',
+          type: 'clue',
+          pos: { x: 13, y: 9 },
+          color: '#7a7a8a',
+          icon: '碎',
+        });
+      } else {
+        list.push({
+          id: 'painter',
+          label: '天橋畫家',
+          type: 'npc',
+          pos: { x: 13, y: 9 },
+          color: bridgeArtist.ending === 'success' ? '#7acc7a' : '#ffaa33',
+          icon: bridgeArtist.ending === 'success' ? '光' : '畫',
+        });
+      }
 
       list.push({
         id: 'gallery_door',
@@ -821,19 +837,34 @@ export default function OuterWorldExplorer({
     window.setTimeout(() => setGhostFlash(null), 1800);
   };
 
-  const openFailureModal = () => {
-    setModal({
-      title: '失敗結局：空白被關上',
-      content: '畫家最後看了你一眼。\n\n「連這最後的空白，你都不肯留給我嗎？」\n\n他收起畫布，走進天橋最暗的雨裡。',
-      actions: [{ label: '查看餘波匯報', tone: 'primary', onClick: onOpenReport }],
-    });
-  };
-
   const openSuccessModal = () => {
     setModal({
       title: '成功結局：雨聲仍在',
       content: '他沒有重新看見色彩，也沒有立刻變好。\n\n但他終於放下畫筆，坐在失色畫廊的地上，聽見雨聲從遠處回來。\n\n「原來……不畫畫的時候，我也還在。」',
       actions: [{ label: '查看餘波匯報', tone: 'primary', onClick: onOpenReport }],
+    });
+  };
+
+  const openEmotionalArcFailureModal = () => {
+    setModal(null);
+    onOpenArcFailure();
+  };
+
+  const openTornCanvasFirstModal = () => {
+    setModal({
+      title: '被撕碎的空白畫布',
+      content:
+        '你蹲下身，手指觸到濕透的帆布邊緣。\n纖維在水裡泡得發軟，觸感像死去的皮膚。\n你試著把碎片拼回原來的形狀——但它們已經泡皺了，\n再也無法對齊。\n雨水從你的指縫流過，把撕裂的邊緣沖得更碎。\n\n「連這最後的空白，你都不肯留給我嗎？」\n\n（稍後再來看看它吧。）',
+    });
+    addFlagToNpc('bridge_artist', 'torn_canvas_first_interaction');
+  };
+
+  const openTornCanvasSecondModal = () => {
+    setModal({
+      title: '被撕碎的空白畫布',
+      content:
+        '碎布還在原地。雨水繼續浸透它們。\n你注意到最大那塊碎片上的鉛筆線——\n它是一筆從畫框中央向外拖出去的長線，\n在撕裂處戛然而止。\n像一段話，說到一半就斷了。\n\n「連這最後的......空白......你都不肯......留給我嗎？」\n\n你感覺天橋的風變冷了一些。',
+      actions: [{ label: '走向終章', tone: 'primary', onClick: openEmotionalArcFailureModal }],
     });
   };
 
@@ -879,17 +910,22 @@ export default function OuterWorldExplorer({
     }
 
     if (targetId === 'painter') {
-      if (bridgeArtist.ending === 'failed') {
-        openFailureModal();
-        return;
-      }
-
       if (bridgeArtist.ending === 'success') {
         openSuccessModal();
         return;
       }
 
       onOpenConversation();
+      return;
+    }
+
+    if (targetId === 'torn_canvas') {
+      const hasInteracted = bridgeArtist.flags.includes('torn_canvas_first_interaction');
+      if (hasInteracted) {
+        openTornCanvasSecondModal();
+      } else {
+        openTornCanvasFirstModal();
+      }
       return;
     }
 
@@ -1180,7 +1216,7 @@ export default function OuterWorldExplorer({
         <div style={{ fontSize: 13, lineHeight: 1.7, color: '#bbb' }}>
           {bridgeArtist.innerWorldUnlocked ? '天橋盡頭出現了微弱的門縫光。' : '雨聲仍很密，故事還沒有拼合。'}<br />
           {bridgeArtist.ending === 'success' && <span style={{ color: '#b8ffd6' }}>畫家終於聽見了雨聲。</span>}
-          {bridgeArtist.ending === 'failed' && <span style={{ color: '#ffd0d0' }}>天橋上留下了一道殘影。</span>}
+          {bridgeArtist.ending === 'failed' && <span style={{ color: '#ffd0d0' }}>天橋上只剩下一張被撕碎的空白畫布。</span>}
         </div>
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
           <div style={{ color: '#eee', fontSize: 13, marginBottom: 8 }}>線索</div>
@@ -1302,13 +1338,14 @@ export default function OuterWorldExplorer({
           const clueImage = entity.type === 'clue' ? CLUE_IMAGE_MAP[entity.id as ClueId] : undefined;
           const isImageClue = entity.type === 'clue' && Boolean(clueImage);
           const isPainterImage = entity.id === 'painter';
-          const isPill = !isImageClue && !isPainterImage && (isGalleryDoor || entity.id === 'brush' || entity.id === 'newspaper' || entity.id === 'sketchbook' || entity.id === 'accident_report');
+          const isTornCanvas = entity.id === 'torn_canvas';
+          const isPill = !isImageClue && !isPainterImage && !isTornCanvas && (isGalleryDoor || entity.id === 'brush' || entity.id === 'newspaper' || entity.id === 'sketchbook' || entity.id === 'accident_report');
 
 
-          const btnWidth = isImageClue ? 88 : (isPill ? 94 : (entity.type === 'npc' ? 64 : 48));
-          const btnHeight = isImageClue ? 112 : (isPill ? 36 : (entity.type === 'npc' ? 84 : 48));
-          const btnRadius = isImageClue ? '14px' : (isPill ? '999px' : (entity.type === 'npc' ? '36px 36px 18px 18px' : '50%'));
-          const btnPadding = isImageClue ? '4px' : (isPill ? '0 8px' : '0');
+          const btnWidth = isTornCanvas ? 82 : (isImageClue ? 88 : (isPill ? 94 : (entity.type === 'npc' ? 64 : 48)));
+          const btnHeight = isTornCanvas ? 82 : (isImageClue ? 112 : (isPill ? 36 : (entity.type === 'npc' ? 84 : 48)));
+          const btnRadius = isTornCanvas ? '8px 14px 10px 4px' : (isImageClue ? '14px' : (isPill ? '999px' : (entity.type === 'npc' ? '36px 36px 18px 18px' : '50%')));
+          const btnPadding = isTornCanvas ? '4px' : (isImageClue ? '4px' : (isPill ? '0 8px' : '0'));
 
           return (
             <button
@@ -1321,20 +1358,26 @@ export default function OuterWorldExplorer({
                 transform: 'translate(-50%, -100%)',
                 width: btnWidth,
                 height: btnHeight,
-                border: isPainterImage ? 'none' : `2px solid ${entity.color}`,
+                border: isTornCanvas
+                  ? '2px dashed #5a5a6e'
+                  : (isPainterImage ? 'none' : `2px solid ${entity.color}`),
                 borderRadius: isPainterImage ? '0' : btnRadius,
                 padding: isPainterImage ? '0' : btnPadding,
-                background: isPainterImage
-                  ? 'transparent'
-                  : isImageClue
-                    ? 'rgba(14, 18, 25, 0.92)'
-                    : (entity.type === 'npc' ? 'rgba(255,170,51,0.12)' : 'rgba(255,255,255,0.08)'),
-                color: entity.color,
+                background: isTornCanvas
+                  ? 'rgba(20, 22, 30, 0.94)'
+                  : isPainterImage
+                    ? 'transparent'
+                    : isImageClue
+                      ? 'rgba(14, 18, 25, 0.92)'
+                      : (entity.type === 'npc' ? 'rgba(255,170,51,0.12)' : 'rgba(255,255,255,0.08)'),
+                color: isTornCanvas ? '#8a8a9c' : entity.color,
                 cursor: 'pointer',
                 zIndex: Math.round(screen.top) + (isGalleryDoor ? 500 : 0),
-                boxShadow: isPainterImage
-                  ? (isNear ? '0 0 26px rgba(255, 196, 132, 0.65)' : 'none')
-                  : (isNear ? `0 0 36px ${entity.color}` : `0 0 18px ${entity.color}55`),
+                boxShadow: isTornCanvas
+                  ? (isNear ? '0 0 28px rgba(120,120,140,0.35)' : '0 0 10px rgba(120,120,140,0.15)')
+                  : isPainterImage
+                    ? (isNear ? '0 0 26px rgba(255, 196, 132, 0.65)' : 'none')
+                    : (isNear ? `0 0 36px ${entity.color}` : `0 0 18px ${entity.color}55`),
                 fontWeight: 'bold',
                 userSelect: 'none',
                 transition: 'box-shadow 0.18s, transform 0.18s',
@@ -1399,6 +1442,27 @@ export default function OuterWorldExplorer({
                     {entity.icon}
                   </span>
                   <span style={{ fontSize: 11, letterSpacing: 0.5, fontWeight: 'bold' }}>
+                    {entity.label}
+                  </span>
+                </div>
+              ) : isTornCanvas ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, width: '100%', height: '100%' }}>
+                  <div style={{
+                    fontSize: 22,
+                    opacity: 0.55,
+                    filter: 'grayscale(1)',
+                    lineHeight: 1,
+                  }}>
+                    🧩
+                  </div>
+                  <span style={{
+                    fontSize: 9,
+                    letterSpacing: 0.3,
+                    color: '#7a7a8c',
+                    textAlign: 'center',
+                    lineHeight: 1.3,
+                    maxWidth: 70,
+                  }}>
                     {entity.label}
                   </span>
                 </div>

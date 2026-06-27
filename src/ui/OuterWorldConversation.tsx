@@ -350,6 +350,7 @@ export default function OuterWorldConversation({
   const [isInitializing, setIsInitializing] = useState(true);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const [conversationEndedLocally, setConversationEndedLocally] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // 每次消息更新时自动滚动到底部（瞬间到位，无动画）
@@ -458,12 +459,18 @@ const triggeredLore = useMemo(() => {
   }, [input, inventory]);
 
   const appendReplyAndSystemResult = (reply: AiReply, trimmed: string) => {
-    let isFailed = false;
     const systemMessages: ChatMessage[] = [];
+    let localFailed = false;
 
     if (reply.backendNpcState) {
-      onBackendNpcStateApplied(reply.backendNpcState);
-      isFailed = reply.backendNpcState.ending === 'failed';
+      // 當 stress >= 100 時，強制將 ending 設為 failed（即便後端未標記）
+      let appliedState = reply.backendNpcState;
+      if (reply.backendNpcState.stress >= 100 && reply.backendNpcState.ending !== 'failed') {
+        appliedState = { ...reply.backendNpcState, ending: 'failed' as const };
+        localFailed = true;
+      }
+
+      onBackendNpcStateApplied(appliedState);
 
       if (reply.backendPsychology) {
         systemMessages.push({
@@ -473,10 +480,19 @@ const triggeredLore = useMemo(() => {
             trustDelta: reply.backendPsychology.trustDelta,
             stressDelta: reply.backendPsychology.stressDelta,
             knowledgeDelta: reply.backendPsychology.knowledgeDelta,
-            knowledge: reply.backendNpcState?.knowledge,
-            trust: reply.backendNpcState?.trust,
-            stress: reply.backendNpcState?.stress,
+            knowledge: appliedState.knowledge,
+            trust: appliedState.trust,
+            stress: appliedState.stress,
           }),
+        });
+      }
+
+      // stress >= 100 觸發的反面結局：追加畫家離開訊息
+      if (localFailed) {
+        systemMessages.push({
+          role: 'system',
+          content:
+            '畫家最後看了你一眼。\n他收起畫布，在雨夜中離開天橋。\n\n畫家徹底放棄與現實的連結，\n將名字留在被水沖淡的報紙裡。\n城市的一部分繼續黯淡無光。\n\n（畫家已離開，請點擊「離開對話」回到天橋）',
         });
       }
     } else {
@@ -494,15 +510,15 @@ const triggeredLore = useMemo(() => {
 
     setMessages(current => [...current, ...nextMessages]);
 
-    if (isFailed) {
-      window.setTimeout(onEndingTriggered, 300);
+    if (localFailed) {
+      setConversationEndedLocally(true);
     }
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isThinking) return;
+    if (!trimmed || isThinking || isEnded) return;
 
     const playerMessage: ChatMessage = { role: 'player', content: trimmed };
     const nextMessages = [...messages, playerMessage];
@@ -567,7 +583,7 @@ const triggeredLore = useMemo(() => {
     }
   };
 
-  const isEnded = npcState.ending !== 'none';
+  const isEnded = npcState.ending !== 'none' || conversationEndedLocally;
 
   return (
     <GuiFrame tone="inner">
@@ -584,7 +600,7 @@ const triggeredLore = useMemo(() => {
               <>
                 {isEnded && (
                   <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, color: npcState.ending === 'success' ? '#b8ffd6' : '#ffd0d0', border: `1px solid ${npcState.ending === 'success' ? 'rgba(120,255,180,0.28)' : 'rgba(255,120,120,0.28)'}`, background: npcState.ending === 'success' ? 'rgba(80,180,120,0.08)' : 'rgba(180,60,60,0.1)', fontSize: 13 }}>
-                    {npcState.ending === 'success' ? '修復完成：他沒有痊癒，但願意暫時放下畫筆，聽見雨聲。' : '失敗結局：他關上了最後的空白，Ghost System 已留下殘影。'}
+                    {npcState.ending === 'success' ? '修復完成：他沒有痊癒，但願意暫時放下畫筆，聽見雨聲。' : '畫家已在雨夜中離開天橋，天橋上只剩下一張被撕碎的空白畫布。'}
                   </div>
                 )}
 
@@ -606,10 +622,11 @@ const triggeredLore = useMemo(() => {
               <input
                 value={input}
                 onChange={event => setInput(event.target.value)}
-                placeholder={'試著輸入：你的畫筆還在嗎 / 創作對你來說是什麼 / 我可以陪你坐一會 / 不畫畫也沒關係'}
-                style={{ flex: 1, background: '#101218', color: '#f5f0e8', border: '1px solid #444', borderRadius: 10, padding: '12px 14px', outline: 'none', fontSize: 14 }}
+                disabled={isEnded}
+                placeholder={isEnded ? '畫家已經離開了天橋...' : '試著輸入：你的畫筆還在嗎 / 創作對你來說是什麼 / 我可以陪你坐一會 / 不畫畫也沒關係'}
+                style={{ flex: 1, background: isEnded ? '#0a0c12' : '#101218', color: isEnded ? '#555' : '#f5f0e8', border: '1px solid #444', borderRadius: 10, padding: '12px 14px', outline: 'none', fontSize: 14 }}
               />
-              <GlimmerButton type="submit" tone="primary" disabled={isThinking}>送出</GlimmerButton>
+              <GlimmerButton type="submit" tone="primary" disabled={isThinking || isEnded}>送出</GlimmerButton>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, color: '#777', fontSize: 12 }}>
               <span>目前線索：{inventory.length > 0 ? inventory.map(id => CLUE_LABELS[id] || id).join(' / ') : '沒有線索'}</span>
