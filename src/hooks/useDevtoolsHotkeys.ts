@@ -101,7 +101,7 @@ export function useDevtoolsHotkeys(callbacks: DevtoolsCallbacks) {
         pushLog({
           type: 'force_unlock',
           message: 'F7 強制解鎖內心世界',
-          detail: '信任→50, 知識→70, 解鎖內心世界',
+          detail: '直接設定 innerWorldUnlocked=true（不修改 trust/knowledge）',
         });
         return;
       }

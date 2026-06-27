@@ -347,64 +347,72 @@ export const useGameStore = create<GameStore>((set) => ({
       const newStress = Math.min(npc.stress, stressTarget);
       const stressOk = newStress <= stressTarget;
 
-      // 2. 解鎖前一層前 4 個物品 + 標示 completed
+      // 2. 確保 innerWorld 存在
+      const existingIw = npc.innerWorld ?? { unlockedLayers: [1], layers: {} };
+      const existingLayers = existingIw.layers;
+
+      // 3. 構建所有 4 層（確保永遠有完整的 layers 物件）
       const layers: Record<number, InnerWorldLayerState> = {};
-      const existingLayers = npc.innerWorld?.layers ?? {};
-      let layerModified = false;
+      let anyLayerModified = false;
 
-      for (let l = 1; l < depth; l++) {
-        const psychLayer = ALL_PSYCH_LAYERS.find(ld => ld.layerNumber === l);
-        if (!psychLayer) continue;
+      for (let l = 1; l <= 4; l++) {
+        if (l < depth) {
+          // 解鎖層：填入前 4 個物品
+          const psychLayer = ALL_PSYCH_LAYERS.find(ld => ld.layerNumber === l);
+          if (psychLayer) {
+            const first4 = psychLayer.interactables.slice(0, 4);
+            const existingLayer = existingLayers[l];
+            const existingDisc = existingLayer?.discoveredItems ?? [];
+            const existingUnd = existingLayer?.understoodItems ?? [];
 
-        const first4 = psychLayer.interactables.slice(0, 4);
-        const existingLayer = existingLayers[l];
-        const existingDisc = existingLayer?.discoveredItems ?? [];
-        const existingUnd = existingLayer?.understoodItems ?? [];
+            const discoveredItems = [...new Set([...existingDisc, ...first4.map(o => o.id)])];
+            const understoodMap = new Map(existingUnd.map(u => [u.id, u]));
+            for (const obj of first4) {
+              if (!understoodMap.has(obj.id)) {
+                understoodMap.set(obj.id, { id: obj.id, name: obj.name, understandingReward: obj.understandingReward });
+              }
+            }
+            const understoodItems: UnderstoodItem[] = Array.from(understoodMap.values());
 
-        const discoveredItems = [...new Set([...existingDisc, ...first4.map(o => o.id)])];
-        const understoodMap = new Map(existingUnd.map(u => [u.id, u]));
-        for (const obj of first4) {
-          if (!understoodMap.has(obj.id)) {
-            understoodMap.set(obj.id, { id: obj.id, name: obj.name, understandingReward: obj.understandingReward });
+            layers[l] = {
+              completed: stressOk,
+              understandingScore: first4.reduce((sum, o) => sum + o.understandingReward, 0),
+              understoodItems,
+              discoveredItems,
+            };
+            anyLayerModified = true;
+          } else {
+            // 不存在該層的資料 → 保留現有或填入預設
+            layers[l] = existingLayers[l]
+              ? { ...existingLayers[l] }
+              : { completed: false, understandingScore: 0, understoodItems: [], discoveredItems: [] };
           }
+        } else {
+          // 非解鎖層：保留現有資料，或填入預設
+          layers[l] = existingLayers[l]
+            ? { ...existingLayers[l] }
+            : { completed: false, understandingScore: 0, understoodItems: [], discoveredItems: [] };
         }
-        const understoodItems: UnderstoodItem[] = Array.from(understoodMap.values());
-
-        layers[l] = {
-          completed: stressOk,
-          understandingScore: first4.reduce((sum, o) => sum + o.understandingReward, 0),
-          understoodItems,
-          discoveredItems,
-        };
-        layerModified = true;
       }
 
-      if (layerModified) {
-        // 保留 depth+ 的原有資料
-        for (let l = depth; l <= 4; l++) {
-          if (existingLayers[l]) layers[l] = { ...existingLayers[l] };
-        }
-        const iw: InnerWorldSave = {
-          unlockedLayers: [1, 2, 3, 4].filter(l => l <= depth || (npc.innerWorld?.unlockedLayers?.includes(l) ?? false)),
-          layers,
-        };
-        next.npcs.bridge_artist = {
-          ...npc,
-          trust: newTrust,
-          knowledge: newKnowledge,
-          stress: newStress,
-          innerWorld: iw,
-        };
-      } else {
-        next.npcs.bridge_artist = {
-          ...npc,
-          trust: newTrust,
-          knowledge: newKnowledge,
-          stress: newStress,
-        };
+      // 4. 計算 unlockedLayers：< depth 的全部解鎖，>= depth 的保留原有
+      const oldUnlocked = existingIw.unlockedLayers ?? [1];
+      const newUnlocked: number[] = [];
+      for (let l = 1; l <= 4; l++) {
+        if (l < depth || oldUnlocked.includes(l)) newUnlocked.push(l);
       }
 
-      // 3. localStorage visited layers
+      const iw: InnerWorldSave = { unlockedLayers: newUnlocked, layers };
+
+      next.npcs.bridge_artist = {
+        ...npc,
+        trust: newTrust,
+        knowledge: newKnowledge,
+        stress: newStress,
+        innerWorld: iw,
+      };
+
+      // 5. localStorage visited layers
       if (depth > 1) {
         try {
           const visitedKey = 'sud_bridge_artist_inner_visited';
@@ -421,14 +429,12 @@ export const useGameStore = create<GameStore>((set) => ({
     });
   },
 
-  /** Playtest: 強制滿足內心世界解鎖條件 (F7) */
+  /** Playtest: 強制滿足內心世界解鎖條件 (F7) — 不影響 trust/knowledge/stress */
   forceUnlockInnerWorld: () => {
     set(state => {
       const next = cloneSave(state.save);
       next.npcs.bridge_artist = {
         ...next.npcs.bridge_artist,
-        knowledge: Math.max(next.npcs.bridge_artist.knowledge, next.npcs.bridge_artist.knowledgeRequired),
-        trust: Math.max(next.npcs.bridge_artist.trust, next.npcs.bridge_artist.trustRequired),
         innerWorldUnlocked: true,
         flags: Array.from(new Set([...next.npcs.bridge_artist.flags, 'inner_world_unlocked'])),
       };
