@@ -317,6 +317,9 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
   const isAllLayersUnlocked = maxUnlockedLayer >= 4;
   const [layerLockMessage, setLayerLockMessage] = useState<string | null>(null);
 
+  /** 追蹤內存世界中 savedInnerWorld 的版本，用於偵測外部修改（如 playtest unlock） */
+  const prevInnerWorldRef = useRef<string>();
+
   const VISITED_KEY = `sud_${npcId}_inner_visited`;
   function loadVisitedLayers(): Set<number> {
     try {
@@ -387,6 +390,17 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
   const [understandingByLayer, setUnderstandingByLayer] = useState<Record<number, UnderstandingState>>(() => loadUnderstandingFromSave());
   const [discoveredByLayer, setDiscoveredByLayer] = useState<Record<number, string[]>>(() => loadDiscoveredFromSave());
   const [completedLayers, setCompletedLayers] = useState<Set<number>>(() => loadCompletedLayersFromSave());
+
+  // 當 savedInnerWorld 被外部修改時（如 playtest unlock），重新初始化本地狀態
+  useEffect(() => {
+    const current = JSON.stringify(savedInnerWorld);
+    if (current !== prevInnerWorldRef.current && prevInnerWorldRef.current !== undefined) {
+      setUnderstandingByLayer(loadUnderstandingFromSave());
+      setDiscoveredByLayer(loadDiscoveredFromSave());
+      setCompletedLayers(loadCompletedLayersFromSave());
+    }
+    prevInnerWorldRef.current = current;
+  }, [savedInnerWorld]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildInnerWorldSave = useCallback((): InnerWorldSave => {
     const layers: Record<number, InnerWorldLayerState> = {};
