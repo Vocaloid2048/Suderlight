@@ -378,18 +378,9 @@ type Props = { currentScreen: string };
 export default function DevtoolsPanel({ currentScreen }: Props) {
   const save = useGameStore(s => s.save);
   const toggle = useDevtoolsStore(s => s.toggle);
-  const activeTab = useDevtoolsStore(s => s.activeTab);
-  const setActiveTab = useDevtoolsStore(s => s.setActiveTab);
   const demoMode = useDevtoolsStore(s => s.demoMode);
 
   const npc = save.npcs.bridge_artist;
-
-  const TABS = [
-    { id: 'overview' as const, label: 'Overview' },
-    { id: 'stat_control' as const, label: 'Stats' },
-    { id: 'chapters' as const, label: 'Chapters' },
-    { id: 'event_log' as const, label: 'Log' },
-  ];
 
   return (
     <div style={PANEL}>
@@ -418,36 +409,11 @@ export default function DevtoolsPanel({ currentScreen }: Props) {
         </div>
       </div>
 
-      {/* Tab Bar */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              flex: 1,
-              padding: '4px 6px',
-              borderRadius: 4,
-              border: `1px solid ${activeTab === tab.id ? 'rgba(126,200,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
-              background: activeTab === tab.id ? 'rgba(126,200,255,0.12)' : 'rgba(255,255,255,0.03)',
-              color: activeTab === tab.id ? '#7ec8ff' : '#889',
-              cursor: 'pointer',
-              fontSize: 9.5,
-              fontFamily: 'inherit',
-              fontWeight: activeTab === tab.id ? 700 : 400,
-              letterSpacing: 0.5,
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'overview' && <OverviewTab npc={npc} collectedClues={save.collectedClues} />}
-      {activeTab === 'stat_control' && <StatControlTab npc={npc} />}
-      {activeTab === 'chapters' && <ChaptersTab npc={npc} />}
-      {activeTab === 'event_log' && <EventLogTab />}
+      {/* All sections in one scrollable panel */}
+      <OverviewTab npc={npc} collectedClues={save.collectedClues} />
+      <StatControlTab npc={npc} />
+      <ChaptersTab npc={npc} />
+      <EventLogTab />
 
       <div style={{ color: '#334', fontSize: 9, textAlign: 'center', marginTop: 6 }}>
         Devtools Panel · F8 toggle

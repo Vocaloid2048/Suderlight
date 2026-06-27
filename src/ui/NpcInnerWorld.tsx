@@ -553,7 +553,7 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
           </aside>
           <div style={{ display:'flex',flexDirection:'column',gap:8,flexShrink:0,paddingTop:4 }}>
             {showLayerCompleteBtn && (<GlimmerButton tone="primary" onClick={() => setPhase({ type:'layer_complete' })} fullWidth>{isLast?'理解達成':'深入理解 →'}</GlimmerButton>)}
-            {!isLast && (<GlimmerButton tone="quiet" onClick={handleReturn} fullWidth>返回表世界</GlimmerButton>)}
+            <GlimmerButton tone="quiet" onClick={handleReturn} fullWidth>返回表世界</GlimmerButton>
           </div>
         </div>
 
@@ -595,7 +595,7 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
             )}
           </div>
 
-          <div style={{ position:'absolute',bottom:14,left:'50%',transform:'translateX(-50%)',zIndex:8,display:'flex',flexDirection:'column',gap:6,alignItems:'center',width:'calc(100% - 28px)',maxWidth:600,padding:'6px 12px',background:'rgba(255,255,255,0.06)',borderRadius:12,border:'1px solid rgba(255,255,255,0.12)',backdropFilter:'blur(2px)' }}>
+          <div style={{ position:'absolute',bottom:14,left:'50%',transform:'translateX(-50%)',zIndex:8,display:'flex',flexDirection:'column',gap:6,alignItems:'center',width:'calc(100% - 28px)',maxWidth:600,padding:'6px 12px',background:'rgba(255,255,255,0.06)',borderRadius:12,border:'1px solid rgba(255,255,255,0.12)',backdropFilter:'blur(2px)',pointerEvents:'auto' }}>
             <span style={{ fontSize:13,color:'#f5c16c',fontWeight:'bold',letterSpacing:1 }}>依完成進度與恐懼值門檻切換層級</span>
             {layerLockMessage && (<div style={{ marginBottom:2,display:'flex',flexDirection:'column',gap:8,alignItems:'center' }}><div style={{ fontSize:13,color:'#b71c1c',textAlign:'center',fontWeight:600,textShadow:'0 0 8px rgba(183,28,28,0.3)' }}>⚠ {layerLockMessage}</div></div>)}
             {isLast && showLayerCompleteBtn && (<><style>{`@keyframes insightPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.03); } }`}</style><div style={{ marginBottom:4,fontSize:14,color:'#ffd54f',textAlign:'center',fontWeight:600,textShadow:'0 0 10px rgba(255,213,79,0.4)',animation:'insightPulse 1.5s ease-in-out infinite' }}>✨ 理解已達成 — 請點擊左側「理解達成」按鈕完成這一層</div></>)}
