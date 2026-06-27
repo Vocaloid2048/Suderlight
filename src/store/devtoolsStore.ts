@@ -36,6 +36,7 @@ export const CHAPTERS: ChapterInfo[] = [
   { depth: 1, title: '第一章 · 表層碎片', description: '冠軍畫作、獎盃等榮耀符號 — 他在用過去的成就築牆', requiredTrust: 0, requiredKnowledge: 0 },
   { depth: 2, title: '第二章 · 裂痕與懷疑', description: '媒體訪談牆、觀眾留言 — 外界期待如何壓垮他', requiredTrust: 30, requiredKnowledge: 40 },
   { depth: 3, title: '第三章 · 深淵真相', description: '簽名展示區 — 面對失去色彩後仍選擇簽下名字', requiredTrust: 50, requiredKnowledge: 70 },
+  { depth: 4, title: '第四章 · 空白中的完成', description: '空白畫框 — 存在本身即是完整', requiredTrust: 70, requiredKnowledge: 90 },
 ];
 
 // ---- Tab type ----
