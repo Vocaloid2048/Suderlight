@@ -317,9 +317,6 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
   const isAllLayersUnlocked = maxUnlockedLayer >= 4;
   const [layerLockMessage, setLayerLockMessage] = useState<string | null>(null);
 
-  /** 追蹤內存世界中 savedInnerWorld 的版本，用於偵測外部修改（如 playtest unlock） */
-  const prevInnerWorldRef = useRef<string>();
-
   const VISITED_KEY = `sud_${npcId}_inner_visited`;
   function loadVisitedLayers(): Set<number> {
     try {
@@ -360,6 +357,9 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const savedInnerWorld = save?.npcs?.[npcId]?.innerWorld;
+  const innerWorldSyncId = save?.npcs?.[npcId]?.innerWorldSyncId ?? 0;
+  const prevSyncIdRef = useRef<number>(0);
+
   function loadUnderstandingFromSave(): Record<number, UnderstandingState> {
     const result: Record<number, UnderstandingState> = { 1: { insightIds: [] }, 2: { insightIds: [] }, 3: { insightIds: [] }, 4: { insightIds: [] } };
     if (savedInnerWorld?.layers) {
@@ -391,16 +391,18 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
   const [discoveredByLayer, setDiscoveredByLayer] = useState<Record<number, string[]>>(() => loadDiscoveredFromSave());
   const [completedLayers, setCompletedLayers] = useState<Set<number>>(() => loadCompletedLayersFromSave());
 
-  // 當 savedInnerWorld 被外部修改時（如 playtest unlock），重新初始化本地狀態
+  // 當 savedInnerWorld 被外部修改時（如 playtest unlock / undo），重新初始化本地狀態
+  // 使用 innerWorldSyncId（僅在 unlockChapter/undoUnlockChapter 遞增）而非 JSON 比對，避免 syncToStore 觸發 loop
   useEffect(() => {
-    const current = JSON.stringify(savedInnerWorld);
-    if (current !== prevInnerWorldRef.current && prevInnerWorldRef.current !== undefined) {
-      setUnderstandingByLayer(loadUnderstandingFromSave());
-      setDiscoveredByLayer(loadDiscoveredFromSave());
-      setCompletedLayers(loadCompletedLayersFromSave());
+    if (innerWorldSyncId !== prevSyncIdRef.current) {
+      prevSyncIdRef.current = innerWorldSyncId;
+      if (innerWorldSyncId > 0) {
+        setUnderstandingByLayer(loadUnderstandingFromSave());
+        setDiscoveredByLayer(loadDiscoveredFromSave());
+        setCompletedLayers(loadCompletedLayersFromSave());
+      }
     }
-    prevInnerWorldRef.current = current;
-  }, [savedInnerWorld]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [innerWorldSyncId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildInnerWorldSave = useCallback((): InnerWorldSave => {
     const layers: Record<number, InnerWorldLayerState> = {};

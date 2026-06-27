@@ -56,6 +56,8 @@ type GameStore = {
   setNpcStat: (npcId: NpcId, stat: 'trust' | 'stress' | 'knowledge', value: number) => void;
   /** Playtest: 原子解鎖指定章節（設定 stats + 解鎖前一層物品 + 同步心理世界存檔） */
   unlockChapter: (depth: number, stressTarget: number) => void;
+  /** Playtest: 取消解鎖指定章節及其後所有層 */
+  undoUnlockChapter: (depth: number) => void;
   /** Playtest: 強制滿足內心世界解鎖條件 */
   forceUnlockInnerWorld: () => void;
 };
@@ -410,6 +412,7 @@ export const useGameStore = create<GameStore>((set) => ({
         knowledge: newKnowledge,
         stress: newStress,
         innerWorld: iw,
+        innerWorldSyncId: (npc.innerWorldSyncId ?? 0) + 1,
       };
 
       // 5. localStorage visited layers
@@ -424,6 +427,73 @@ export const useGameStore = create<GameStore>((set) => ({
           localStorage.setItem(visitedKey, JSON.stringify(visited));
         } catch { /* ignore */ }
       }
+
+      return { save: persistAndReturn(next) };
+    });
+  },
+
+  /** Playtest: 取消解鎖指定章節及其後所有層 */
+  undoUnlockChapter: (depth) => {
+    set(state => {
+      const next = cloneSave(state.save);
+      const npc = next.npcs.bridge_artist;
+
+      // 1. 恢復 trust/knowledge/stress 為該章節之前的門檻
+      const prevChapter: Record<number, { trust: number; knowledge: number; stress: number }> = {
+        1: { trust: 20, knowledge: 0, stress: 80 },   // 回到初始值
+        2: { trust: 20, knowledge: 0, stress: 80 },   // 回到初始值（Ch1 不需解鎖）
+        3: { trust: 30, knowledge: 40, stress: 75 },   // 回到 Ch2 底部
+        4: { trust: 50, knowledge: 70, stress: 55 },   // 回到 Ch3 底部
+      };
+      const prev = prevChapter[depth] ?? { trust: 20, knowledge: 0, stress: 80 };
+      const newTrust = Math.min(npc.trust, Math.max(prev.trust, npc.trust - 1)); // restore to max of prev or current minus
+      const newKnowledge = Math.min(npc.knowledge, Math.max(prev.knowledge, npc.knowledge - 1));
+
+      // 2. 重置 depth 及之後的 layers 為預設
+      const existingIw = npc.innerWorld ?? { unlockedLayers: [1], layers: {} };
+      const existingLayers = existingIw.layers;
+      const layers: Record<number, InnerWorldLayerState> = {};
+
+      for (let l = 1; l <= 4; l++) {
+        if (l < depth) {
+          // 保留 depth 之前層的資料
+          layers[l] = existingLayers[l]
+            ? { ...existingLayers[l] }
+            : { completed: false, understandingScore: 0, understoodItems: [], discoveredItems: [] };
+        } else {
+          // 重置 depth 及之後的層
+          layers[l] = { completed: false, understandingScore: 0, understoodItems: [], discoveredItems: [] };
+        }
+      }
+
+      // 3. 重建 unlockedLayers：只保留 depth 之前的
+      const oldUnlocked = existingIw.unlockedLayers ?? [1];
+      const newUnlocked: number[] = [];
+      for (let l = 1; l <= 4; l++) {
+        if (l < depth && oldUnlocked.includes(l)) newUnlocked.push(l);
+      }
+
+      const iw: InnerWorldSave = { unlockedLayers: newUnlocked, layers };
+
+      next.npcs.bridge_artist = {
+        ...npc,
+        trust: newTrust,
+        knowledge: newKnowledge,
+        stress: prev.stress,
+        innerWorld: iw,
+        innerWorldSyncId: (npc.innerWorldSyncId ?? 0) + 1,
+      };
+
+      // 4. 清理 localStorage visited layers
+      try {
+        const visitedKey = 'sud_bridge_artist_inner_visited';
+        const raw = localStorage.getItem(visitedKey);
+        if (raw) {
+          const visited: number[] = JSON.parse(raw);
+          const cleaned = visited.filter(l => l < depth);
+          localStorage.setItem(visitedKey, JSON.stringify(cleaned));
+        }
+      } catch { /* ignore */ }
 
       return { save: persistAndReturn(next) };
     });

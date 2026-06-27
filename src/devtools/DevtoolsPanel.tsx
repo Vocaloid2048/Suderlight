@@ -289,6 +289,7 @@ function OverviewTab({ npc, collectedClues }: { npc: NpcRuntimeState; collectedC
 
 function ChaptersTab({ npc }: { npc: NpcRuntimeState }) {
   const unlockChapterAction = useGameStore(s => s.unlockChapter);
+  const undoUnlockChapterAction = useGameStore(s => s.undoUnlockChapter);
   const chapterProgress = CHAPTERS.map(ch => ({
     ...ch,
     unlocked: npc.trust >= ch.requiredTrust && npc.knowledge >= ch.requiredKnowledge,
@@ -307,6 +308,16 @@ function ChaptersTab({ npc }: { npc: NpcRuntimeState }) {
     });
   };
 
+  const undoUnlock = (depth: number) => {
+    undoUnlockChapterAction(depth);
+    const ch = CHAPTERS[depth - 1];
+    useDevtoolsStore.getState().pushLog({
+      type: 'force_unlock',
+      message: `Ch.${depth} 取消解鎖`,
+      detail: `已重置 Ch.${depth} 及其後所有層的紀錄`,
+    });
+  };
+
   return (
     <div style={SECTION}>
       <div style={SEC_TITLE}>Chapter Progress</div>
@@ -320,12 +331,20 @@ function ChaptersTab({ npc }: { npc: NpcRuntimeState }) {
           </div>
           {!ch.unlocked && <div style={{ color: '#544', fontSize: 9, marginTop: 1 }}>需求：信任≥{ch.requiredTrust}, 知識≥{ch.requiredKnowledge}</div>}
           <div style={{ color: '#668', fontSize: 9.5, marginTop: 2 }}>{ch.description}</div>
-          {!ch.unlocked && (
-            <button onClick={() => unlockChapter(ch.depth)}
-              style={{ marginTop: 4, background: 'rgba(126,200,255,0.12)', border: '1px solid rgba(126,200,255,0.3)', color: '#7ec8ff', borderRadius: 4, cursor: 'pointer', padding: '2px 10px', fontSize: 9.5, fontFamily: 'inherit', fontWeight: 600 }}>
-              解鎖 Ch.{ch.depth}
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+            {!ch.unlocked && ch.depth > 1 && (
+              <button onClick={() => unlockChapter(ch.depth)}
+                style={{ background: 'rgba(126,200,255,0.12)', border: '1px solid rgba(126,200,255,0.3)', color: '#7ec8ff', borderRadius: 4, cursor: 'pointer', padding: '2px 10px', fontSize: 9.5, fontFamily: 'inherit', fontWeight: 600 }}>
+                解鎖 Ch.{ch.depth}
+              </button>
+            )}
+            {ch.unlocked && ch.depth > 1 && (
+              <button onClick={() => undoUnlock(ch.depth)}
+                style={{ background: 'rgba(255,150,100,0.1)', border: '1px solid rgba(255,150,100,0.25)', color: '#ff9664', borderRadius: 4, cursor: 'pointer', padding: '2px 10px', fontSize: 9.5, fontFamily: 'inherit', fontWeight: 600 }}>
+                取消 Ch.{ch.depth}
+              </button>
+            )}
+          </div>
         </div>
       ))}
     </div>

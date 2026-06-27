@@ -51,6 +51,8 @@ export type NpcRuntimeState = {
   innerWorldLayer: number;
   /** 心理世界各層詳細進度存檔 */
   innerWorld?: InnerWorldSave;
+  /** 心理世界同步版本號（供 UI 偵測外部修改） */
+  innerWorldSyncId?: number;
 };
 
 export type DialogueEvaluationContext = {
