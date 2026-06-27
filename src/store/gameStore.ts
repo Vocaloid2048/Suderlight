@@ -438,16 +438,22 @@ export const useGameStore = create<GameStore>((set) => ({
       const next = cloneSave(state.save);
       const npc = next.npcs.bridge_artist;
 
-      // 1. 恢復 trust/knowledge/stress 為該章節之前的門檻
-      const prevChapter: Record<number, { trust: number; knowledge: number; stress: number }> = {
-        1: { trust: 20, knowledge: 0, stress: 80 },   // 回到初始值
-        2: { trust: 20, knowledge: 0, stress: 80 },   // 回到初始值（Ch1 不需解鎖）
-        3: { trust: 30, knowledge: 40, stress: 75 },   // 回到 Ch2 底部
-        4: { trust: 50, knowledge: 70, stress: 55 },   // 回到 Ch3 底部
+      // 各章節門檻
+      const chapterRequirements: Record<number, { trust: number; knowledge: number }> = {
+        1: { trust: 0, knowledge: 0 },
+        2: { trust: 30, knowledge: 40 },
+        3: { trust: 50, knowledge: 70 },
+        4: { trust: 70, knowledge: 90 },
       };
-      const prev = prevChapter[depth] ?? { trust: 20, knowledge: 0, stress: 80 };
-      const newTrust = Math.min(npc.trust, Math.max(prev.trust, npc.trust - 1)); // restore to max of prev or current minus
-      const newKnowledge = Math.min(npc.knowledge, Math.max(prev.knowledge, npc.knowledge - 1));
+
+      // 1. 恢復 trust/knowledge 低於章節門檻（剛好 -1，避免小數）
+      const ch = chapterRequirements[depth];
+      const newTrust = ch ? Math.min(npc.trust, ch.trust - 1) : npc.trust;
+      const newKnowledge = ch ? Math.min(npc.knowledge, ch.knowledge - 1) : npc.knowledge;
+
+      // stress：恢復到前一層的 target
+      const stressTargets: Record<number, number> = { 1: 100, 2: 75, 3: 55, 4: 35 };
+      const newStress = stressTargets[depth - 1] ?? 80;
 
       // 2. 重置 depth 及之後的 layers 為預設
       const existingIw = npc.innerWorld ?? { unlockedLayers: [1], layers: {} };
@@ -479,7 +485,7 @@ export const useGameStore = create<GameStore>((set) => ({
         ...npc,
         trust: newTrust,
         knowledge: newKnowledge,
-        stress: prev.stress,
+        stress: newStress,
         innerWorld: iw,
         innerWorldSyncId: (npc.innerWorldSyncId ?? 0) + 1,
       };
