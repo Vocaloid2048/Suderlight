@@ -4,12 +4,12 @@
 // ============================================================
 
 import type { NpcId } from '../verticalSlice';
-import { ALL_PSYCH_LAYERS } from './bridgePainterWorld';
-import { victorPsychLayers } from './victor';
-import type { PsychLayerData } from './bridgePainterWorld';
+import { ALL_PSYCH_LAYERS } from './bridgePainter/index';
+import { victorPsychLayers } from './victor/index';
+import type { PsychLayerData } from './bridgePainter/index';
 
 // 向後相容：保留 ALL_PSYCH_LAYERS re-export
-export { ALL_PSYCH_LAYERS } from './bridgePainterWorld';
+export { ALL_PSYCH_LAYERS } from './bridgePainter/index';
 export type {
   PsychLayerId,
   PsychLayerNumber,
@@ -19,13 +19,13 @@ export type {
   GalleryInteractable,
   PsychLayerData,
   UnderstandingReward,
-} from './bridgePainterWorld';
+} from './bridgePainter/index';
 export {
   getPsychLayer,
   getUnderstandingReward,
   getInteractable,
   getLayerInteractables,
-} from './bridgePainterWorld';
+} from './bridgePainter/index';
 
 const psychWorldRegistry: Record<NpcId, PsychLayerData[]> = {
   bridge_artist: ALL_PSYCH_LAYERS,

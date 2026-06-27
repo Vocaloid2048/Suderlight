@@ -3,10 +3,10 @@
 // 待未來添加完整四層弧線時填充
 // ============================================================
 
-import type { PsychLayerData } from './bridgePainterWorld';
+import type { PsychLayerData } from '../bridgePainter/index';
 
 /**
  * 維克多心理世界層級資料（目前為空骨架）
- * 未來實作時依循 bridgePainterWorld.ts 結構添加四層
+ * 未來實作時依循 bridgePainter 目錄結構添加四層
  */
 export const victorPsychLayers: PsychLayerData[] = [];

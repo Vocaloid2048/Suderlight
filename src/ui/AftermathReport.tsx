@@ -24,7 +24,12 @@ function getAftermathContent(npcId: NpcId) {
       lastSmile: '雨中的最後微笑',
     },
     conclusion: '這是一場關於理解的練習。',
-  };
+    paragraphs: {
+      successDepth3: '', successDepth2: '', successDepth1: '',
+      failed: '', none: '',
+      innerDepth3: '', innerDepth2: '', innerDepth1: '',
+    },
+  } as typeof bridgeArtistAftermath;
 }
 
 export default function AftermathReport({ save, onBack, onOpenReconciliation, npcId = 'bridge_artist' }: AftermathReportProps) {
@@ -55,18 +60,18 @@ export default function AftermathReport({ save, onBack, onOpenReconciliation, np
                   <>
                     你進入了他的內心世界。
                     {npc.innerWorldDepth >= 3
-                      ? '你看見了獎盃的重量、簽名的變化、以及那幅沒畫完的畫。你讓他自己說出最不敢說的話。'
+                      ? aftermath.paragraphs.successDepth3
                       : npc.innerWorldDepth >= 2
-                        ? '你看見了簽名的逃跑、被讚美淹沒的孤獨。你選擇了理解而非消費他的痛苦。'
-                        : '因為你選擇了傾聽而非強行填色，他在現實中仍看不見色彩，卻第一次允許自己只是坐著聽雨。'}
+                        ? aftermath.paragraphs.successDepth2
+                        : aftermath.paragraphs.successDepth1}
                   </>
                 )}
-                {npc.ending === 'failed' && '你在最後一刻做出了錯誤的選擇。他收起行囊，走進雨夜最暗的地方。空白沒有被理解，只是被再次關上。'}
-                {npc.ending === 'none' && '他的故事尚未抵達結局。雨水仍在天橋欄杆上緩慢匯聚，空白畫布等待一種不急著填滿的注視。'}
+                {npc.ending === 'failed' && aftermath.paragraphs.failed}
+                {npc.ending === 'none' && aftermath.paragraphs.none}
               </p>
               {npc.innerWorldDepth > 0 && (
                 <p style={{ lineHeight: 1.9, color: '#463525', marginTop: 16 }}>
-                  你走進了他的內心世界。{npc.innerWorldDepth >= 3 ? '你觸及了那幅沒畫完的畫——他主動提起，因為他知道你本來就懂。' : npc.innerWorldDepth >= 2 ? '你看見了簽名在逃跑。他感覺到了——不是每個進去過的人，都能看到簽名。' : '你只看見了獎盃的亮光。他把你歸類為和所有人一樣——這比沒去過更糟。'}
+                  你走進了他的內心世界。{npc.innerWorldDepth >= 3 ? aftermath.paragraphs.innerDepth3 : npc.innerWorldDepth >= 2 ? aftermath.paragraphs.innerDepth2 : aftermath.paragraphs.innerDepth1}
                 </p>
               )}
             </section>

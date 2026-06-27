@@ -174,10 +174,30 @@ function computeBranches(clues: string[]): { unlocked: Branch[]; locked: Branch[
 // ============================================================
 
 function OverviewTab({ npc, collectedClues }: { npc: NpcRuntimeState; collectedClues: string[] }) {
-  const lastEval = useDevtoolsStore(s => s.lastEvaluation);
   const innerWorldEvents = useDevtoolsStore(s => s.innerWorldEvents);
   const branches = useMemo(() => computeBranches(collectedClues), [collectedClues]);
   const completedCount = innerWorldEvents.filter(e => e.completed).length;
+
+  // ---- Stat Control local state ----
+  const setNpcStat = useGameStore(s => s.setNpcStat);
+  const [localTrust, setLocalTrust] = useState(npc.trust);
+  const [localStress, setLocalStress] = useState(npc.stress);
+  const [localKnowledge, setLocalKnowledge] = useState(npc.knowledge);
+  const [autoSave, setAutoSave] = useState(true);
+  useEffect(() => { setLocalTrust(npc.trust); }, [npc.trust]);
+  useEffect(() => { setLocalStress(npc.stress); }, [npc.stress]);
+  useEffect(() => { setLocalKnowledge(npc.knowledge); }, [npc.knowledge]);
+  const applyStat = useCallback((stat: 'trust' | 'stress' | 'knowledge', value: number) => {
+    setNpcStat('bridge_artist', stat, value);
+  }, [setNpcStat]);
+  const adjustStat = useCallback((stat: 'trust' | 'stress' | 'knowledge', delta: number) => {
+    const current = stat === 'trust' ? localTrust : stat === 'stress' ? localStress : localKnowledge;
+    const next = Math.max(0, Math.min(100, Math.round(current + delta)));
+    if (stat === 'trust') setLocalTrust(next);
+    if (stat === 'stress') setLocalStress(next);
+    if (stat === 'knowledge') setLocalKnowledge(next);
+    if (autoSave) applyStat(stat, next);
+  }, [localTrust, localStress, localKnowledge, autoSave, applyStat]);
 
   return (
     <>
@@ -201,30 +221,35 @@ function OverviewTab({ npc, collectedClues }: { npc: NpcRuntimeState; collectedC
         )}
       </div>
 
-      {/* AI Interpretation */}
-      <div style={{ ...SECTION, borderColor: 'rgba(100,180,255,0.15)' }}>
-        <div style={SEC_TITLE}>AI Interpretation</div>
-        {!lastEval ? (
-          <div style={{ color: '#556', fontSize: 10 }}>尚未發生對話評估。</div>
-        ) : (
-          <>
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ color: '#64b5f6', fontSize: 9.5, marginBottom: 3 }}>▸ 觸發標記</div>
-              {lastEval.flags.length === 0 && <div style={{ color: '#556', fontSize: 10 }}>  (無)</div>}
-              {lastEval.flags.map((f, i) => <div key={i} style={{ fontSize: 10, color: '#adf', padding: '1px 0' }}>{flagName(f)}</div>)}
+      {/* Free Stat Control — 取代 AI Interpretation 位置 */}
+      <div style={{ ...SECTION, borderColor: 'rgba(255,180,60,0.25)' }}>
+        <div style={{ ...SEC_TITLE, color: '#ffb74d' }}>Free Stat Control — {npc.name}</div>
+        {(['trust', 'stress', 'knowledge'] as const).map(stat => {
+          const val = stat === 'trust' ? localTrust : stat === 'stress' ? localStress : localKnowledge;
+          const color = stat === 'knowledge' ? '#2196f3' : stat === 'trust' ? (val >= 50 ? '#4caf50' : val >= 30 ? '#ff9800' : '#f44336') : (val <= 30 ? '#4caf50' : val <= 60 ? '#ff9800' : '#f44336');
+          return (
+            <div key={stat} style={{ ...ROW, marginBottom: 4 }}>
+              <span style={{ ...LBL, minWidth: 60, textTransform: 'capitalize' }}>{stat}</span>
+              <button onClick={() => adjustStat(stat, -5)} style={btnStyle}>−</button>
+              <div style={{ flex: 1, margin: '0 6px' }}>
+                <div style={{ width: '100%', height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                  <div style={{ width: `${val}%`, height: '100%', borderRadius: 4, background: color, transition: 'width 0.15s ease' }} />
+                </div>
+              </div>
+              <span style={{ ...VAL, minWidth: 26, textAlign: 'center' }}>{val}</span>
+              <button onClick={() => adjustStat(stat, 5)} style={btnStyle}>+</button>
             </div>
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ color: '#64b5f6', fontSize: 9.5, marginBottom: 3 }}>▸ 數值變化</div>
-              <div style={ROW}><span style={LBL}>信任</span><span style={{ color: lastEval.trustDelta >= 0 ? '#4caf50' : '#f44336', fontWeight: 600 }}>{lastEval.trustDelta >= 0 ? '+' : ''}{lastEval.trustDelta}</span></div>
-              <div style={ROW}><span style={LBL}>壓力</span><span style={{ color: lastEval.stressDelta <= 0 ? '#4caf50' : '#f44336', fontWeight: 600 }}>{lastEval.stressDelta >= 0 ? '+' : ''}{lastEval.stressDelta}</span></div>
-              {lastEval.safetyRedirect && <div style={{ color: '#ff9800', fontSize: 10, marginTop: 2 }}>⚠ 安全重導向</div>}
-            </div>
-            <div>
-              <div style={{ color: '#64b5f6', fontSize: 9.5, marginBottom: 3 }}>▸ 判定理由</div>
-              <div style={{ fontSize: 10, color: '#cde', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{lastEval.reason}</div>
-            </div>
-          </>
-        )}
+          );
+        })}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 10, color: '#889' }}>
+            <input type="checkbox" checked={autoSave} onChange={e => setAutoSave(e.target.checked)} style={{ cursor: 'pointer', accentColor: '#7ec8ff' }} />
+            自動儲存
+          </label>
+          {!autoSave && (
+            <button onClick={() => { applyStat('trust', localTrust); applyStat('stress', localStress); applyStat('knowledge', localKnowledge); }} style={{ background: 'rgba(126,200,255,0.15)', border: '1px solid rgba(126,200,255,0.3)', color: '#7ec8ff', borderRadius: 4, cursor: 'pointer', padding: '3px 12px', fontSize: 10, fontFamily: 'inherit', fontWeight: 600 }}>套用</button>
+          )}
+        </div>
       </div>
 
       {/* Inner World Progress */}
@@ -262,68 +287,41 @@ function OverviewTab({ npc, collectedClues }: { npc: NpcRuntimeState; collectedC
   );
 }
 
-function StatControlTab({ npc }: { npc: NpcRuntimeState }) {
-  const setNpcStat = useGameStore(s => s.setNpcStat);
-  const [localTrust, setLocalTrust] = useState(npc.trust);
-  const [localStress, setLocalStress] = useState(npc.stress);
-  const [localKnowledge, setLocalKnowledge] = useState(npc.knowledge);
-  const [autoSave, setAutoSave] = useState(true);
-
-  useEffect(() => { setLocalTrust(npc.trust); }, [npc.trust]);
-  useEffect(() => { setLocalStress(npc.stress); }, [npc.stress]);
-  useEffect(() => { setLocalKnowledge(npc.knowledge); }, [npc.knowledge]);
-
-  const applyStat = useCallback((stat: 'trust' | 'stress' | 'knowledge', value: number) => {
-    setNpcStat('bridge_artist', stat, value);
-  }, [setNpcStat]);
-
-  const adjustStat = useCallback((stat: 'trust' | 'stress' | 'knowledge', delta: number) => {
-    const current = stat === 'trust' ? localTrust : stat === 'stress' ? localStress : localKnowledge;
-    const next = Math.max(0, Math.min(100, Math.round(current + delta)));
-    if (stat === 'trust') setLocalTrust(next);
-    if (stat === 'stress') setLocalStress(next);
-    if (stat === 'knowledge') setLocalKnowledge(next);
-    if (autoSave) applyStat(stat, next);
-  }, [localTrust, localStress, localKnowledge, autoSave, applyStat]);
-
-  return (
-    <div style={{ ...SECTION, borderColor: 'rgba(255,180,60,0.25)' }}>
-      <div style={{ ...SEC_TITLE, color: '#ffb74d' }}>Free Stat Control — {npc.name}</div>
-      {(['trust', 'stress', 'knowledge'] as const).map(stat => {
-        const val = stat === 'trust' ? localTrust : stat === 'stress' ? localStress : localKnowledge;
-        const color = stat === 'knowledge' ? '#2196f3' : stat === 'trust' ? (val >= 50 ? '#4caf50' : val >= 30 ? '#ff9800' : '#f44336') : (val <= 30 ? '#4caf50' : val <= 60 ? '#ff9800' : '#f44336');
-        return (
-          <div key={stat} style={{ ...ROW, marginBottom: 4 }}>
-            <span style={{ ...LBL, minWidth: 60, textTransform: 'capitalize' }}>{stat}</span>
-            <button onClick={() => adjustStat(stat, -5)} style={btnStyle}>−</button>
-            <div style={{ flex: 1, margin: '0 6px' }}>
-              <div style={{ width: '100%', height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                <div style={{ width: `${val}%`, height: '100%', borderRadius: 4, background: color, transition: 'width 0.15s ease' }} />
-              </div>
-            </div>
-            <span style={{ ...VAL, minWidth: 26, textAlign: 'center' }}>{val}</span>
-            <button onClick={() => adjustStat(stat, 5)} style={btnStyle}>+</button>
-          </div>
-        );
-      })}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 10, color: '#889' }}>
-          <input type="checkbox" checked={autoSave} onChange={e => setAutoSave(e.target.checked)} style={{ cursor: 'pointer', accentColor: '#7ec8ff' }} />
-          自動儲存
-        </label>
-        {!autoSave && (
-          <button onClick={() => { applyStat('trust', localTrust); applyStat('stress', localStress); applyStat('knowledge', localKnowledge); }} style={{ background: 'rgba(126,200,255,0.15)', border: '1px solid rgba(126,200,255,0.3)', color: '#7ec8ff', borderRadius: 4, cursor: 'pointer', padding: '3px 12px', fontSize: 10, fontFamily: 'inherit', fontWeight: 600 }}>套用</button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function ChaptersTab({ npc }: { npc: NpcRuntimeState }) {
+  const setNpcStat = useGameStore(s => s.setNpcStat);
   const chapterProgress = CHAPTERS.map(ch => ({
     ...ch,
     unlocked: npc.trust >= ch.requiredTrust && npc.knowledge >= ch.requiredKnowledge,
   }));
+
+  const unlockChapter = (depth: number) => {
+    // 設定 trust/knowledge 達標
+    const ch = CHAPTERS[depth - 1];
+    if (!ch) return;
+    if (npc.trust < ch.requiredTrust) setNpcStat('bridge_artist', 'trust', ch.requiredTrust);
+    if (npc.knowledge < ch.requiredKnowledge) setNpcStat('bridge_artist', 'knowledge', ch.requiredKnowledge);
+    // 降低 stress 到該層門檻
+    const stressTargets: Record<number, number> = { 1: 100, 2: 75, 3: 55, 4: 35 };
+    const targetStress = stressTargets[depth] ?? 35;
+    if (npc.stress > targetStress) setNpcStat('bridge_artist', 'stress', targetStress);
+    // 解鎖前一層前 4 個物品（localStorage）
+    if (depth > 1) {
+      try {
+        const visitedKey = 'sud_bridge_artist_inner_visited';
+        const raw = localStorage.getItem(visitedKey);
+        const visited: number[] = raw ? JSON.parse(raw) : [];
+        for (let l = 1; l < depth; l++) {
+          if (!visited.includes(l)) visited.push(l);
+        }
+        localStorage.setItem(visitedKey, JSON.stringify(visited));
+      } catch { /* ignore */ }
+    }
+    useDevtoolsStore.getState().pushLog({
+      type: 'force_unlock',
+      message: `Ch.${depth} 解鎖：信任≥${ch.requiredTrust}, 知識≥${ch.requiredKnowledge}`,
+      detail: `Stress 降至 ${npc.stress > (stressTargets[depth] ?? 35) ? (stressTargets[depth] ?? 35) : npc.stress}`,
+    });
+  };
 
   return (
     <div style={SECTION}>
@@ -338,6 +336,12 @@ function ChaptersTab({ npc }: { npc: NpcRuntimeState }) {
           </div>
           {!ch.unlocked && <div style={{ color: '#544', fontSize: 9, marginTop: 1 }}>需求：信任≥{ch.requiredTrust}, 知識≥{ch.requiredKnowledge}</div>}
           <div style={{ color: '#668', fontSize: 9.5, marginTop: 2 }}>{ch.description}</div>
+          {!ch.unlocked && (
+            <button onClick={() => unlockChapter(ch.depth)}
+              style={{ marginTop: 4, background: 'rgba(126,200,255,0.12)', border: '1px solid rgba(126,200,255,0.3)', color: '#7ec8ff', borderRadius: 4, cursor: 'pointer', padding: '2px 10px', fontSize: 9.5, fontFamily: 'inherit', fontWeight: 600 }}>
+              解鎖 Ch.{ch.depth}
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -411,7 +415,6 @@ export default function DevtoolsPanel({ currentScreen }: Props) {
 
       {/* All sections in one scrollable panel */}
       <OverviewTab npc={npc} collectedClues={save.collectedClues} />
-      <StatControlTab npc={npc} />
       <ChaptersTab npc={npc} />
       <EventLogTab />
 
