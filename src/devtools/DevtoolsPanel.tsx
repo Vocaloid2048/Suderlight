@@ -7,7 +7,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useDevtoolsStore, CHAPTERS } from '../store/devtoolsStore';
-import { bridgeArtistClues } from '../data/clues/bridgeArtistClues';
+import { bridgeArtistClues } from '../data/npcs/bridgePainter';
 import type { NpcRuntimeState } from '../systems/npcStateEngine';
 
 // ---- Style Tokens ----

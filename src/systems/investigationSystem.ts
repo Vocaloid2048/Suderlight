@@ -1,4 +1,4 @@
-import { bridgeArtistClues } from '../data/clues/bridgeArtistClues';
+import { bridgeArtistClues } from '../data/npcs/bridgePainter';
 import type { NpcId } from '../data/verticalSlice';
 
 /**

@@ -3,7 +3,7 @@ import { GlimmerButton, GlassPanel, GuiFrame } from '../components';
 import MeterBar from '../components/MeterBar';
 import { getNpcDefinition } from '../data/npcs/registry';
 import { evaluateRepairTip } from '../data/npcs/types';
-import { bridgeArtistClues } from '../data/clues/bridgeArtistClues';
+import { bridgeArtistClues } from '../data/npcs/bridgePainter';
 import type { NpcId } from '../data/verticalSlice';
 import type { NpcRuntimeState } from '../systems/npcStateEngine';
 import { simulateNpcReply } from '../systems/dialogueSimulator';

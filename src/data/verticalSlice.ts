@@ -11,8 +11,11 @@ export type NpcId = 'bridge_artist' | 'victor';
 export type { LocationId, LocationData } from './locations';
 export { locations, locationOrder } from './locations';
 
-export type { BridgeArtistClueId as ClueId } from './clues/bridgeArtistClues';
-export { bridgeArtistClues, bridgeArtistClueOrder as clueOrder } from './clues/bridgeArtistClues';
+import type { ClueDefinition } from './npcs/types';
+import { bridgeArtistClueOrder } from './npcs/bridgePainter';
+
+export type { BridgeArtistClueId as ClueId } from './npcs/bridgePainter';
+export { bridgeArtistClues, bridgeArtistClueOrder as clueOrder } from './npcs/bridgePainter';
 
 // ClueData 向後相容（使用 ClueDefinition 的 alias）
 export type { ClueDefinition as ClueData } from './npcs/types';

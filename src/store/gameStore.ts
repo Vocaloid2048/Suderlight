@@ -1,8 +1,7 @@
 import { create } from 'zustand';
-import { bridgeArtistClues } from '../data/clues/bridgeArtistClues';
+import { bridgeArtistClues, type BridgeArtistClueId } from '../data/npcs/bridgePainter';
 import type { NpcId } from '../data/verticalSlice';
 import type { LocationId } from '../data/locations';
-import type { BridgeArtistClueId } from '../data/clues/bridgeArtistClues';
 import { getClueKnowledge } from '../systems/investigationSystem';
 import {
   markNpcFailed,
