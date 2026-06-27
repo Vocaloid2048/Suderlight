@@ -803,7 +803,7 @@ export default function OuterWorldExplorer({
         
 
         list.push({
-          id: clue.id,
+          id: clue.id as ClueId,
           label: clue.label,
           type: 'clue',
           pos: actualPos,

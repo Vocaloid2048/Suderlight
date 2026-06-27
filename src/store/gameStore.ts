@@ -1,5 +1,8 @@
 import { create } from 'zustand';
-import { bridgeArtistClues, type ClueId, type LocationId, type NpcId } from '../data/verticalSlice';
+import { bridgeArtistClues } from '../data/clues/bridgeArtistClues';
+import type { NpcId } from '../data/verticalSlice';
+import type { LocationId } from '../data/locations';
+import type { BridgeArtistClueId } from '../data/clues/bridgeArtistClues';
 import { getClueKnowledge } from '../systems/investigationSystem';
 import {
   markNpcFailed,
@@ -11,6 +14,9 @@ import { clearSave, createInitialSave, loadSave, persistSave, type GameSave, typ
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
 import { clearDialogueHistory } from '../lib/dialogueStore';
 import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
+
+// 向後相容：ClueId = BridgeArtistClueId
+export type ClueId = BridgeArtistClueId;
 
 export type CollectClueResult = {
   clueId: ClueId;
@@ -83,15 +89,24 @@ function addGhostIfNeeded(save: GameSave, npcId: NpcId): GameSave {
   };
 }
 
-function syncBridgeArtistUnlock(save: GameSave) {
-  const bridgeArtist = save.npcs.bridge_artist;
-  if (!bridgeArtist.innerWorldUnlocked && shouldUnlockInnerWorld(bridgeArtist, bridgeArtist.knowledge)) {
-    save.npcs.bridge_artist = {
-      ...bridgeArtist,
+/**
+ * 通用：同步指定 NPC 的 innerWorldUnlocked 狀態
+ */
+function syncNpcUnlock(save: GameSave, npcId: NpcId) {
+  const npc = save.npcs[npcId];
+  if (!npc) return;
+  if (!npc.innerWorldUnlocked && shouldUnlockInnerWorld(npc, npc.knowledge)) {
+    save.npcs[npcId] = {
+      ...npc,
       innerWorldUnlocked: true,
-      flags: Array.from(new Set([...bridgeArtist.flags, 'inner_world_unlocked'])),
+      flags: Array.from(new Set([...npc.flags, 'inner_world_unlocked'])),
     };
   }
+}
+
+// 向後相容 alias
+function syncBridgeArtistUnlock(save: GameSave) {
+  syncNpcUnlock(save, 'bridge_artist');
 }
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -110,7 +125,7 @@ export const useGameStore = create<GameStore>((set) => ({
     const clue = bridgeArtistClues[clueId];
     let result: CollectClueResult = {
       clueId,
-      label: clue.label,
+      label: clue?.label ?? clueId,
       knowledgeAdded: 0,
       alreadyCollected: true,
       unlockedNow: false,
@@ -134,7 +149,7 @@ export const useGameStore = create<GameStore>((set) => ({
 
       result = {
         clueId,
-        label: clue.label,
+        label: clue?.label ?? clueId,
         knowledgeAdded,
         alreadyCollected: false,
         unlockedNow: !wasUnlocked && next.npcs.bridge_artist.innerWorldUnlocked,
@@ -145,8 +160,8 @@ export const useGameStore = create<GameStore>((set) => ({
 
     // ---- playtest: log clue collection ----
     if (isPlaytestEnabled() && !result.alreadyCollected) {
-      void import('../store/narrativePlaytestStore').then(mod => {
-        mod.useNarrativePlaytestStore.getState().pushLog({
+      void import('../store/devtoolsStore').then(mod => {
+        mod.useDevtoolsStore.getState().pushLog({
           type: 'clue',
           message: `收集線索: ${result.label}`,
           detail: `知識+${result.knowledgeAdded}${result.unlockedNow ? ', 解鎖內心世界' : ''}`,
@@ -156,8 +171,6 @@ export const useGameStore = create<GameStore>((set) => ({
 
     return result;
   },
-
-
 
   applyBackendNpcState: (npcId, backendState) => {
     set(state => {
@@ -203,7 +216,7 @@ export const useGameStore = create<GameStore>((set) => ({
       const next = cloneSave(state.save);
       const target = next.npcs[npcId];
       if (!target) return { save: state.save };
-      if (target.flags.includes(flag)) return { save: state.save }; // 已存在则跳过
+      if (target.flags.includes(flag)) return { save: state.save };
       next.npcs[npcId] = {
         ...target,
         flags: [...target.flags, flag],
@@ -276,7 +289,7 @@ export const useGameStore = create<GameStore>((set) => ({
     });
   },
 
-  /** 將 BridgePainterInnerWorld 運行時狀態同步到存檔 */
+  /** 將 NpcInnerWorld 運行時狀態同步到存檔 */
   syncInnerWorldState: (innerWorld) => {
     set(state => {
       const next = cloneSave(state.save);
@@ -327,4 +340,3 @@ export const useGameStore = create<GameStore>((set) => ({
 export function getCurrentSaveSnapshot() {
   return useGameStore.getState().save;
 }
-
