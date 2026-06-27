@@ -5,11 +5,13 @@ import { getNpcDefinition } from '../data/npcs/registry';
 import { evaluateRepairTip } from '../data/npcs/types';
 import { bridgeArtistClues } from '../data/npcs/bridgePainter';
 import type { NpcId } from '../data/verticalSlice';
-import type { NpcRuntimeState } from '../systems/npcStateEngine';
+import type { NpcRuntimeState, DialogueEvaluationContext } from '../systems/npcStateEngine';
+import { evaluateNpcDialogue } from '../systems/npcStateEngine';
 import { simulateNpcReply } from '../systems/dialogueSimulator';
 import { fetchLLMReply, type BackendNpcState } from '../utils/llmReply';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
 import { loadDialogueHistory, appendDialogueExchange, clearDialogueHistory, saveInitialExchange, appendProgressOpening } from '../lib/dialogueStore';
+import { isPlaytestEnabled } from '../hooks/narrativePlaytest';
 
 // 线索 ID → 中文描述映射（支持所有已知 NPC 線索）
 const CLUE_LABELS: Record<string, string> = {};
@@ -66,6 +68,27 @@ function formatSystemJudgement(systemJudgement: SystemJudgement) {
     `信任度 ${(systemJudgement.trustDelta || 0) >= 0 ? '+' : ''}${systemJudgement.trustDelta || '0'}`,
   ];
   return `系統判定：${systemJudgement.stateLabel || '未知'}（${parts.join(' / ')}）`;
+}
+
+/** Playtest: 將 flag 轉為繁體中文標籤 */
+function flagName(flag: string): string {
+  const map: Record<string, string> = {
+    safety_redirect_triggered: '🛡 危機攔截',
+    player_used_hostile_language: '💢 敵意語言',
+    player_used_dismissive_reply: '🥱 敷衍回應',
+    player_used_forced_comfort: '❌ 強制安慰',
+    player_consumed_genius_identity: '❌ 天才消費',
+    player_offered_presence: '✅ 陪伴接納',
+    player_grounded_in_present_sense: '✅ 感官接地',
+    player_pressed_unearned_truth: '❌ 未獲真相',
+    painter_reacted_to_brush: '🖌 畫筆反應',
+    painter_acknowledged_accident: '📰 真相接近',
+    painter_sketchbook_understood: '📓 素描理解',
+    inner_world_unlocked: '🔓 內心解鎖',
+    bridge_artist_failed: '💀 失敗',
+    bridge_artist_repaired: '✨ 修復',
+  };
+  return map[flag] ?? flag;
 }
 
 type OuterWorldConversationProps = {
@@ -213,6 +236,24 @@ export default function OuterWorldConversation({
           role: 'system',
           content: formatSystemJudgement({ stateLabel: reply.backendPsychology.stateLabel, trustDelta: reply.backendPsychology.trustDelta, stressDelta: reply.backendPsychology.stressDelta, knowledgeDelta: reply.backendPsychology.knowledgeDelta, knowledge: appliedState.knowledge, trust: appliedState.trust, stress: appliedState.stress }),
         });
+      }
+
+      // ---- Playtest: 使用本地的 evaluateNpcDialogue 評估對話並寫入 log ----
+      if (isPlaytestEnabled()) {
+        const evalContext: DialogueEvaluationContext = {
+          knowledge: appliedState.knowledge ?? npcState.knowledge,
+          collectedClues: (inventory as any) ?? [],
+        };
+        const evalResult = evaluateNpcDialogue(_trimmed, npcState, evalContext);
+        void import('../store/devtoolsStore').then(mod => {
+          mod.useDevtoolsStore.getState().setLastEvaluation(evalResult);
+          const flagNames = evalResult.flags.map(f => flagName(f)).filter(Boolean);
+          mod.useDevtoolsStore.getState().pushLog({
+            type: 'dialogue',
+            message: `AI classified as "${flagNames.join(', ') || 'neutral'}": ${evalResult.reason}`,
+            detail: `trust${evalResult.trustDelta >= 0 ? '+' : ''}${evalResult.trustDelta}, stress${evalResult.stressDelta >= 0 ? '+' : ''}${evalResult.stressDelta}`,
+          });
+        }).catch(() => {});
       }
 
       if (localFailed) {

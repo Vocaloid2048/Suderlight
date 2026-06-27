@@ -3,11 +3,14 @@ import { bridgeArtistClues, type BridgeArtistClueId } from '../data/npcs/bridgeP
 import type { NpcId } from '../data/verticalSlice';
 import type { LocationId } from '../data/locations';
 import { getClueKnowledge } from '../systems/investigationSystem';
+import { ALL_PSYCH_LAYERS } from '../data/psychologicalWorlds/index';
 import {
   markNpcFailed,
   markNpcSuccess,
   shouldUnlockInnerWorld,
   type InnerWorldSave,
+  type InnerWorldLayerState,
+  type UnderstoodItem,
 } from '../systems/npcStateEngine';
 import { clearSave, createInitialSave, loadSave, persistSave, type GameSave, type GhostRecord } from '../systems/saveSystem';
 import { getPlayerAuthHeaders, getPlayerId } from '../lib/playerId';
@@ -51,6 +54,8 @@ type GameStore = {
   syncInnerWorldState: (innerWorld: InnerWorldSave) => void;
   /** Playtest: 直接設定 NPC 數值 (trust/stress/knowledge) */
   setNpcStat: (npcId: NpcId, stat: 'trust' | 'stress' | 'knowledge', value: number) => void;
+  /** Playtest: 原子解鎖指定章節（設定 stats + 解鎖前一層物品 + 同步心理世界存檔） */
+  unlockChapter: (depth: number, stressTarget: number) => void;
   /** Playtest: 強制滿足內心世界解鎖條件 */
   forceUnlockInnerWorld: () => void;
 };
@@ -316,6 +321,102 @@ export const useGameStore = create<GameStore>((set) => ({
       }
 
       next.npcs[npcId] = updated;
+      return { save: persistAndReturn(next) };
+    });
+  },
+
+  /** Playtest: 原子解鎖指定章節（設定 stats + 解鎖前一層物品 + 同步心理世界存檔） */
+  unlockChapter: (depth, stressTarget) => {
+    set(state => {
+      const next = cloneSave(state.save);
+      const npc = next.npcs.bridge_artist;
+
+      // 各章節所需信任/知識門檻
+      const chapterRequirements: Record<number, { trust: number; knowledge: number }> = {
+        1: { trust: 0, knowledge: 0 },
+        2: { trust: 30, knowledge: 40 },
+        3: { trust: 50, knowledge: 70 },
+        4: { trust: 70, knowledge: 90 },
+      };
+      const req = chapterRequirements[depth];
+      if (!req) return { save: state.save };
+
+      // 1. 設定 trust/knowledge/stress
+      const newTrust = Math.max(npc.trust, req.trust);
+      const newKnowledge = Math.max(npc.knowledge, req.knowledge);
+      const newStress = Math.min(npc.stress, stressTarget);
+      const stressOk = newStress <= stressTarget;
+
+      // 2. 解鎖前一層前 4 個物品 + 標示 completed
+      const layers: Record<number, InnerWorldLayerState> = {};
+      const existingLayers = npc.innerWorld?.layers ?? {};
+      let layerModified = false;
+
+      for (let l = 1; l < depth; l++) {
+        const psychLayer = ALL_PSYCH_LAYERS.find(ld => ld.layerNumber === l);
+        if (!psychLayer) continue;
+
+        const first4 = psychLayer.interactables.slice(0, 4);
+        const existingLayer = existingLayers[l];
+        const existingDisc = existingLayer?.discoveredItems ?? [];
+        const existingUnd = existingLayer?.understoodItems ?? [];
+
+        const discoveredItems = [...new Set([...existingDisc, ...first4.map(o => o.id)])];
+        const understoodMap = new Map(existingUnd.map(u => [u.id, u]));
+        for (const obj of first4) {
+          if (!understoodMap.has(obj.id)) {
+            understoodMap.set(obj.id, { id: obj.id, name: obj.name, understandingReward: obj.understandingReward });
+          }
+        }
+        const understoodItems: UnderstoodItem[] = Array.from(understoodMap.values());
+
+        layers[l] = {
+          completed: stressOk,
+          understandingScore: first4.reduce((sum, o) => sum + o.understandingReward, 0),
+          understoodItems,
+          discoveredItems,
+        };
+        layerModified = true;
+      }
+
+      if (layerModified) {
+        // 保留 depth+ 的原有資料
+        for (let l = depth; l <= 4; l++) {
+          if (existingLayers[l]) layers[l] = { ...existingLayers[l] };
+        }
+        const iw: InnerWorldSave = {
+          unlockedLayers: [1, 2, 3, 4].filter(l => l <= depth || (npc.innerWorld?.unlockedLayers?.includes(l) ?? false)),
+          layers,
+        };
+        next.npcs.bridge_artist = {
+          ...npc,
+          trust: newTrust,
+          knowledge: newKnowledge,
+          stress: newStress,
+          innerWorld: iw,
+        };
+      } else {
+        next.npcs.bridge_artist = {
+          ...npc,
+          trust: newTrust,
+          knowledge: newKnowledge,
+          stress: newStress,
+        };
+      }
+
+      // 3. localStorage visited layers
+      if (depth > 1) {
+        try {
+          const visitedKey = 'sud_bridge_artist_inner_visited';
+          const raw = localStorage.getItem(visitedKey);
+          const visited: number[] = raw ? JSON.parse(raw) : [];
+          for (let l = 1; l < depth; l++) {
+            if (!visited.includes(l)) visited.push(l);
+          }
+          localStorage.setItem(visitedKey, JSON.stringify(visited));
+        } catch { /* ignore */ }
+      }
+
       return { save: persistAndReturn(next) };
     });
   },

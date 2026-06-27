@@ -8,8 +8,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useDevtoolsStore, CHAPTERS } from '../store/devtoolsStore';
 import { bridgeArtistClues } from '../data/npcs/bridgePainter';
-import { ALL_PSYCH_LAYERS } from '../data/psychologicalWorlds/index';
-import type { NpcRuntimeState, InnerWorldSave, InnerWorldLayerState, UnderstoodItem } from '../systems/npcStateEngine';
+import type { NpcRuntimeState } from '../systems/npcStateEngine';
 
 // ---- Style Tokens ----
 const PANEL: React.CSSProperties = {
@@ -289,91 +288,22 @@ function OverviewTab({ npc, collectedClues }: { npc: NpcRuntimeState; collectedC
 }
 
 function ChaptersTab({ npc }: { npc: NpcRuntimeState }) {
-  const setNpcStat = useGameStore(s => s.setNpcStat);
-  const syncInnerWorldState = useGameStore(s => s.syncInnerWorldState);
+  const unlockChapterAction = useGameStore(s => s.unlockChapter);
   const chapterProgress = CHAPTERS.map(ch => ({
     ...ch,
     unlocked: npc.trust >= ch.requiredTrust && npc.knowledge >= ch.requiredKnowledge,
   }));
 
   const unlockChapter = (depth: number) => {
-    const ch = CHAPTERS[depth - 1];
-    if (!ch) return;
-
-    // 1. 設定 trust/knowledge 達標
-    if (npc.trust < ch.requiredTrust) setNpcStat('bridge_artist', 'trust', ch.requiredTrust);
-    if (npc.knowledge < ch.requiredKnowledge) setNpcStat('bridge_artist', 'knowledge', ch.requiredKnowledge);
-
-    // 2. 降低 stress 到該層門檻
     const stressTargets: Record<number, number> = { 1: 100, 2: 75, 3: 55, 4: 35 };
     const targetStress = stressTargets[depth] ?? 35;
-    if (npc.stress > targetStress) setNpcStat('bridge_artist', 'stress', targetStress);
+    unlockChapterAction(depth, targetStress);
 
-    // 3. 解鎖前一層前 4 個物品 + 標示 completed
-    const stressOk = npc.stress <= targetStress;
-    const layers: Record<number, InnerWorldLayerState> = {};
-    let layerModified = false;
-
-    // 從現有存檔讀取已存在的 innerWorld
-    const existing = npc.innerWorld?.layers ?? {};
-
-    for (let l = 1; l < depth; l++) {
-      const psychLayer = ALL_PSYCH_LAYERS.find(ld => ld.layerNumber === l);
-      if (!psychLayer) continue;
-
-      const first4 = psychLayer.interactables.slice(0, 4);
-      const existingLayer = existing[l];
-      const existingDisc = existingLayer?.discoveredItems ?? [];
-      const existingUnd = existingLayer?.understoodItems ?? [];
-
-      // 合併（保留已有的 + 補充前4個）
-      const discoveredItems = [...new Set([...existingDisc, ...first4.map(o => o.id)])];
-      const understoodMap = new Map(existingUnd.map(u => [u.id, u]));
-      for (const obj of first4) {
-        if (!understoodMap.has(obj.id)) {
-          understoodMap.set(obj.id, { id: obj.id, name: obj.name, understandingReward: obj.understandingReward });
-        }
-      }
-      const understoodItems: UnderstoodItem[] = Array.from(understoodMap.values());
-
-      layers[l] = {
-        completed: stressOk,
-        understandingScore: first4.reduce((sum, o) => sum + o.understandingReward, 0),
-        understoodItems,
-        discoveredItems,
-      };
-      layerModified = true;
-    }
-
-    if (layerModified) {
-      // 保留 depth+ 的原有資料
-      for (let l = depth; l <= 4; l++) {
-        if (existing[l]) layers[l] = { ...existing[l] };
-      }
-      const iw: InnerWorldSave = {
-        unlockedLayers: [1, 2, 3, 4].filter(l => l <= depth || (npc.innerWorld?.unlockedLayers?.includes(l) ?? false)),
-        layers,
-      };
-      syncInnerWorldState(iw);
-    }
-
-    // 4. localStorage visited layers
-    if (depth > 1) {
-      try {
-        const visitedKey = 'sud_bridge_artist_inner_visited';
-        const raw = localStorage.getItem(visitedKey);
-        const visited: number[] = raw ? JSON.parse(raw) : [];
-        for (let l = 1; l < depth; l++) {
-          if (!visited.includes(l)) visited.push(l);
-        }
-        localStorage.setItem(visitedKey, JSON.stringify(visited));
-      } catch { /* ignore */ }
-    }
-
+    const ch = CHAPTERS[depth - 1];
     useDevtoolsStore.getState().pushLog({
       type: 'force_unlock',
-      message: `Ch.${depth} 解鎖：信任≥${ch.requiredTrust}, 知識≥${ch.requiredKnowledge}`,
-      detail: `Stress 降至 ${targetStress}，前 ${depth - 1} 層前 4 物品已解鎖${layerModified ? ' + completed' : ''}`,
+      message: `Ch.${depth} 解鎖：信任≥${ch?.requiredTrust ?? 0}, 知識≥${ch?.requiredKnowledge ?? 0}`,
+      detail: `Stress 降至 ${targetStress}，前 ${depth - 1} 層前 4 物品已解鎖`,
     });
   };
 
