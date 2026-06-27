@@ -448,8 +448,8 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
 
   const insightCount = understanding.insightIds.length;
   const insightFragments = getInsightFragments(understanding);
-  const showLayerCompleteBtn = phase.type === 'exploring' && (thresholdMet || (isLast && insightCount >= 3));
-  const isModalOpen = phase.type !== 'exploring';
+  const showLayerCompleteBtn = (phase.type === 'exploring' || phase.type === 'observing' || phase.type === 'reflecting' || phase.type === 'insight_revealed') && (thresholdMet || (isLast && insightCount >= 3));
+  const isModalOpen = phase.type !== 'exploring' && phase.type !== 'entering' && phase.type !== 'layer_complete' && phase.type !== 'arc_complete';
 
   // 弧線失敗
   if (arcFailure) {
@@ -604,15 +604,16 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
                 const stressUnlocked = isLayerUnlockedByStress(num, safeStress);
                 const isCompleted = completedLayers.has(num);
                 const isAtOrBelowCurrent = num <= layerNum;
-                const canSkipToNext = thresholdMet && num === layerNum + 1;
-                const canSwitch = isCompleted || isAtOrBelowCurrent || canSkipToNext || visitedLayers.has(num);
+                const understandingMet = num > 1 ? completedLayers.has(num - 1) || (thresholdMet && num === layerNum + 1) : true;
+                const canSwitch = isCompleted || isAtOrBelowCurrent || (understandingMet && num > layerNum);
                 const isLocked = !stressUnlocked || !canSwitch;
                 return (
                   <GlimmerButton key={num} tone={layerNum === num ? 'primary' : 'ghost'} onClick={() => {
                     if (!stressUnlocked) { setLayerLockMessage(`第${CH[num-1]}層未解鎖：需要恐懼值≤ ${getLayerStressRequirement(num)}（當前 ${safeStress}）。`); return; }
+                    if (!understandingMet) { setLayerLockMessage(`需要第${CH[num-2]}層的理解深度達標才能進入第${CH[num-1]}層。`); return; }
                     if (isLocked) { setLayerLockMessage(`請先完成第${CH[completedLayers.size]}層的探索，才能進入更深層。`); return; }
                     setLayerLockMessage(null);
-                    if (canSkipToNext && !completedLayers.has(layerNum)) { setPhase({ type:'layer_complete' }); return; }
+                    if (thresholdMet && num === layerNum + 1 && !completedLayers.has(layerNum)) { setPhase({ type:'layer_complete' }); return; }
                     setLayerNum(num as number);
                     markLayerVisited(num);
                     setPhase({ type: visitedLayers.has(num) ? 'exploring' : 'entering' });
