@@ -177,9 +177,24 @@ function MuseumTrophyArtifact({ isCollected, isDiscovered, onClick, style }: { i
 }
 
 function AccidentVideoPlaceholder({ children, layerNum, floatingTextsByLayer }: { children: React.ReactNode; layerNum: number; floatingTextsByLayer: Record<number, string[]> }) {
+  const [videoEnded, setVideoEnded] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   return (
-    <div style={{ width: 'min(95vw, 100%)', height: 'min(95vh, 100%)', borderRadius: 20, background: 'radial-gradient(circle at 50% 55%, rgba(10,18,28,0.9), rgba(4,8,14,0.99))', border: '1px solid rgba(107, 158, 196, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.85)', overflow: 'hidden' }}>
-      <video autoPlay loop muted playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.92 }}>
+    <div style={{
+      width: 'min(95vw, 100%)', height: 'min(95vh, 100%)', borderRadius: 20,
+      background: 'radial-gradient(circle at 50% 55%, rgba(10,18,28,0.9), rgba(4,8,14,0.99))',
+      border: '1px solid rgba(107, 158, 196, 0.2)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+      boxShadow: '0 10px 30px rgba(0,0,0,0.85)', overflow: 'hidden',
+      filter: videoEnded ? 'grayscale(100%)' : 'none',
+      transition: 'filter 3s ease-in-out',
+    }}>
+      <video
+        ref={videoRef}
+        autoPlay muted playsInline
+        onEnded={() => setVideoEnded(true)}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.92 }}
+      >
         <source src={accidentMemoryVideo} type="video/mp4" />
       </video>
       <div style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}>
@@ -284,7 +299,7 @@ function ObservingPanel({ phase, colors, onLookCloser, onStartReflection, onChoo
       <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
         {!showDeep && <GlimmerButton tone="primary" onClick={onLookCloser} fullWidth>仔細觀察</GlimmerButton>}
         {showDeep && phase.type==='observing' && <GlimmerButton tone="primary" onClick={onStartReflection} fullWidth>思考一下…</GlimmerButton>}
-        {phase.type==='reflecting' && (<><GlimmerButton tone="ghost" onClick={() => onChooseReflection(false)} fullWidth>{target.reflectionChoices[0]?.text??'…'}</GlimmerButton><GlimmerButton tone="primary" onClick={() => onChooseReflection(true)} fullWidth>{target.reflectionChoices[1]?.text??'…'}</GlimmerButton></>)}
+        {phase.type==='reflecting' && (<><GlimmerButton tone="ghost" onClick={() => onChooseReflection(false)} fullWidth>{target.reflectionChoices[0]?.text??'…'}</GlimmerButton><GlimmerButton tone="ghost" onClick={() => onChooseReflection(true)} fullWidth>{target.reflectionChoices[1]?.text??'…'}</GlimmerButton></>)}
       </div>
     </GlassPanel>
   );
@@ -326,8 +341,6 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
     return new Set<number>();
   }
   const [visitedLayers, setVisitedLayers] = useState<Set<number>>(loadVisitedLayers);
-  const initialVisited = loadVisitedLayers();
-  const isReturnVisit = initialVisited.size > 0;
 
   function countCompletedFromSave(): number {
     const layers = save?.npcs?.[npcId]?.innerWorld?.layers;
@@ -338,9 +351,16 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
   }
   const completedCountInit = countCompletedFromSave();
   const nextLayerInit = completedCountInit + 1;
-  const initialLayerNum = isReturnVisit ? (nextLayerInit <= 4 && initialVisited.has(nextLayerInit) ? nextLayerInit : Math.max(1, completedCountInit)) : 1;
+  // 基于存档数据决定起始层：已完成层数>0则从下一层开始，否则从第1层开始
+  const initialLayerNum = completedCountInit > 0
+    ? (nextLayerInit <= 4 ? nextLayerInit : Math.max(1, completedCountInit))
+    : 1;
   const [layerNum, setLayerNum] = useState<number>(initialLayerNum);
-  const [phase, setPhase] = useState<LayerPhase>(isReturnVisit ? { type: 'exploring' } : { type: 'entering' });
+  // 修复：基于存档中该层是否已完成来决定初始 phase，而非依赖可能被污染的 localStorage
+  const [phase, setPhase] = useState<LayerPhase>(() => {
+    const layerCompletedInSave = save?.npcs?.[npcId]?.innerWorld?.layers?.[initialLayerNum]?.completed ?? false;
+    return layerCompletedInSave ? { type: 'exploring' } : { type: 'entering' };
+  });
 
   const markLayerVisited = useCallback((l: number) => {
     setVisitedLayers(prev => {
@@ -353,7 +373,8 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
   }, [VISITED_KEY]);
 
   useEffect(() => {
-    if (isReturnVisit && phase.type === 'exploring') { markLayerVisited(layerNum); }
+    // 初始化时标记当前层为已访问
+    markLayerVisited(layerNum);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const savedInnerWorld = save?.npcs?.[npcId]?.innerWorld;
@@ -438,7 +459,16 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
   const thresholdMet = layer && score >= layer.nextLayerThreshold && layer.nextLayerThreshold > 0;
   const isLast = layerNum >= 4;
 
-  const handleEnter = useCallback(() => { markLayerVisited(layerNum); setPhase({ type: 'exploring' }); }, [layerNum, markLayerVisited]);
+  const handleEnter = useCallback(() => {
+    markLayerVisited(layerNum);
+    // 当玩家实际进入当前层时，才标记上一层为已完成
+    // 这确保对话在玩家真正探索过该层后才触发
+    if (layerNum > 1 && !completedLayers.has(layerNum - 1)) {
+      if (onAdvanceLayer) onAdvanceLayer(layerNum - 1);
+      setCompletedLayers(prev => new Set([...prev, layerNum - 1]));
+    }
+    setPhase({ type: 'exploring' });
+  }, [layerNum, completedLayers, onAdvanceLayer, markLayerVisited]);
   const handleClickObject = useCallback((obj: PsychInteractable) => { setDiscoveredByLayer(prev => { const current = prev[layerNum] ?? []; if (current.includes(obj.id)) return prev; return { ...prev, [layerNum]: [...current, obj.id] }; }); setPhase({ type: 'observing', target: obj, showDeep: false }); }, [layerNum]);
   const handleLookCloser = useCallback(() => { if (phase.type === 'observing') setPhase({ type: 'observing', target: phase.target, showDeep: true }); }, [phase]);
   const handleStartReflection = useCallback(() => { if (phase.type === 'observing') setPhase({ type: 'reflecting', target: phase.target }); }, [phase]);
@@ -451,11 +481,20 @@ export default function NpcInnerWorld({ onReturnToSurface, onAdvanceLayer, arcFa
   }, [phase, understanding, layerNum]);
   const handleCloseInsight = useCallback(() => setPhase({ type: 'exploring' }), []);
   const handleLayerComplete = useCallback(() => {
-    if (onAdvanceLayer) onAdvanceLayer(layerNum);
-    setCompletedLayers(prev => new Set([...prev, layerNum]));
-    if (isLast) { setPhase({ type: 'arc_complete' }); return; }
+    // 只在最後一層時才在此標記完成（因為沒有下一層可進入）
+    // 非最後層的完成標記移至 handleEnter（玩家實際按下「進入XXXX」時）
+    if (isLast) {
+      if (onAdvanceLayer) onAdvanceLayer(layerNum);
+      setCompletedLayers(prev => new Set([...prev, layerNum]));
+      setPhase({ type: 'arc_complete' });
+      return;
+    }
     const nextL = layerNum + 1;
-    if (!isLayerUnlockedByStress(nextL, safeStress)) { const required = getLayerStressRequirement(nextL); setLayerLockMessage(`第${['一','二','三','四'][nextL-1]}層尚未解鎖：需要恐懼值≤ ${required}（當前 ${safeStress}）。`); return; }
+    if (!isLayerUnlockedByStress(nextL, safeStress)) {
+      const required = getLayerStressRequirement(nextL);
+      setLayerLockMessage(`第${['一','二','三','四'][nextL-1]}層尚未解鎖：需要恐懼值≤ ${required}（當前 ${safeStress}）。`);
+      return;
+    }
     setLayerNum(nextL);
     setPhase({ type: 'entering' });
   }, [layerNum, isLast, onAdvanceLayer, safeStress]);

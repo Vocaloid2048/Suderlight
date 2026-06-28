@@ -390,7 +390,7 @@ function AccidentVideoPlaceholder({ children, layerNum }: { children: React.Reac
       alignItems: 'center',
       justifyContent: 'center',
       filter: videoEnded ? 'grayscale(100%)' : 'none',
-      transition: 'filter 2.5s ease-in-out',
+      transition: 'filter 3s ease-in-out',
     }}>
       <video
         ref={videoRef}
@@ -760,8 +760,6 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
   const [visitedLayers, setVisitedLayers] = useState<Set<number>>(loadVisitedLayers);
 
   // 在初始化階段就決定起始層數與階段，避免 useEffect 造成的 0.x 秒閃爍
-  const initialVisited = loadVisitedLayers();
-  const isReturnVisit = initialVisited.size > 0;
   // 從存檔讀取實際已完成的層數（非 stress 解鎖上限），確保不跳到未達理解門檻的層
   function countCompletedFromSave(): number {
     const layers = save?.npcs?.bridge_artist?.innerWorld?.layers;
@@ -776,13 +774,15 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
   // 但若玩家已按過「深入下一層」→「進入XXX」拜訪了下一層，下次直接導航到該層
   const completedCount = countCompletedFromSave();
   const nextLayer = completedCount + 1;
-  const initialLayerNum = isReturnVisit
-    ? (nextLayer <= 4 && initialVisited.has(nextLayer) ? nextLayer : Math.max(1, completedCount))
+  const initialLayerNum = completedCount > 0
+    ? (nextLayer <= 4 ? nextLayer : Math.max(1, completedCount))
     : 1;
   const [layerNum, setLayerNum] = useState<number>(initialLayerNum);
-  const [phase, setPhase] = useState<LayerPhase>(
-    isReturnVisit ? { type: 'exploring' } : { type: 'entering' }
-  );
+  // 修复：基于存档中该层是否已完成来决定初始 phase，而非依赖可能被污染的 localStorage
+  const [phase, setPhase] = useState<LayerPhase>(() => {
+    const layerCompletedInSave = save?.npcs?.bridge_artist?.innerWorld?.layers?.[initialLayerNum]?.completed ?? false;
+    return layerCompletedInSave ? { type: 'exploring' } : { type: 'entering' };
+  });
 
   const markLayerVisited = useCallback((l: number) => {
     setVisitedLayers(prev => {
@@ -794,11 +794,9 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
     });
   }, []);
 
-  // 確保初始層也被標記為已訪問（非首次進入時直接到 exploring 模式的情況）
+  // 確保初始層也被標記為已訪問
   useEffect(() => {
-    if (isReturnVisit && phase.type === 'exploring') {
-      markLayerVisited(layerNum);
-    }
+    markLayerVisited(layerNum);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- 從存檔載入 innerWorld 狀態初始化 ----
@@ -914,8 +912,13 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
 
   const handleEnter = useCallback(() => {
     markLayerVisited(layerNum);
+    // 当玩家实际进入当前层时，才标记上一层为已完成
+    if (layerNum > 1 && !completedLayers.has(layerNum - 1)) {
+      if (onAdvanceLayer) onAdvanceLayer(layerNum - 1);
+      setCompletedLayers(prev => new Set([...prev, layerNum - 1]));
+    }
     setPhase({ type: 'exploring' });
-  }, [layerNum, markLayerVisited]);
+  }, [layerNum, completedLayers, onAdvanceLayer, markLayerVisited]);
 
   const handleClickObject = useCallback((obj: PsychInteractable) => {
     setDiscoveredByLayer(prev => {
@@ -945,10 +948,13 @@ export default function BridgePainterInnerWorld({ onReturnToSurface, onAdvanceLa
   const handleCloseInsight = useCallback(() => setPhase({ type: 'exploring' }), []);
 
   const handleLayerComplete = useCallback(() => {
-    if (onAdvanceLayer) onAdvanceLayer(layerNum);
-    // 標記當前層為已完成
-    setCompletedLayers(prev => new Set([...prev, layerNum]));
-    if (isLast) { setPhase({ type: 'arc_complete' }); return; }
+    // 只在最後一層時才在此標記完成（因為沒有下一層可進入）
+    if (isLast) {
+      if (onAdvanceLayer) onAdvanceLayer(layerNum);
+      setCompletedLayers(prev => new Set([...prev, layerNum]));
+      setPhase({ type: 'arc_complete' });
+      return;
+    }
 
     const nextLayer = layerNum + 1;
     if (!isLayerUnlockedByStress(nextLayer, safeStress)) {
@@ -1414,7 +1420,7 @@ function ObservingPanel({ phase, colors, onLookCloser, onStartReflection, onChoo
         {phase.type==='reflecting' && (
           <>
             <GlimmerButton tone="ghost" onClick={() => onChooseReflection(false)} fullWidth>{target.reflectionChoices[0]?.text??'…'}</GlimmerButton>
-            <GlimmerButton tone="primary" onClick={() => onChooseReflection(true)} fullWidth>{target.reflectionChoices[1]?.text??'…'}</GlimmerButton>
+            <GlimmerButton tone="ghost" onClick={() => onChooseReflection(true)} fullWidth>{target.reflectionChoices[1]?.text??'…'}</GlimmerButton>
           </>
         )}
       </div>
