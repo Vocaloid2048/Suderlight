@@ -299,7 +299,7 @@ function ObservingPanel({ phase, colors, onLookCloser, onStartReflection, onChoo
       <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
         {!showDeep && <GlimmerButton tone="primary" onClick={onLookCloser} fullWidth>仔細觀察</GlimmerButton>}
         {showDeep && phase.type==='observing' && <GlimmerButton tone="primary" onClick={onStartReflection} fullWidth>思考一下…</GlimmerButton>}
-        {phase.type==='reflecting' && (<><GlimmerButton tone="ghost" onClick={() => onChooseReflection(false)} fullWidth>{target.reflectionChoices[0]?.text??'…'}</GlimmerButton><GlimmerButton tone="ghost" onClick={() => onChooseReflection(true)} fullWidth>{target.reflectionChoices[1]?.text??'…'}</GlimmerButton></>)}
+        {phase.type==='reflecting' && target.reflectionChoices.map((choice, i) => (<GlimmerButton key={i} tone="ghost" onClick={() => onChooseReflection(choice.insight)} fullWidth>{choice.text}</GlimmerButton>))}
       </div>
     </GlassPanel>
   );
