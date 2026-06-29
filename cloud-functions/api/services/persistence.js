@@ -82,7 +82,7 @@ function writePlayerMemories(playerId, data) {
 // ---- 全局静态数据 (只读，fs 模式下从 JSON 文件加载) ----
 function readNpcs() {
   if (MODE === 'fs') {
-    return readJSON(path.join(DATA_DIR, 'npc.json')) || {};
+    return readJSON(path.join(DATA_DIR, 'npcs.json')) || {};
   }
   return memoryStore.npcs;
 }
