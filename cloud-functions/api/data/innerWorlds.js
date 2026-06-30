@@ -1,33 +1,4 @@
-export default {
-  "bridge_artist": {
-    "modelVersion": 2,
-    "name": "失色畫廊（四層模型）",
-    "emotion": "失去價值感",
-    "layers": [
-      {
-        "layerNumber": 1,
-        "layerId": "glory_gallery",
-        "layerName": "榮耀美術館",
-        "theme": "身份認同／成就／成功表象"
-      },
-      {
-        "layerNumber": 2,
-        "layerId": "accident_site",
-        "layerName": "事故現場",
-        "theme": "創傷／失去／世界崩壞"
-      },
-      {
-        "layerNumber": 3,
-        "layerId": "fading_maze",
-        "layerName": "褪色畫室",
-        "theme": "身分崩解／虛無"
-      },
-      {
-        "layerNumber": 4,
-        "layerId": "blank_frame_chamber",
-        "layerName": "空白畫框",
-        "theme": "接納／存在本身即價值"
-      }
-    ]
-  }
-};
+// Auto-generated from innerWorlds.json — single source of truth
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+export default require('./innerWorlds.json');

@@ -1,5 +1,5 @@
 import type { ClueId, NpcId } from '../data/verticalSlice';
-import { ALL_PSYCH_LAYERS } from '../data/psychologicalWorlds/bridgePainterWorld';
+import { getAllPsychLayers } from '../data/psychologicalWorlds/index';
 
 export type NpcEnding = 'none' | 'success' | 'failed';
 
@@ -51,6 +51,8 @@ export type NpcRuntimeState = {
   innerWorldLayer: number;
   /** 心理世界各層詳細進度存檔 */
   innerWorld?: InnerWorldSave;
+  /** 心理世界同步版本號（供 UI 偵測外部修改） */
+  innerWorldSyncId?: number;
 };
 
 export type DialogueEvaluationContext = {
@@ -88,15 +90,24 @@ function mergeFlags(oldFlags: string[], newFlags: string[]) {
   return Array.from(new Set([...oldFlags, ...newFlags]));
 }
 
-export function createDefaultInnerWorldSave(): InnerWorldSave {
+/**
+ * 根據 npcId 動態生成對應心理世界的預設存檔
+ * 向後相容：不傳 npcId 時預設使用 bridge_artist
+ */
+export function createDefaultInnerWorldSave(npcId: NpcId = 'bridge_artist'): InnerWorldSave {
   const layers: Record<number, InnerWorldLayerState> = {};
-  for (const layer of ALL_PSYCH_LAYERS) {
+  const psychLayers = getAllPsychLayers(npcId);
+  for (const layer of psychLayers) {
     layers[layer.layerNumber] = {
       completed: false,
       understandingScore: 0,
       understoodItems: [],
       discoveredItems: [],
     };
+  }
+  // 若 psychLayers 為空（骨架 NPC），仍初始化 Layer 1 佔位
+  if (psychLayers.length === 0) {
+    layers[1] = { completed: false, understandingScore: 0, understoodItems: [], discoveredItems: [] };
   }
   return {
     unlockedLayers: [1], // Layer 1 預設解鎖
@@ -118,7 +129,7 @@ export function createBridgeArtistState(): NpcRuntimeState {
     flags: [],
     innerWorldDepth: 0,
     innerWorldLayer: 0,
-    innerWorld: createDefaultInnerWorldSave(),
+    innerWorld: createDefaultInnerWorldSave('bridge_artist'),
   };
 }
 
@@ -136,7 +147,7 @@ export function createVictorState(): NpcRuntimeState {
     flags: [],
     innerWorldDepth: 0,
     innerWorldLayer: 0,
-    innerWorld: createDefaultInnerWorldSave(),
+    innerWorld: createDefaultInnerWorldSave('victor'),
   };
 }
 
@@ -145,6 +156,18 @@ export function shouldUnlockInnerWorld(state: NpcRuntimeState, knowledge: number
 }
 
 export function evaluateBridgeArtistDialogue(
+  playerInput: string,
+  state: NpcRuntimeState,
+  context: DialogueEvaluationContext,
+): DialogueEvaluationResult {
+  return evaluateNpcDialogue(playerInput, state, context);
+}
+
+/**
+ * 通用 NPC 對話評估（目前仍使用 bridge_artist 規則；
+ * 未來可依 state.id 分派不同 NPC 的規則集）
+ */
+export function evaluateNpcDialogue(
   playerInput: string,
   state: NpcRuntimeState,
   context: DialogueEvaluationContext,

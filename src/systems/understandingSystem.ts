@@ -2,14 +2,17 @@
 // 多層級理解度系統
 // 核心設計：「理解是一種選擇」——玩家必須主動選擇 insight 選項
 // 支援四層心理世界獨立追蹤理解度
+// npcId 參數向後相容：預設使用 bridge_artist
 // ============================================================
 
 import {
   getUnderstandingReward,
   getInteractable,
+  getPsychLayerForNpc,
   type PsychInteractable,
   type UnderstandingReward,
-} from '../data/psychologicalWorlds/bridgePainterWorld';
+} from '../data/psychologicalWorlds/index';
+import type { NpcId } from '../data/verticalSlice';
 
 // ---- 狀態型別 ----
 
@@ -44,12 +47,14 @@ export function createMultiLayerUnderstandingState(currentLayer: number = 1): Mu
 /**
  * 玩家選擇反思後，嘗試加入理解度（指定層級）。
  * 返回 { state, reward }，若未選 insight 則 reward 為 null。
+ * npcId 向後相容：預設 bridge_artist
  */
 export function tryAddInsight(
   state: UnderstandingState,
   interactableId: string,
   choseInsight: boolean,
   layerNumber?: number,
+  npcId: NpcId = 'bridge_artist',
 ): {
   state: UnderstandingState;
   reward: UnderstandingReward | null;

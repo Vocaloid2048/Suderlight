@@ -1,15 +1,14 @@
 import { useState, useCallback } from 'react';
 import { useGameStore } from './store/gameStore';
-import { useNarrativePlaytest } from './hooks/narrativePlaytest';
-import { useNarrativePlaytestStore } from './store/narrativePlaytestStore';
-import { isPlaytestEnabled } from './hooks/narrativePlaytest';
+import { useDevtoolsHotkeys, isPlaytestEnabled } from './hooks/useDevtoolsHotkeys';
+import { useDevtoolsStore } from './store/devtoolsStore';
 import ErrorBoundary from './components/ErrorBoundary';
+import DevtoolsPanel from './devtools/DevtoolsPanel';
 import {
   AftermathReport,
-  BridgePainterInnerWorld,
+  NpcInnerWorld,
   ChapterSelectorModal,
   EmotionDictionaryPage,
-  NarrativePlaytestDashboard,
   OuterWorldConversation,
   OuterWorldExplorer,
   SelfReconciliationPortal,
@@ -36,42 +35,36 @@ export default function App() {
   const [returnScreen, setReturnScreen] = useState<Screen>('city');
   const [arcFailureActive, setArcFailureActive] = useState(false);
 
-  // ---- Playtest callbacks ----
+  // ---- Devtools callbacks ----
   const onForceUnlock = useCallback(() => {
     forceUnlockInnerWorld();
   }, [forceUnlockInnerWorld]);
 
   const onEnterInnerWorld = useCallback(() => {
-    // Navigate to inner world if unlocked, or just force the screen
     setReturnScreen(screen === 'innerWorld' ? 'city' : screen);
     setScreen('innerWorld');
   }, [screen]);
 
   const onSelectChapter = useCallback((depth: number) => {
-    // Set depth and enter inner world
-    setInnerWorldDepth(depth - 1); // depth starts at 1
+    setInnerWorldDepth(depth - 1);
     setReturnScreen(screen === 'innerWorld' ? 'city' : screen);
     setScreen('innerWorld');
   }, [screen, setInnerWorldDepth]);
 
-  // ---- Narrative Playtest: hotkeys + QA panel ----
-  const { active: playtestActive, demoMode } = useNarrativePlaytest({
+  // ---- Devtools: hotkeys + QA panel ----
+  const { active: devtoolsActive, demoMode } = useDevtoolsHotkeys({
     onForceUnlock,
     onEnterInnerWorld,
     onSelectChapter,
   });
-  const chapterSelectorOpen = useNarrativePlaytestStore((s) => s.chapterSelectorOpen);
+  const chapterSelectorOpen = useDevtoolsStore((s) => s.chapterSelectorOpen);
 
   const bridgeArtist = save.npcs.bridge_artist;
 
   const openScreenWithReturn = (nextScreen: Screen) => {
-    // 【修复】只有在 NPC 有實際結局（成功或失敗）時才能進入 AftermathReport
     if (nextScreen === 'aftermath') {
       const ending = save.npcs.bridge_artist.ending;
-      if (ending === 'none') {
-        // 尚無結局，不允許進入
-        return;
-      }
+      if (ending === 'none') return;
     }
     setReturnScreen(screen);
     setScreen(nextScreen);
@@ -82,8 +75,6 @@ export default function App() {
     setReturnScreen('city');
     setScreen('title');
   };
-
-
 
   const content = (() => {
     if (screen === 'title') {
@@ -114,8 +105,8 @@ export default function App() {
           inventory={save.collectedClues}
           innerWorldDepth={bridgeArtist.innerWorldDepth}
           npcState={bridgeArtist}
+          npcId="bridge_artist"
           onClose={() => {
-            // 检查内心世界四层是否全部完成 → 触发成功结局
             const layers = save.npcs.bridge_artist.innerWorld?.layers;
             const allLayersComplete = layers && [1, 2, 3, 4].every(l => layers[l]?.completed);
             if (allLayersComplete && bridgeArtist.ending === 'none') {
@@ -127,7 +118,6 @@ export default function App() {
           }}
           onBackendNpcStateApplied={(state) => applyBackendNpcState('bridge_artist', state)}
           onEnterInnerWorld={() => setScreen('innerWorld')}
-
           onEndingTriggered={() => setScreen('aftermath')}
         />
       );
@@ -135,7 +125,8 @@ export default function App() {
 
     if (screen === 'innerWorld') {
       return (
-        <BridgePainterInnerWorld
+        <NpcInnerWorld
+          npcId="bridge_artist"
           arcFailure={arcFailureActive}
           onOpenReport={() => {
             setArcFailureActive(false);
@@ -198,9 +189,9 @@ export default function App() {
     <ErrorBoundary>
       {content}
 
-      {/* Playtest QA Dashboard */}
-      {isPlaytestEnabled() && playtestActive && !demoMode && (
-        <NarrativePlaytestDashboard currentScreen={screen} />
+      {/* Devtools QA Panel (整合版) */}
+      {isPlaytestEnabled() && devtoolsActive && !demoMode && (
+        <DevtoolsPanel currentScreen={screen} />
       )}
 
       {/* Chapter Selector Modal (Shift+F9) */}
